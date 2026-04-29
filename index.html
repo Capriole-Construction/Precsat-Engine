@@ -3380,18 +3380,26 @@ render();
 // ============================================================
 // PROJECTS — ownCloud cloud save/load (mirrors Cost Builder)
 // ============================================================
-var PF_CC_KEY     = "pf_cloud_config_v1";
-var PF_CC_SRC_KEY = "pf_cloud_source_v1";
-var PF_PROXY      = "https://capriole-proxy.abdelhamid-j28.workers.dev";
-var PF_OC_SERVER  = "https://cloud.capriolegroup.org";
-var PF_OC_FOLDER  = "/Precast Factory/Precast Building";
-var PF_EXT        = ".pfproj";
+window._PF_CONST = {
+  CC_KEY:    "pf_cloud_config_v1",
+  CC_SRC_KEY:"pf_cloud_source_v1",
+  PROXY:     "https://capriole-proxy.abdelhamid-j28.workers.dev",
+  OC_SERVER: "https://cloud.capriolegroup.org",
+  OC_FOLDER: "/Precast Factory/Precast Building",
+  EXT:       ".pfproj"
+};
+var PF_CC_KEY     = window._PF_CONST.CC_KEY;
+var PF_CC_SRC_KEY = window._PF_CONST.CC_SRC_KEY;
+var PF_PROXY      = window._PF_CONST.PROXY;
+var PF_OC_SERVER  = window._PF_CONST.OC_SERVER;
+var PF_OC_FOLDER  = window._PF_CONST.OC_FOLDER;
+var PF_EXT        = window._PF_CONST.EXT;
 
 window._pfConfig = null;
 window._pfProjectSource = null;
 
-function _pfDefaultCfg(){ return { ocServer: PF_OC_SERVER, ocUser:"", ocPass:"", ocFolder: PF_OC_FOLDER, proxy: PF_PROXY }; }
-function _pfLoad(){ try{ const s=localStorage.getItem(PF_CC_KEY); const d=_pfDefaultCfg(); if(s){ const p=JSON.parse(s); for(const k in d) if(!(k in p)) p[k]=d[k]; window._pfConfig=p; } else window._pfConfig=d; } catch(e){ window._pfConfig=_pfDefaultCfg(); } }
+function _pfDefaultCfg(){ var c=window._PF_CONST; return { ocServer:c.OC_SERVER, ocUser:"", ocPass:"", ocFolder:c.OC_FOLDER, proxy:c.PROXY }; }
+function _pfLoad(){ var key=window._PF_CONST.CC_KEY; try{ const s=localStorage.getItem(key); const d=_pfDefaultCfg(); if(s){ const p=JSON.parse(s); for(const k in d) if(!(k in p)) p[k]=d[k]; window._pfConfig=p; } else window._pfConfig=d; } catch(e){ window._pfConfig=_pfDefaultCfg(); } }
 function _pfWrap(url){ const p=(window._pfConfig&&window._pfConfig.proxy||"").trim(); if(!p) return url; return p.replace(/\/$/,"")+"?url="+encodeURIComponent(url); }
 function _pfAuth(cfg){ return "Basic "+btoa((cfg.ocUser||"")+":"+(cfg.ocPass||"")); }
 function _pfBase(cfg){ const s=(cfg.ocServer||"").replace(/\/$/,""); return s+"/remote.php/webdav"; }
@@ -3416,7 +3424,8 @@ function _pfOpenSettings(){
 function _pfCloseSettings(){ document.getElementById("pfSettingsModal").style.display="none"; }
 function _pfSaveSettings(){
   const g=(id)=>{ const e=document.getElementById(id); return e?(e.value||"").trim():""; };
-  const cfg={ ocServer:PF_OC_SERVER, ocUser:g("pfOcUser"), ocPass:g("pfOcPass"), ocFolder:PF_OC_FOLDER, proxy:PF_PROXY };
+  var c=window._PF_CONST;
+  const cfg={ ocServer:c.OC_SERVER, ocUser:g("pfOcUser"), ocPass:g("pfOcPass"), ocFolder:c.OC_FOLDER, proxy:c.PROXY };
   try{ localStorage.setItem(PF_CC_KEY,JSON.stringify(cfg)); } catch(e){}
   window._pfConfig=cfg;
   _pfCloseSettings();
