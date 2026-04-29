@@ -619,17 +619,35 @@ function saveTypeMeta(){ try{ localStorage.setItem("pe_meta_v1", JSON.stringify(
 let TYPE_META = loadTypeMeta();
 function getMeta(code){
   const m = TYPE_META[code] || {};
-  return {
-    opnW:  +m.opnW  || 0,
-    opnL:  +m.opnL  || 0,
-    doorsW:+m.doorsW|| 0,
-    doorsL:+m.doorsL|| 0,
-    mep:   +m.mep   || 0
+  // Support multi-opening array; migrate legacy single fields on first access
+  let openings = Array.isArray(m.openings) ? m.openings.map(o=>({type:o.type||'win',w:+o.w||0,l:+o.l||0})) : [];
+  if(!openings.length){
+    if((+m.opnW||0)||(+m.opnL||0))   openings.push({type:'win', w:+m.opnW||0, l:+m.opnL||0});
+    if((+m.doorsW||0)||(+m.doorsL||0)) openings.push({type:'door',w:+m.doorsW||0,l:+m.doorsL||0});
+  }
+  return { openings, mep:+m.mep||0,
+    // Keep legacy fields for any code that still reads them
+    opnW:openings.filter(o=>o.type==='win').reduce((s,o)=>s+o.w,0)||0,
+    opnL:openings.filter(o=>o.type==='win').reduce((s,o)=>s+o.l,0)||0,
+    doorsW:openings.filter(o=>o.type==='door').reduce((s,o)=>s+o.w,0)||0,
+    doorsL:openings.filter(o=>o.type==='door').reduce((s,o)=>s+o.l,0)||0
   };
 }
 function setMeta(code, key, val){
-  if(!TYPE_META[code]) TYPE_META[code] = {opnW:0,opnL:0,doorsW:0,doorsL:0,mep:0};
+  if(!TYPE_META[code]) TYPE_META[code]={openings:[],mep:0};
   TYPE_META[code][key] = +val||0;
+  saveTypeMeta();
+}
+function setMetaOpenings(code, openings){
+  if(!TYPE_META[code]) TYPE_META[code]={openings:[],mep:0};
+  TYPE_META[code].openings = openings;
+  // Keep legacy fields in sync
+  const wins  = openings.filter(o=>o.type==='win');
+  const doors = openings.filter(o=>o.type==='door');
+  TYPE_META[code].opnW   = wins[0]  ? wins[0].w  : 0;
+  TYPE_META[code].opnL   = wins[0]  ? wins[0].l  : 0;
+  TYPE_META[code].doorsW = doors[0] ? doors[0].w : 0;
+  TYPE_META[code].doorsL = doors[0] ? doors[0].l : 0;
   saveTypeMeta();
 }
 
@@ -3078,7 +3096,7 @@ function viewData(){
           <label style="font-size:11px;color:#6b7280">Opening L (mm)<input id="np_opnL" type="number" class="inp sm" value="0" min="0" style="width:100%"></label>
           <label style="font-size:11px;color:#6b7280">Door Opening W (mm)<input id="np_doorsW" type="number" class="inp sm" value="0" min="0" style="width:100%"></label>
           <label style="font-size:11px;color:#6b7280">Door Opening L (mm)<input id="np_doorsL" type="number" class="inp sm" value="0" min="0" style="width:100%"></label>
-          <label style="font-size:11px;color:#6b7280">MEP<input id="np_mep" type="number" class="inp sm" value="0" min="0" style="width:100%"></label>
+          <label style="font-size:11px;color:#6b7280;display:flex;align-items:center;gap:6px"><input id="np_mep" type="checkbox"> Has MEP Services</label>
           <div style="grid-column:span 3;display:flex;gap:6px;justify-content:flex-end;align-items:center">
             <span id="np_err" style="font-size:11px;color:#991b1b;margin-right:auto"></span>
             <button class="btn sm" id="np_cancel">Cancel</button>
@@ -3092,11 +3110,8 @@ function viewData(){
           <th class="num">Width (mm)</th><th class="num">Height (mm)</th><th class="num">Thick</th>
           <th class="num">m³</th><th class="num">kg</th>
           <th class="num">Total Pieces</th>
-          <th class="num" title="Window/general opening width (mm)">Opening W</th>
-          <th class="num" title="Window/general opening length (mm)">Opening L</th>
-          <th class="num" title="Door opening width (mm)">Door W</th>
-          <th class="num" title="Door opening length (mm)">Door L</th>
-          <th class="num" title="MEP embeds / conduits">MEP</th>
+          <th class="ctr" title="Window and door openings — click ✏ to manage multiple">Openings</th>
+          <th class="ctr" title="Has MEP services / conduits">MEP</th>
           <th class="ctr">In-House</th>
           <th>Source</th>
           <th></th>
@@ -3117,11 +3132,42 @@ function viewData(){
               <td class="num">${fmt(t.m3,2)}</td>
               <td class="num"${heavy?' style="color:#991b1b;font-weight:700"':''}>${fmt(t.kg)}${heavy?" ⚠":""}</td>
               <td class="num">${BUILDINGS}</td>
-              <td class="num"><input type="number" min="0" class="inp xs" data-meta="opnW"   data-code="${esc(t.code)}" value="${m.opnW}"   style="width:60px;text-align:right" placeholder="W"></td>
-              <td class="num"><input type="number" min="0" class="inp xs" data-meta="opnL"   data-code="${esc(t.code)}" value="${m.opnL}"   style="width:60px;text-align:right" placeholder="L"></td>
-              <td class="num"><input type="number" min="0" class="inp xs" data-meta="doorsW" data-code="${esc(t.code)}" value="${m.doorsW}" style="width:60px;text-align:right" placeholder="W"></td>
-              <td class="num"><input type="number" min="0" class="inp xs" data-meta="doorsL" data-code="${esc(t.code)}" value="${m.doorsL}" style="width:60px;text-align:right" placeholder="L"></td>
-              <td class="num"><input type="number" min="0" class="inp xs" data-meta="mep"    data-code="${esc(t.code)}" value="${m.mep}"    style="width:48px;text-align:right"></td>
+              <td class="ctr" style="white-space:nowrap;position:relative">
+                ${(()=>{
+                  const wins  = m.openings.filter(o=>o.type==='win').length;
+                  const doors = m.openings.filter(o=>o.type==='door').length;
+                  const parts = [];
+                  if(wins)  parts.push(`<span style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700">${wins} Win</span>`);
+                  if(doors) parts.push(`<span style="background:#fef9c3;color:#854d0e;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700">${doors} Door</span>`);
+                  const label = parts.length ? parts.join(' ') : '<span style="color:#9ca3af;font-size:10px">—</span>';
+                  return `<span style="display:inline-flex;align-items:center;gap:4px">${label}<button class="opn-edit-btn btn xs" data-code="${esc(t.code)}" style="padding:1px 5px;font-size:11px;margin-left:2px" title="Manage openings">✏</button></span>`;
+                })()}
+                <div id="opn-panel-${esc(t.code)}" class="opn-edit-panel" style="display:none;position:absolute;z-index:200;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);padding:12px;min-width:320px;text-align:left">
+                  <div style="font-size:12px;font-weight:700;color:#1e3a5f;margin-bottom:8px">Openings — ${esc(t.code)}</div>
+                  <table style="width:100%;font-size:11px;border-collapse:collapse" id="opn-list-${esc(t.code)}">
+                    <thead><tr style="color:#6b7280"><th style="text-align:left;padding:2px 4px">Type</th><th style="text-align:right;padding:2px 4px">W (mm)</th><th style="text-align:right;padding:2px 4px">L (mm)</th><th></th></tr></thead>
+                    <tbody>
+                    ${m.openings.map((o,oi)=>`<tr>
+                      <td style="padding:2px 4px"><span style="padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;${o.type==='win'?'background:#dbeafe;color:#1d4ed8':'background:#fef9c3;color:#854d0e'}">${o.type==='win'?'Window':'Door'}</span></td>
+                      <td style="padding:2px 4px;text-align:right">${o.w}</td>
+                      <td style="padding:2px 4px;text-align:right">${o.l}</td>
+                      <td style="padding:2px 4px"><button class="btn xs opn-del-btn" style="color:#991b1b;padding:1px 5px" data-code="${esc(t.code)}" data-idx="${oi}">✕</button></td>
+                    </tr>`).join('')}
+                    </tbody>
+                  </table>
+                  <div style="display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap">
+                    <select class="inp sm opn-add-type" data-code="${esc(t.code)}" style="width:90px">
+                      <option value="win">Window</option>
+                      <option value="door">Door</option>
+                    </select>
+                    <input type="number" min="0" placeholder="W mm" class="inp sm opn-add-w" data-code="${esc(t.code)}" style="width:76px">
+                    <input type="number" min="0" placeholder="L mm" class="inp sm opn-add-l" data-code="${esc(t.code)}" style="width:76px">
+                    <button class="btn sm primary opn-add-btn" data-code="${esc(t.code)}" style="padding:4px 10px">＋ Add</button>
+                    <button class="btn sm opn-close-btn" data-code="${esc(t.code)}" style="margin-left:auto">Close</button>
+                  </div>
+                </div>
+              </td>
+              <td class="ctr"><input type="checkbox" data-meta="mep" data-code="${esc(t.code)}" ${m.mep?'checked':''} title="Has MEP services"></td>
               <td class="ctr"><input type="checkbox" data-src="${esc(t.code)}" ${inh?"checked":""}></td>
               <td>${inh
                 ? `<span class="src-pill in">In-House</span>`
@@ -3149,12 +3195,61 @@ function bindData(){
       render();
     };
   });
-  // Inline meta editing (Opening / Door Opening / MEP)
+  // Inline meta editing (MEP checkbox + any remaining number fields)
   $$('#view input[data-meta]').forEach(inp=>{
     inp.onchange = ()=>{
-      setMeta(inp.dataset.code, inp.dataset.meta, inp.value);
+      const val = inp.type==='checkbox' ? (inp.checked?1:0) : inp.value;
+      setMeta(inp.dataset.code, inp.dataset.meta, val);
     };
   });
+  // ── Multi-opening panel editor ──────────────────────────────
+  (function wireOpenings(){
+    function closeAll(){ $$('#view .opn-edit-panel').forEach(p=>p.style.display='none'); }
+    // Open/close toggle
+    $$('#view .opn-edit-btn').forEach(btn=>{
+      btn.onclick = (e)=>{
+        e.stopPropagation();
+        const code=btn.dataset.code;
+        const panel=document.getElementById('opn-panel-'+code);
+        if(!panel) return;
+        const wasOpen = panel.style.display!=='none';
+        closeAll();
+        if(!wasOpen){ panel.style.display='block'; }
+      };
+    });
+    $$('#view .opn-close-btn').forEach(btn=>{
+      btn.onclick=(e)=>{ e.stopPropagation(); const p=document.getElementById('opn-panel-'+btn.dataset.code); if(p) p.style.display='none'; };
+    });
+    // Delete opening
+    $$('#view .opn-del-btn').forEach(btn=>{
+      btn.onclick=(e)=>{
+        e.stopPropagation();
+        const code=btn.dataset.code, idx=+btn.dataset.idx;
+        const m=getMeta(code);
+        m.openings.splice(idx,1);
+        setMetaOpenings(code,m.openings);
+        render();
+      };
+    });
+    // Add opening
+    $$('#view .opn-add-btn').forEach(btn=>{
+      btn.onclick=(e)=>{
+        e.stopPropagation();
+        const code=btn.dataset.code;
+        const typeEl=document.querySelector(`.opn-add-type[data-code="${code}"]`);
+        const wEl=document.querySelector(`.opn-add-w[data-code="${code}"]`);
+        const lEl=document.querySelector(`.opn-add-l[data-code="${code}"]`);
+        const w=+wEl.value||0, l=+lEl.value||0;
+        if(!w&&!l){ wEl.focus(); return; }
+        const m=getMeta(code);
+        m.openings.push({type:typeEl.value, w, l});
+        setMetaOpenings(code,m.openings);
+        render();
+      };
+    });
+    // Close when clicking outside
+    document.addEventListener('click', ()=>closeAll(), {capture:false, once:false});
+  })();
   // ── Panel table filters ─────────────────────────────────────
   (function wirePanelFilters(){
     const fCode=$('#pflt_code'), fFam=$('#pflt_fam'), fFl=$('#pflt_fl'), fSrc=$('#pflt_src');
@@ -3327,7 +3422,7 @@ function bindData(){
     setMeta(code,"opnL",   $("#np_opnL").value);
     setMeta(code,"doorsW", $("#np_doorsW").value);
     setMeta(code,"doorsL", $("#np_doorsL").value);
-    setMeta(code,"mep",    $("#np_mep").value);
+    setMeta(code,"mep",    $("#np_mep").checked?1:0);
     saveUserTypes();
     refreshSidebarCounts();
     refreshFloorSelectors();
