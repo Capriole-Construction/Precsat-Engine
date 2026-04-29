@@ -680,6 +680,10 @@ function saveUserTypes(){
 loadUserTypes().forEach(u => {
   if(!TYPES.find(x=>x.code===u.code)) TYPES.push(Object.assign({_user:true}, u));
 });
+// Hidden (deleted) built-in panels — persist deletions across reloads
+function loadHiddenTypes(){ try{ return JSON.parse(localStorage.getItem("pe_hidden_types_v1")||"[]"); }catch(e){ return []; } }
+function saveHiddenTypes(arr){ try{ localStorage.setItem("pe_hidden_types_v1", JSON.stringify(arr)); }catch(e){} }
+(function(){ const h=loadHiddenTypes(); if(h.length) TYPES=TYPES.filter(t=>!h.includes(t.code)); })();
 function defaultByOthers(t){
   if(t.kg > HEAVY_KG_LIMIT) return true;
   if(t.supplier && t.supplier !== "in-house") return true;
@@ -3075,6 +3079,11 @@ function viewData(){
         </span>
         <span style="margin-left:auto"></span>
         <button class="btn sm" id="pnlPrintBtn" title="Print / Save as PDF">🖨 Print PDF</button>
+        <button class="btn sm" id="pnlTemplateBtn" title="Download Excel import template">📥 Template</button>
+        <label class="btn sm" style="cursor:pointer;margin:0" title="Import panels from CSV or Excel file">
+          📤 Import
+          <input type="file" id="pnlImportFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="window._pfImportPanels(this)">
+        </label>
         <button class="btn sm primary" id="addPanelBtn">＋ Add Panel</button>
         <button class="btn sm" id="srcAllIn">All In-House</button>
         <button class="btn sm" id="srcReset">Reset to default</button>
@@ -3193,7 +3202,7 @@ function viewData(){
               <td>${inh
                 ? `<span class="src-pill in">In-House</span>`
                 : `<span class="src-pill out">By Others</span>`}</td>
-              <td>${t._user?`<button class="btn xs" data-del="${esc(t.code)}" title="Delete custom panel">✕</button>`:""}</td>
+              <td><button class="btn xs" data-del="${esc(t.code)}" title="Delete panel" style="opacity:${t._user?'1':'.55'}">✕</button></td>
             </tr>`;
           }).join("")}
         </tbody>
@@ -3552,9 +3561,11 @@ ${filterParts.length?`<div class="filter-bar"><strong>Filtered by:</strong>${fil
       const code = btn.dataset.del;
       // Two-click confirm: first click flips text to "Confirm?" then deletes on second
       if(btn.dataset.confirming==="1"){
+        const isBuiltIn = !TYPES.find(x=>x.code===code)?._user;
         TYPES = TYPES.filter(x=>x.code!==code);
         delete TYPE_META[code];
         delete SRC_OVR[code];
+        if(isBuiltIn){ const h=loadHiddenTypes(); if(!h.includes(code)) h.push(code); saveHiddenTypes(h); }
         saveUserTypes(); saveTypeMeta(); saveSrcOverrides();
         refreshSidebarCounts(); refreshFloorSelectors(); render();
         return;
@@ -3709,6 +3720,131 @@ function pfHomeLoadFile(file){
 window.pfShowHome = pfShowHome;
 window.pfShowApp  = pfShowApp;
 window.pfHomeLoadFile = pfHomeLoadFile;
+
+// ── Panel Import / Export ─────────────────────────────────────
+window._pfDownloadTemplate = function(){
+  const BOM = '\uFEFF';
+  const headers = [
+    'Panel Code','Family (IP/WL/WN/PB)','Floor','Width (mm)','Height (mm)',
+    'Thickness (mm)','Weight (kg)',
+    'Opening 1 Type (win/door)','Opening 1 Width (mm)','Opening 1 Length (mm)',
+    'Opening 2 Type (win/door)','Opening 2 Width (mm)','Opening 2 Length (mm)',
+    'Opening 3 Type (win/door)','Opening 3 Width (mm)','Opening 3 Length (mm)',
+    'MEP (1=yes 0=no)'
+  ];
+  const rows = [
+    ['GF-IP-NEW','IP','GF','4000','3400','250','5000','win','1200','1600','','','','','','','1'],
+    ['FF-WL-NEW','WL','FF','5000','3100','200','6200','door','900','2100','win','800','1200','','','','0'],
+    ['RF-WN-NEW','WN','RF','3000','2800','200','3500','','','','','','','','','','0'],
+  ];
+  const csv = BOM + [headers,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download = 'Panel_Import_Template.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+window._pfImportPanels = function(input){
+  const file = input.files[0];
+  input.value = '';
+  if(!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  function parseCSVLine(line){
+    const cols=[]; let inQ=false, val='';
+    for(let i=0;i<line.length;i++){
+      const c=line[i];
+      if(c==='"'&&!inQ){ inQ=true; }
+      else if(c==='"'&&inQ){ if(line[i+1]==='"'){val+='"';i++;}else inQ=false; }
+      else if(c===','&&!inQ){ cols.push(val.trim()); val=''; }
+      else val+=c;
+    }
+    cols.push(val.trim());
+    return cols;
+  }
+
+  function processRows(rawRows, rawHeaders){
+    const hdr = rawHeaders.map(h=>(h||'').toString().toLowerCase()
+      .replace(/[()\/]/g,'').replace(/\s+/g,'_'));
+    const get = (row, key) => {
+      const i = hdr.findIndex(h=>h.includes(key));
+      return i>=0 ? (row[i]||'').toString().trim() : '';
+    };
+    let added=0, skipped=[], isBuiltIn={};
+    rawRows.forEach(row=>{
+      if(row.every(c=>!c)) return; // blank row
+      const code = (get(row,'panel_code')||get(row,'code')).toUpperCase().replace(/\s/g,'');
+      if(!code){ skipped.push('(blank code)'); return; }
+      if(TYPES.find(t=>t.code===code)){ skipped.push(code+' (exists)'); return; }
+      const fam   = (get(row,'family')||'IP').toUpperCase();
+      const famOk = ['IP','WL','WN','PB'].includes(fam) ? fam : 'IP';
+      const fl    = (get(row,'floor')||'GF').toUpperCase();
+      const w     = parseFloat(get(row,'width')) || 0;
+      const h     = parseFloat(get(row,'height')) || 0;
+      const t_    = parseFloat(get(row,'thickness')) || 200;
+      const kg    = parseFloat(get(row,'weight')) || 0;
+      if(!w||!h){ skipped.push(code+' (no dims)'); return; }
+      const m3 = +((w*h*t_)/1e9).toFixed(3);
+      TYPES.push({code, fam:famOk, fl, w, h, t:t_, m3, kg, _user:true});
+      // Openings
+      const openings=[];
+      for(let i=1;i<=5;i++){
+        const tp = (get(row,`opening_${i}_type`)||get(row,`type_${i}`)  ).toLowerCase();
+        const ow =  parseFloat(get(row,`opening_${i}_width` )||get(row,`width_${i}` )||'');
+        const ol =  parseFloat(get(row,`opening_${i}_length`)||get(row,`length_${i}`)||'');
+        if((tp==='win'||tp==='window'||tp==='door')&&ow&&ol)
+          openings.push({type:tp==='window'?'win':tp, w:ow, l:ol});
+      }
+      const mep = parseInt(get(row,'mep'))||0;
+      if(!TYPE_META[code]) TYPE_META[code]={};
+      TYPE_META[code].openings=openings;
+      TYPE_META[code].mep=mep?1:0;
+      const wins=openings.filter(o=>o.type==='win'), doors=openings.filter(o=>o.type==='door');
+      TYPE_META[code].opnW  =wins[0]?wins[0].w:0;  TYPE_META[code].opnL  =wins[0]?wins[0].l:0;
+      TYPE_META[code].doorsW=doors[0]?doors[0].w:0; TYPE_META[code].doorsL=doors[0]?doors[0].l:0;
+      added++;
+    });
+    saveUserTypes(); saveTypeMeta(); refreshSidebarCounts(); refreshFloorSelectors(); render();
+    const msg = added ? `✓ Imported ${added} panel${added!==1?'s':''}` +
+      (skipped.length ? ` · ${skipped.length} skipped` : '') : `Nothing imported — ${skipped.join(', ')}`;
+    _pfToast(msg, added>0?'ok':'info');
+  }
+
+  if(ext==='csv'){
+    const reader = new FileReader();
+    reader.onload = e=>{
+      const text = e.target.result.replace(/^\uFEFF/,'');
+      const lines = text.split(/\r?\n/).filter(l=>l.trim());
+      if(lines.length<2){ _pfToast('Empty file','info'); return; }
+      processRows(lines.slice(1).map(parseCSVLine), parseCSVLine(lines[0]));
+    };
+    reader.readAsText(file,'UTF-8');
+  } else {
+    // XLSX — lazy-load SheetJS
+    if(window.XLSX){ doXlsx(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+    s.onload  = doXlsx;
+    s.onerror = ()=>_pfToast('Could not load Excel parser — please save file as CSV and retry','err');
+    document.head.appendChild(s);
+    function doXlsx(){
+      const reader = new FileReader();
+      reader.onload = e=>{
+        const wb = XLSX.read(e.target.result,{type:'array'});
+        const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+        if(data.length<2){ _pfToast('Empty sheet','info'); return; }
+        processRows(data.slice(1), data[0]);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+  }
+};
+
+// Wire template button (done here so it's available when Data tab binds)
+document.addEventListener('click', e=>{
+  if(e.target && e.target.id==='pnlTemplateBtn') window._pfDownloadTemplate();
+});
 
 // ---- Create New Patch from home-screen form ----
 window._pfCreateNewPatch = function(){
