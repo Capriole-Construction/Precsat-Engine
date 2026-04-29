@@ -297,6 +297,25 @@
       </div>
     </div>
 
+    <!-- RESCHEDULE PENDING -->
+    <div class="sb-section" id="reschedSection" style="display:none">
+      <div class="sb-h">🔄 Reschedule Pending</div>
+      <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;line-height:1.4">Mark panels as cast up to a date, then re-optimise the remaining panels.</div>
+      <div class="sb-row">
+        <label style="white-space:nowrap">Cast up to</label>
+        <input type="date" id="rsCutoff"
+          style="flex:1;padding:4px 6px;border:1px solid #374151;border-radius:5px;background:#1f2937;color:#f9fafb;font-size:12px"
+          oninput="_pfUpdatePendingPreview()">
+      </div>
+      <div id="rsPendingInfo" style="font-size:10px;color:#64748b;margin-top:5px;padding:5px 7px;background:#1f2937;border-radius:5px;min-height:28px;line-height:1.5">
+        Select a date above
+      </div>
+      <button id="rsRunBtn" onclick="reschedulePending()"
+        style="width:100%;margin-top:7px;padding:8px;background:#0284c7;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit">
+        🔄 Reschedule Pending
+      </button>
+    </div>
+
     <!-- Hidden stubs kept for JS compatibility -->
     <input id="cfgName" type="text" style="display:none">
     <input id="cfgFileInput" type="file" accept=".pfproj,.json" style="display:none">
@@ -1517,6 +1536,8 @@ async function runEngine(){
   $("#runBtn").classList.remove("ready");
   activeTab = "overview";
   pfShowApp();
+  // Show Reschedule Pending section now that a schedule exists
+  if(typeof _pfShowReschedSection === "function") _pfShowReschedSection();
 }
 function setStep(t,p){
   $("#rStep").textContent = t;
@@ -2589,7 +2610,17 @@ function syncTablesToEngine(){
 // --- Overview ---
 function viewOverview(){
   const s = schedule;
+  const lockedBanner = s.lockedUntil ? `
+    <div style="display:flex;align-items:center;gap:10px;padding:9px 16px;background:#0f172a;border:1.5px solid #1e40af;border-radius:10px;margin-bottom:14px;font-size:11px;color:#93c5fd">
+      <span style="font-size:16px">📅</span>
+      <div>
+        <b style="color:#bfdbfe">Rescheduled Plan</b> — panels cast before
+        <b style="color:#fff">${s.lockedUntil}</b> are locked
+        <span style="color:#64748b;margin-left:6px">(${s.allCells.filter(c=>c.dateIso<s.lockedUntil).length} panels cast · ${s.allCells.filter(c=>c.dateIso>=s.lockedUntil).length} pending)</span>
+      </div>
+    </div>` : '';
   return `
+    ${lockedBanner}
     <div class="kpis">
       <div class="kpi gold"><div class="l">In-House Pieces</div><div class="v">${fmt(s.totalPieces)}</div><div class="s">scheduled across ${s.params.buildings||BUILDINGS} buildings</div></div>
       <div class="kpi"><div class="l">Mould Slots</div><div class="v">${s.slotAssignments.length}</div><div class="s">parallel positions</div></div>
@@ -2613,8 +2644,12 @@ function viewOverview(){
             for(const sid of Object.keys(buckets)) pieces += buckets[sid].length;
             const m3 = s.m3ByDate?.[d] || 0;
             const isPeak = Math.abs(m3 - (s.peakM3PerDay||0)) < 0.05 && m3 > 0;
-            return `<tr${isPeak?' style="background:#fef3c7"':''}>
-              <td><b>Day ${i+1}</b></td>
+            const isLocked = s.lockedUntil && d < s.lockedUntil;
+            const rowStyle = isLocked
+              ? 'background:#f1f5f9;color:#94a3b8'
+              : isPeak ? 'background:#fef3c7' : '';
+            return `<tr${rowStyle?' style="'+rowStyle+'"':''}>
+              <td><b${isLocked?' style="color:#94a3b8"':''}>Day ${i+1}</b>${isLocked?' <span style="font-size:9px;background:#e2e8f0;color:#64748b;padding:1px 5px;border-radius:8px;vertical-align:middle">✓ Cast</span>':''}</td>
               <td>${esc(d)}</td>
               <td>${dayLabel(dt)}</td>
               <td class="num">${fmt(pieces)}</td>
@@ -4422,6 +4457,92 @@ function refreshSidebarCounts(){
   if($("#byOthersPieces")) $("#byOthersPieces").textContent = fmt(byO * BUILDINGS) + " By Others";
 }
 refreshSidebarCounts();
+
+// ── Reschedule Pending ────────────────────────────────────────
+function _pfShowReschedSection(){
+  const sec = document.getElementById('reschedSection');
+  if(!sec) return;
+  sec.style.display = schedule ? '' : 'none';
+  // Default cutoff to today if empty
+  const inp = document.getElementById('rsCutoff');
+  if(inp && !inp.value) inp.value = new Date().toISOString().split('T')[0];
+  _pfUpdatePendingPreview();
+}
+
+function _pfUpdatePendingPreview(){
+  const inp = document.getElementById('rsCutoff');
+  const infoEl = document.getElementById('rsPendingInfo');
+  if(!inp || !infoEl) return;
+  const cutoff = inp.value;
+  if(!cutoff || !schedule){
+    infoEl.innerHTML = 'Select a date above';
+    return;
+  }
+  const pending = schedule.allCells.filter(c => c.dateIso >= cutoff);
+  const locked  = schedule.allCells.filter(c => c.dateIso <  cutoff);
+  if(!pending.length){
+    infoEl.innerHTML = '<span style="color:#94a3b8">No pending panels from this date — all cast already.</span>';
+    return;
+  }
+  const types     = new Set(pending.map(c => c.type)).size;
+  const buildings = new Set(pending.map(c => c.b)).size;
+  infoEl.innerHTML =
+    `<span style="color:#7dd3fc"><b>${pending.length}</b> panels pending</span>` +
+    ` · <b>${types}</b> types · <b>${buildings}</b> building${buildings>1?'s':''}` +
+    (locked.length ? `<br><span style="color:#6b7280">${locked.length} panels locked (cast)</span>` : '');
+}
+
+async function reschedulePending(){
+  const cutoff = (document.getElementById('rsCutoff')||{}).value;
+  if(!cutoff){ _pfToast('Select a cutoff date','info'); return; }
+  if(!schedule){ _pfToast('Run optimization first','info'); return; }
+
+  const lockedCells  = schedule.allCells.filter(c => c.dateIso <  cutoff);
+  const pendingCells = schedule.allCells.filter(c => c.dateIso >= cutoff);
+  if(!pendingCells.length){ _pfToast('No pending panels from '+cutoff,'info'); return; }
+
+  const pendingTypeSet     = new Set(pendingCells.map(c => c.type));
+  const pendingBuildingSet = new Set(pendingCells.map(c => c.b));
+
+  // Save globals
+  const savedTypes    = TYPES;
+  const savedBuildings = BUILDINGS;
+  const savedStart    = ($("#pStart")||{}).value || '';
+
+  // Override engine inputs for pending-only run
+  TYPES     = TYPES.filter(t => pendingTypeSet.has(t.code));
+  BUILDINGS = pendingBuildingSet.size;
+  if($("#pStart"))    $("#pStart").value    = cutoff;
+  if($("#pBuildings")) $("#pBuildings").value = BUILDINGS;
+
+  // Stash locked cells before runEngine overwrites schedule
+  const _locked = lockedCells.slice();
+
+  await runEngine();   // sets global schedule + renders
+
+  // Restore globals
+  TYPES    = savedTypes;
+  BUILDINGS = savedBuildings;
+  if($("#pStart"))    $("#pStart").value    = savedStart;
+  if($("#pBuildings")) $("#pBuildings").value = BUILDINGS;
+
+  // Merge locked cells into the new schedule
+  _locked.forEach(c => {
+    if(!schedule.cellsByDate[c.dateIso]) schedule.cellsByDate[c.dateIso] = {};
+    const sid = c.slotId || 'locked';
+    if(!schedule.cellsByDate[c.dateIso][sid]) schedule.cellsByDate[c.dateIso][sid] = [];
+    schedule.cellsByDate[c.dateIso][sid].push(c);
+  });
+  const lockedDates = [...new Set(_locked.map(c => c.dateIso))];
+  schedule.allDates = [...new Set([...lockedDates, ...schedule.allDates])].sort();
+  schedule.allCells = [..._locked, ...schedule.allCells];
+  schedule.totalPieces = schedule.allCells.filter(c => !c.byOthers).length;
+  schedule.lockedUntil = cutoff;   // marker used by viewOverview banner
+
+  render();
+  _pfToast(`✓ Rescheduled ${pendingCells.length} pending panels from ${cutoff}`, 'ok');
+  _pfShowReschedSection();
+}
 </script>
 
 </body>
