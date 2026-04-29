@@ -3394,7 +3394,7 @@ function _pfDefaultCfg(){ return { ocServer: PF_OC_SERVER, ocUser:"", ocPass:"",
 function _pfLoad(){ try{ const s=localStorage.getItem(PF_CC_KEY); const d=_pfDefaultCfg(); if(s){ const p=JSON.parse(s); for(const k in d) if(!(k in p)) p[k]=d[k]; window._pfConfig=p; } else window._pfConfig=d; } catch(e){ window._pfConfig=_pfDefaultCfg(); } }
 function _pfWrap(url){ const p=(window._pfConfig&&window._pfConfig.proxy||"").trim(); if(!p) return url; return p.replace(/\/$/,"")+"?url="+encodeURIComponent(url); }
 function _pfAuth(cfg){ return "Basic "+btoa((cfg.ocUser||"")+":"+(cfg.ocPass||"")); }
-function _pfBase(cfg){ const s=(cfg.ocServer||"").replace(/\/$/,""); return s+"/remote.php/dav/files/"+encodeURIComponent(cfg.ocUser||""); }
+function _pfBase(cfg){ const s=(cfg.ocServer||"").replace(/\/$/,""); return s+"/remote.php/webdav"; }
 function _pfFolderUrl(cfg){ const base=_pfBase(cfg); const f=(cfg.ocFolder||"/"); const enc=f.split("/").map(p=>p?encodeURIComponent(p):p).join("/"); return base+(enc.endsWith("/")?enc:enc+"/"); }
 
 function _pfToast(msg,kind){
