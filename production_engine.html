@@ -3890,20 +3890,25 @@ window._pfSaveSettings=_pfSaveSettings;
 window._pfTest=_pfTest;
 
 // ---- Index-file approach (no PROPFIND needed — only GET/PUT/DELETE) ----
+var _pfIndexCache = null; // {list, ts} — in-memory cache to avoid redundant GET
 function _pfIndexUrl(cfg){
   return _pfFolderUrl(cfg)+"_pf_index.json";
 }
 function _pfGetIndex(cfg){
+  // Return cached copy if fresh (< 30 s)
+  if(_pfIndexCache && (Date.now()-_pfIndexCache.ts < 30000)) return Promise.resolve(_pfIndexCache.list.slice());
   return fetch(_pfWrap(_pfIndexUrl(cfg)),{headers:{"Authorization":_pfAuth(cfg)}})
     .then(r=>{
       if(r.status===401) throw new Error("Auth failed — check username / app password");
-      if(r.status===404) return [];          // no index yet → empty list
+      if(r.status===404) return [];
       if(!r.ok) throw new Error("HTTP "+r.status);
       return r.json().then(d=>Array.isArray(d)?d:(d.projects||[]));
     })
+    .then(list=>{ _pfIndexCache={list,ts:Date.now()}; return list.slice(); })
     .catch(e=>{ if(e.message.startsWith("Auth")) throw e; return []; });
 }
 function _pfPutIndex(cfg, list){
+  _pfIndexCache = {list, ts:Date.now()}; // update cache immediately
   return fetch(_pfWrap(_pfIndexUrl(cfg)),{
     method:"PUT",
     headers:{"Authorization":_pfAuth(cfg),"Content-Type":"application/json"},
@@ -4007,21 +4012,22 @@ function _pfSaveToCloud(name){
   const snap=buildProjectSnapshot(name);
   const fileName=name.replace(/[^a-z0-9_\-\s]/gi,"_")+PF_EXT;
   const saveUrl=_pfFolderUrl(cfg)+encodeURIComponent(fileName);
-  _pfToast("⏳ Saving to cloud…","info");
-  fetch(_pfWrap(saveUrl),{method:"PUT",headers:{"Authorization":_pfAuth(cfg),"Content-Type":"application/json"},body:JSON.stringify(snap)})
-    .then(r=>{ if(r.ok||r.status===201||r.status===204) return r; throw new Error("HTTP "+r.status); })
-    .then(()=>{
+  _pfToast("⏳ Saving…","info");
+  // Run PUT file and GET index in parallel — they are independent
+  Promise.all([
+    fetch(_pfWrap(saveUrl),{method:"PUT",headers:{"Authorization":_pfAuth(cfg),"Content-Type":"application/json"},body:JSON.stringify(snap)})
+      .then(r=>{ if(r.ok||r.status===201||r.status===204) return; throw new Error("HTTP "+r.status); }),
+    _pfGetIndex(cfg)
+  ])
+    .then(([,list])=>{
       window._pfProjectSource={type:"cloud",url:saveUrl,name:fileName};
-      // Update index file
-      return _pfGetIndex(cfg).then(list=>{
-        const now=new Date().toISOString();
-        const idx=list.findIndex(p=>p.url===saveUrl);
-        if(idx>=0) list[idx]={name:fileName,url:saveUrl,modified:now};
-        else list.push({name:fileName,url:saveUrl,modified:now});
-        return _pfPutIndex(cfg,list);
-      });
+      const now=new Date().toISOString();
+      const idx=list.findIndex(p=>p.url===saveUrl);
+      if(idx>=0) list[idx]={name:fileName,url:saveUrl,modified:now};
+      else list.push({name:fileName,url:saveUrl,modified:now});
+      return _pfPutIndex(cfg,list);
     })
-    .then(()=>{ _pfToast("✓ Saved to cloud: "+fileName,"ok"); _pfSetPatchTab(fileName.replace(/\.pfproj$/i,'')); _pfRefresh(); })
+    .then(()=>{ _pfToast("✓ Saved: "+fileName,"ok"); _pfSetPatchTab(fileName.replace(/\.pfproj$/i,'')); _pfRefresh(); })
     .catch(e=>{ _pfToast("✗ Save failed: "+e.message,"err"); _pfDownloadLocal(name,snap); });
 }
 
@@ -4107,6 +4113,16 @@ if($("#cfgFileInput")){
 (function _pfInit(){
   _pfLoad();
   try{ const s=localStorage.getItem(PF_CC_SRC_KEY); if(s){ window._pfProjectSource=JSON.parse(s); if(window._pfProjectSource&&window._pfProjectSource.name) _pfSetPatchTab(window._pfProjectSource.name.replace(/\.pfproj$/i,'')); } } catch(e){}
+  // Warm up Cloudflare Worker to eliminate cold-start delay on first save/load
+  try{
+    const cfg=window._pfConfig;
+    if(cfg&&cfg.ocUser&&cfg.ocPass){
+      fetch(_pfWrap(_pfIndexUrl(cfg)),{headers:{"Authorization":_pfAuth(cfg)}})
+        .then(r=>r.status===404?[]:(r.ok?r.json().then(d=>Array.isArray(d)?d:(d.projects||[])):null))
+        .then(list=>{ if(list) _pfIndexCache={list,ts:Date.now()}; })
+        .catch(()=>{});
+    }
+  } catch(e){}
 
   // Wire ALL sign-in triggers via JS (more reliable than inline onclick attributes)
   document.querySelectorAll(
