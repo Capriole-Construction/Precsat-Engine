@@ -143,7 +143,9 @@
   .runner-stat{display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-top:8px}
 
   /* Tabs */
-  .tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid #e3e8ef}
+  .tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid #e3e8ef;overflow-x:auto;overflow-y:visible;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  #engineSaveBtn{position:sticky;right:0;flex-shrink:0;z-index:2;box-shadow:-4px 0 8px rgba(255,255,255,.6)}
   .tab{padding:10px 18px;background:transparent;border:0;border-bottom:3px solid transparent;font-size:12px;font-weight:600;color:#6b7280;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;font-family:inherit}
   .tab:hover{color:#1e3a5f}
   .tab.active{color:#1e3a5f;border-bottom-color:#f59e0b}
@@ -427,6 +429,8 @@
         <button class="tab" data-tab="plan">📐 Table Plan</button>
         <button class="tab" data-tab="tables">🪵 Casting Tables</button>
         <button class="tab" data-tab="data">💾 Data</button>
+        <span style="flex:1"></span>
+        <button id="engineSaveBtn" title="Save patch to cloud" style="margin:4px 8px 4px 0;padding:5px 14px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:5px">💾 Save Patch</button>
       </div>
       <div id="view" style="flex:1;overflow-y:auto"></div>
     </div>
@@ -4064,22 +4068,22 @@ function _pfDownloadLocal(name, snap){
   a.download=name.replace(/[^a-z0-9_\-\s]/gi,"_")+PF_EXT; a.click(); URL.revokeObjectURL(a.href);
 }
 
-// ---- Wire Save button ----
-if($("#cfgSaveBtn")){
-  $("#cfgSaveBtn").onclick=()=>{
-    // Use typed name, or fall back to currently loaded project name
-    let name=($("#cfgName")?.value||"").trim();
-    if(!name && window._pfProjectSource && window._pfProjectSource.name){
-      name=window._pfProjectSource.name.replace(/\.pfproj$/i,"");
-    }
-    if(!name){ alert("Please enter a project name."); return; }
-    _pfLoad();
-    const cfg=window._pfConfig;
-    if(cfg.ocUser&&cfg.ocPass){ _pfSaveToCloud(name); }
-    else { _pfDownloadLocal(name); _pfToast("Saved as local file (sign in to save to cloud)","ok"); }
-    if($("#cfgName")) $("#cfgName").value="";
-  };
+// ---- Shared save action ----
+function _pfDoSave(){
+  let name=($("#cfgName")?.value||"").trim();
+  if(!name && window._pfProjectSource && window._pfProjectSource.name){
+    name=window._pfProjectSource.name.replace(/\.pfproj$/i,"");
+  }
+  if(!name){ alert("Please enter a patch name."); return; }
+  _pfLoad();
+  const cfg=window._pfConfig;
+  if(cfg.ocUser&&cfg.ocPass){ _pfSaveToCloud(name); }
+  else { _pfDownloadLocal(name); _pfToast("Saved as local file (sign in to save to cloud)","ok"); }
+  if($("#cfgName")) $("#cfgName").value="";
 }
+// ---- Wire Save buttons ----
+if($("#cfgSaveBtn"))    $("#cfgSaveBtn").onclick    = _pfDoSave;
+if($("#engineSaveBtn")) $("#engineSaveBtn").onclick = _pfDoSave;
 
 // ---- Wire Load file input ----
 if($("#cfgFileInput")){
