@@ -21,6 +21,8 @@
   /* Layout */
   .app{display:grid;grid-template-columns:300px 1fr;gap:0;min-height:calc(100vh - 60px)}
   .sidebar{background:#111827;color:#e5e7eb;padding:18px;border-right:1px solid #1f2937;overflow-y:auto}
+  .app.home-mode .sidebar{display:none}
+  .app.home-mode .main{grid-column:1/-1}
   .main{padding:22px;overflow-y:auto;background:#f4f6f9;color:#1f2937}
 
   /* Sidebar */
@@ -305,7 +307,7 @@
         <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:5px 0;background:#374151;color:#d1d5db;border:1px solid #4b5563;border-radius:5px;cursor:pointer;font-size:11px">
           📂 Open File<input id="cfgFileInput" type="file" accept=".pfproj,.json" style="display:none">
         </label>
-        <button id="pfSignInBtn" onclick="_pfOpenSettings()"
+        <button id="pfSignInBtn" onclick="window._pfOpenSettings()"
                 style="flex:1;padding:5px 0;background:#1e3a5f;color:#93c5fd;border:1px solid #1e40af;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">🔐 Sign In</button>
       </div>
       <!-- Cloud status + refresh -->
@@ -346,7 +348,7 @@
             <label style="cursor:pointer;padding:10px 22px;border-radius:8px;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.3);font-size:12px;font-weight:600;font-family:inherit;text-align:center;backdrop-filter:blur(6px)">
               📂 Open .pfproj<input type="file" accept=".pfproj,.json" style="display:none" onchange="pfHomeLoadFile(this.files[0]);this.value=''">
             </label>
-            <button onclick="_pfOpenSettings()" style="cursor:pointer;padding:10px 22px;border-radius:8px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.85);border:1.5px solid rgba(255,255,255,.18);font-size:12px;font-weight:600;font-family:inherit">🔐 Sign In to Cloud</button>
+            <button onclick="window._pfOpenSettings()" style="cursor:pointer;padding:10px 22px;border-radius:8px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.85);border:1.5px solid rgba(255,255,255,.18);font-size:12px;font-weight:600;font-family:inherit">🔐 Sign In to Cloud</button>
           </div>
         </div>
       </div>
@@ -360,11 +362,11 @@
             <div style="font-size:13px;font-weight:700;color:#1e3a5f">☁ Cloud Projects</div>
             <div style="display:flex;gap:8px">
               <button onclick="_pfRefresh()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;font-size:11px;font-weight:600;font-family:inherit">🔄 Refresh</button>
-              <button onclick="_pfOpenSettings()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#1e3a5f;color:#fff;border:none;font-size:11px;font-weight:600;font-family:inherit">🔐 Sign In</button>
+              <button onclick="window._pfOpenSettings()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#1e3a5f;color:#fff;border:none;font-size:11px;font-weight:600;font-family:inherit">🔐 Sign In</button>
             </div>
           </div>
           <div id="pfHomeCloudStatus" style="font-size:11px;color:#64748b;margin-bottom:16px">
-            Not signed in — <span onclick="_pfOpenSettings()" style="cursor:pointer;color:#1e3a5f;font-weight:700;text-decoration:underline">🔐 Sign In</span> to connect to your cloud projects
+            Not signed in — <span onclick="window._pfOpenSettings()" style="cursor:pointer;color:#1e3a5f;font-weight:700;text-decoration:underline">🔐 Sign In</span> to connect to your cloud projects
           </div>
           <div id="pfHomeCloudList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px"></div>
         </div>
@@ -421,28 +423,28 @@
   </div>
 </div>
 
-<!-- CLOUD SETTINGS MODAL — at body root so z-index works from anywhere -->
-<div id="pfSettingsModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9998;align-items:center;justify-content:center;font-family:'Century Gothic','Segoe UI',Arial,sans-serif">
+<!-- CLOUD SETTINGS MODAL — identical structure to Cost Builder -->
+<div id="pfSettingsModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:9998;align-items:center;justify-content:center;font-family:'Century Gothic','Segoe UI',Arial,sans-serif">
   <div style="background:#fff;border-radius:14px;padding:28px 24px;width:340px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.35)">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px">
       <div>
-        <div style="font-size:15px;font-weight:700;color:#1e3a5f">☁ Sign in to Cloud</div>
-        <div style="font-size:10px;color:#64748b;margin-top:2px">Capriole ownCloud · cloud.capriolegroup.org</div>
+        <div style="font-size:15px;font-weight:700;letter-spacing:.3px;margin-bottom:3px">☁ Sign in to Cloud</div>
+        <div style="font-size:10.5px;opacity:.75">Capriole ownCloud · cloud.capriolegroup.org</div>
       </div>
-      <div onclick="_pfCloseSettings()" style="cursor:pointer;font-size:18px;color:#94a3b8;margin-top:-2px;line-height:1">✕</div>
+      <div onclick="window._pfCloseSettings()" style="cursor:pointer;font-size:16px;opacity:.7;margin-top:2px">✕</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px">
-      <input id="pfOcUser" placeholder="ownCloud username" autocomplete="username"
+      <input id="pfOcUser" placeholder="your ownCloud username" autocomplete="username"
              style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;outline:none"
              onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
-      <input id="pfOcPass" type="password" placeholder="App password (xxxx-xxxx-xxxx-xxxx)" autocomplete="current-password"
+      <input id="pfOcPass" type="password" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="current-password"
              style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;outline:none"
              onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'"
-             onkeydown="if(event.key==='Enter')_pfSaveSettings()">
-      <div style="font-size:10px;color:#94a3b8">ownCloud → Settings → Security → App passwords → create "Precast Factory"</div>
+             onkeydown="if(event.key==='Enter')window._pfSaveSettings()">
+      <div style="font-size:10px;color:#94a3b8;margin-top:2px">ownCloud → Settings → Security → App passwords → create "Precast Factory"</div>
     </div>
-    <button onclick="_pfSaveSettings()" style="width:100%;padding:11px;border-radius:8px;background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff;border:none;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:16px;margin-bottom:8px">Connect →</button>
-    <button onclick="_pfTest()" style="width:100%;padding:9px;border-radius:8px;background:#f8fafc;color:#334155;border:1px solid #e2e8f0;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer">⚡ Test Connection</button>
+    <button onclick="window._pfSaveSettings()" style="width:100%;padding:11px;border-radius:8px;background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff;border:none;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:16px;margin-bottom:8px">Connect →</button>
+    <button onclick="window._pfTest()" style="width:100%;padding:9px;border-radius:8px;background:#f8fafc;color:#334155;border:1px solid #e2e8f0;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer">⚡ Test Connection</button>
   </div>
 </div>
 
@@ -3223,14 +3225,18 @@ function dl(blob,name){
 // ============================================================
 function pfShowHome(){
   const home = $("#pfHomeScreen"), app = $("#pfAppScreen");
+  const appWrap = document.querySelector(".app");
   if(home) home.style.display = "flex";
   if(app)  app.style.display  = "none";
+  if(appWrap) appWrap.classList.add("home-mode");
   _pfRefreshHome();
 }
 function pfShowApp(){
   const home = $("#pfHomeScreen"), app = $("#pfAppScreen");
+  const appWrap = document.querySelector(".app");
   if(home) home.style.display = "none";
-  if(app){ app.style.display = "flex"; }
+  if(app)  app.style.display  = "flex";
+  if(appWrap) appWrap.classList.remove("home-mode");
   renderTabs(); render();
 }
 function pfHomeLoadFile(file){
@@ -3257,7 +3263,7 @@ function _pfRefreshHome(){
   const statEl = $("#pfHomeCloudStatus"), listEl = $("#pfHomeCloudList");
   if(!statEl||!listEl) return;
   if(!cfg.ocUser||!cfg.ocPass){
-    statEl.innerHTML = `Not signed in — <span onclick="_pfOpenSettings()" style="cursor:pointer;color:#1e3a5f;font-weight:700;text-decoration:underline">🔐 Sign In</span> to connect to your cloud projects`;
+    statEl.innerHTML = `Not signed in — <span onclick="window._pfOpenSettings()" style="cursor:pointer;color:#1e3a5f;font-weight:700;text-decoration:underline">🔐 Sign In</span> to connect to your cloud projects`;
     listEl.innerHTML = "";
     return;
   }
