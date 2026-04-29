@@ -3247,12 +3247,13 @@ function bindData(){
         render();
       };
     });
-    // Stop clicks inside any popover from reaching the document close handler
-    $$('#view .opn-edit-panel').forEach(p=>{
-      p.addEventListener('click', e=>e.stopPropagation());
-    });
-    // Close when clicking outside
-    document.addEventListener('click', ()=>closeAll());
+    // Close when clicking outside any popover or edit button (registered once)
+    if(!window._pfOpnDocListenerAdded){
+      window._pfOpnDocListenerAdded = true;
+      document.addEventListener('click', (e)=>{
+        if(!e.target.closest('.opn-edit-panel') && !e.target.closest('.opn-edit-btn')) closeAll();
+      });
+    }
   })();
   // ── Panel table filters ─────────────────────────────────────
   (function wirePanelFilters(){
