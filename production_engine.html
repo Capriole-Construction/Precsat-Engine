@@ -261,13 +261,6 @@
   <!-- SIDEBAR -->
   <div class="sidebar">
     <div class="sb-section">
-      <div class="sb-h">Project</div>
-      <div class="sb-stat"><div class="l">Buildings</div><div class="v">16</div></div>
-      <div class="sb-stat"><div class="l">Unique Panel Types</div><div class="v">91</div></div>
-      <div class="sb-stat"><div class="l">In-House Pieces</div><div class="v" id="totalPieces">—</div><div class="l" id="byOthersPieces" style="margin-top:4px">— By Others</div></div>
-    </div>
-
-    <div class="sb-section">
       <div class="sb-h">Engine Parameters</div>
       <div class="sb-row"><label>Start date</label><input type="date" id="pStart" value="2026-04-28"></div>
       <div class="sb-row"><label>Buildings</label><input type="number" id="pBuildings" value="16" min="1" max="16" title="Run optimization on this many buildings (max 16)"></div>
@@ -304,35 +297,16 @@
       </div>
     </div>
 
-    <!-- PROJECT SAVE / LOAD (Cloud + Local) -->
-    <div class="sb-section" id="runConfigSection">
-      <div class="sb-h" style="display:flex;align-items:center;justify-content:space-between">
-        <span>☁ Running Patches</span>
-        <span id="pfCloudBadge" style="font-size:9px;padding:2px 7px;border-radius:10px;background:#1e3a5f;color:#93c5fd;display:none">Connected</span>
-      </div>
-      <!-- Project name + save -->
-      <div class="sb-row" style="gap:6px">
-        <input id="cfgName" type="text" placeholder="Patch name…"
-               style="flex:1;padding:4px 6px;border:1px solid #374151;border-radius:5px;background:#1f2937;color:#f9fafb;font-size:12px">
-        <button id="cfgSaveBtn" title="Save project to cloud (or download locally if not connected)"
-                style="padding:4px 10px;background:#2563eb;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;white-space:nowrap">💾 Save</button>
-      </div>
-      <!-- Action row -->
-      <div style="display:flex;gap:6px;margin-top:4px">
-        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:5px 0;background:#374151;color:#d1d5db;border:1px solid #4b5563;border-radius:5px;cursor:pointer;font-size:11px">
-          📂 Open File<input id="cfgFileInput" type="file" accept=".pfproj,.json" style="display:none">
-        </label>
-        <button id="pfSignInBtn" onclick="window._pfOpenSettings()"
-                style="flex:1;padding:5px 0;background:#1e3a5f;color:#93c5fd;border:1px solid #1e40af;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">🔐 Sign In</button>
-      </div>
-      <!-- Cloud status + refresh -->
-      <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
-        <div id="pfCloudStatus" style="flex:1;font-size:10px;color:#6b7280">Not connected to cloud</div>
-        <button onclick="_pfRefresh()" style="padding:3px 8px;background:#1f2937;color:#6b7280;border:1px solid #374151;border-radius:4px;cursor:pointer;font-size:10px">🔄</button>
-      </div>
-      <!-- Cloud project list -->
-      <div id="cfgList" style="display:flex;flex-direction:column;gap:4px;margin-top:6px"></div>
-    </div>
+    <!-- Hidden stubs kept for JS compatibility -->
+    <input id="cfgName" type="text" style="display:none">
+    <input id="cfgFileInput" type="file" accept=".pfproj,.json" style="display:none">
+    <button id="cfgSaveBtn" style="display:none"></button>
+    <button id="pfSignInBtn" style="display:none"></button>
+    <div id="cfgList" style="display:none"></div>
+    <div id="pfCloudStatus" style="display:none"></div>
+    <span id="pfCloudBadge" style="display:none"></span>
+    <div id="totalPieces" style="display:none"></div>
+    <div id="byOthersPieces" style="display:none"></div>
 
     <button class="run-btn ready" id="runBtn">▶ Run Optimization</button>
   </div>
