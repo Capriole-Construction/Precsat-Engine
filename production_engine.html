@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Precast Production Engine — NAHEEL CAMP G+1</title>
+<title>🏗 Precast Production Engine — NAHEEL CAMP G+1</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗</text></svg>">
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;font-family:"Century Gothic","Segoe UI",Arial,sans-serif;color:#1f2937;background:#0f172a}
@@ -226,8 +227,13 @@
 <body>
 
 <div class="header">
-  <div>
-    <div class="sub">⚙ Production Engine</div>
+  <img src="https://capriole-construction.github.io/KnowledgeBase/Books%20and%20References/capriole-platform/logo.png"
+       alt="Capriole Construction"
+       onerror="this.style.display='none'"
+       style="height:38px;width:auto;object-fit:contain;filter:brightness(0) invert(1);opacity:.92;flex-shrink:0;z-index:1">
+  <div style="width:1px;height:32px;background:rgba(255,255,255,.2);margin:0 4px;z-index:1"></div>
+  <div style="z-index:1">
+    <div class="sub">🏗 Production Engine</div>
     <h1>NAHEEL CAMP G+1 · Precast Mould Plan</h1>
   </div>
   <div class="spacer"></div>
@@ -3617,6 +3623,22 @@ if($("#cfgFileInput")){
 (function _pfInit(){
   _pfLoad();
   try{ const s=localStorage.getItem(PF_CC_SRC_KEY); if(s) window._pfProjectSource=JSON.parse(s); } catch(e){}
+
+  // Wire ALL sign-in triggers via JS (more reliable than inline onclick attributes)
+  document.querySelectorAll(
+    "#pfSignInBtn, [data-pf-signin]"
+  ).forEach(el => el.addEventListener("click", _pfOpenSettings));
+
+  // Close modal when clicking the backdrop
+  const modal = document.getElementById("pfSettingsModal");
+  if(modal) modal.addEventListener("click", e => { if(e.target === modal) _pfCloseSettings(); });
+
+  // Wire modal buttons directly
+  const connectBtn = modal && modal.querySelector("button:first-of-type");
+  const testBtn    = modal && modal.querySelector("button:last-of-type");
+  if(connectBtn) connectBtn.onclick = _pfSaveSettings;
+  if(testBtn)    testBtn.onclick    = _pfTest;
+
   _pfRefresh();
 })();
 
