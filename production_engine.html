@@ -3855,7 +3855,17 @@ window._pfCreateNewPatch = function(){
   const buildNo   = ((document.getElementById('np_buildNo')||{}).value||'').trim();
   const nosBuilds = ((document.getElementById('np_nosBuilds')||{}).value||'').trim();
   const floorNo   = ((document.getElementById('np_floorNo')||{}).value||'').trim();
-  // Store metadata locally
+
+  // ── Reset all engine state for a blank patch ──────────────
+  TYPES.length = 0;                                          // no panels
+  Object.keys(TYPE_META).forEach(k => delete TYPE_META[k]); // no meta
+  Object.keys(SRC_OVR).forEach(k => delete SRC_OVR[k]);     // no overrides
+  Object.keys(CAST_STATUS).forEach(k => delete CAST_STATUS[k]);
+  schedule = null;
+  saveUserTypes(); saveTypeMeta(); saveSrcOverrides(); saveCastStatus();
+  refreshSidebarCounts(); refreshFloorSelectors();
+
+  // Store patch metadata locally
   if(!window._pfMeta) window._pfMeta = {};
   window._pfMeta[name+'.pfproj'] = { projNo, buildingNo:buildNo, nosOfBuildings:nosBuilds, floorNo };
   try{ localStorage.setItem(PF_META_LS_KEY, JSON.stringify(window._pfMeta)); } catch(e){}
