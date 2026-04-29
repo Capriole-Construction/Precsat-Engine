@@ -3006,10 +3006,12 @@ function viewOrders(){
           <b style="color:#065f46">${castCount}</b> cast ·
           <b style="color:#92400e">${pendCount}</b> pending
         </span>
+        ${pendCount>0?`<button class="btn sm primary" id="redistBtn" title="Re-optimise all pending panels starting from the day after the last cast panel">🔄 Redistribute Pending (${pendCount})</button>`:''}
         <button class="btn sm" id="resetStatusBtn" title="Clear all cast/pending statuses">Reset Status</button>
       </div>
       <p style="margin:0 0 8px;font-size:11px;color:#475569">
         Mark each panel as <b>✓ Cast</b> when production is complete. Click <b>↻</b> to push a panel to the next working day on the same table — useful when site delays force a reshuffle.
+        <b style="color:#2563eb">🔄 Redistribute Pending</b> re-optimises all uncast panels into new days, starting after the last ✓ Cast day.
         <span style="margin-left:8px;color:#065f46"><b>♻ reuse</b></span> = same mould as yesterday (no shutter swap, ${fmt(avoidedSwaps)} avoided) ·
         <span style="color:#b45309"><b>🔄 swap</b></span> = mould dim changed.
       </p>
@@ -3049,6 +3051,75 @@ function bindOrders(){
   if(reset) reset.onclick = ()=>{
     CAST_STATUS = {}; saveCastStatus(); render();
   };
+  const redist = $("#redistBtn");
+  if(redist) redist.onclick = ()=> redistributePendingCells();
+}
+
+// ── Redistribute Pending Cells ────────────────────────────────
+function _nextWorkDay(dateStr){
+  const weekend = schedule && schedule.params && schedule.params.weekend;
+  const d = new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()+1);
+  if(!weekend){ while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()+1); }
+  return d.toISOString().split('T')[0];
+}
+
+async function redistributePendingCells(){
+  if(!schedule){ _pfToast('No schedule loaded','info'); return; }
+
+  const castCells    = schedule.allCells.filter(c => getStatus(c)==='cast');
+  const pendingCells = schedule.allCells.filter(c => getStatus(c)!=='cast');
+
+  if(!pendingCells.length){ _pfToast('All panels are already marked ✓ Cast','info'); return; }
+
+  const pendingTypeSet     = new Set(pendingCells.map(c=>c.type));
+  const pendingBuildingSet = new Set(pendingCells.map(c=>c.b));
+
+  // Start: day after latest cast date, or today
+  let startDate;
+  if(castCells.length){
+    const latestCast = castCells.map(c=>c.dateIso).sort().pop();
+    startDate = _nextWorkDay(latestCast);
+  } else {
+    startDate = new Date().toISOString().split('T')[0];
+  }
+
+  // Save globals
+  const savedTypes    = TYPES;
+  const savedBuildings = BUILDINGS;
+  const savedStart    = ($("#pStart")||{}).value||'';
+
+  // Override for pending-only run
+  TYPES     = TYPES.filter(t=>pendingTypeSet.has(t.code));
+  BUILDINGS = pendingBuildingSet.size;
+  if($("#pStart"))    $("#pStart").value    = startDate;
+  if($("#pBuildings")) $("#pBuildings").value = BUILDINGS;
+
+  const _cast = castCells.slice();   // stash before runEngine overwrites schedule
+
+  await runEngine();
+
+  // Restore globals
+  TYPES     = savedTypes;
+  BUILDINGS = savedBuildings;
+  if($("#pStart"))    $("#pStart").value    = savedStart;
+  if($("#pBuildings")) $("#pBuildings").value = BUILDINGS;
+
+  // Merge cast cells back into the new schedule
+  _cast.forEach(c=>{
+    if(!schedule.cellsByDate[c.dateIso]) schedule.cellsByDate[c.dateIso]={};
+    const sid = c.slotId||'cast';
+    if(!schedule.cellsByDate[c.dateIso][sid]) schedule.cellsByDate[c.dateIso][sid]=[];
+    schedule.cellsByDate[c.dateIso][sid].push(c);
+  });
+  const castDates = [...new Set(_cast.map(c=>c.dateIso))];
+  schedule.allDates = [...new Set([...castDates,...schedule.allDates])].sort();
+  schedule.allCells = [..._cast,...schedule.allCells];
+  schedule.totalPieces = schedule.allCells.length;
+
+  activeTab = 'orders';
+  render();
+  _pfToast(`✓ ${pendingCells.length} pending panels redistributed from ${startDate}`,'ok');
 }
 
 // --- Data ---
