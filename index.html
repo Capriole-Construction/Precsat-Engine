@@ -17,6 +17,8 @@
   .header .sub{font-size:11px;opacity:.7;letter-spacing:1px;text-transform:uppercase;z-index:1}
   .header .badge{background:#f59e0b;color:#1e3a5f;font-size:10px;padding:3px 9px;border-radius:10px;font-weight:800;letter-spacing:1px;z-index:1}
   .header .spacer{flex:1}
+  /* ── Hide main header on home screen ────────────────────── */
+  body.home-screen .header, body.home-screen #pfTabBar { display:none }
   /* ── Patch tab bar ───────────────────────────────────────── */
   #pfTabBar{background:#0b1a2e;display:flex;align-items:flex-end;padding:0 18px;gap:3px;border-bottom:2px solid #1e3a5f;min-height:36px}
   .pf-tab{display:inline-flex;align-items:center;gap:6px;padding:7px 16px 6px;font-size:11.5px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;background:transparent;color:#64748b;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;transition:background .15s,color .15s;letter-spacing:.3px}
@@ -235,7 +237,7 @@
   }
 </style>
 </head>
-<body>
+<body class="home-screen">
 
 <div class="header">
   <img src="https://capriole-construction.github.io/KnowledgeBase/Books%20and%20References/capriole-platform/logo.png"
@@ -3633,6 +3635,7 @@ function pfShowHome(){
   if(home) home.style.display = "flex";
   if(app)  app.style.display  = "none";
   if(appWrap) appWrap.classList.add("home-mode");
+  document.body.classList.add("home-screen");
   _pfSetActiveTab("home");
   _pfRefreshHome();
 }
@@ -3642,6 +3645,7 @@ function pfShowApp(){
   if(home) home.style.display = "none";
   if(app)  app.style.display  = "flex";
   if(appWrap) appWrap.classList.remove("home-mode");
+  document.body.classList.remove("home-screen");
   _pfSetActiveTab("patch");
   renderTabs(); render();
 }
