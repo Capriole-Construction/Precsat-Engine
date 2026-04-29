@@ -3033,6 +3033,24 @@ function viewData(){
         <button class="btn sm" id="srcAllIn">All In-House</button>
         <button class="btn sm" id="srcReset">Reset to default</button>
       </div>
+      <div id="panelFilterBar" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0 4px">
+        <input id="pflt_code" class="inp sm" placeholder="🔍 Search code…" style="min-width:160px;flex:1;max-width:220px">
+        <select id="pflt_fam" class="inp sm" style="min-width:110px">
+          <option value="">All Families</option>
+          ${[...new Set(TYPES.map(t=>t.fam))].sort().map(f=>`<option value="${f}">${f}</option>`).join("")}
+        </select>
+        <select id="pflt_fl" class="inp sm" style="min-width:110px">
+          <option value="">All Floors</option>
+          ${[...new Set(TYPES.map(t=>t.fl||"").filter(Boolean))].sort().map(f=>`<option value="${f}">${f}</option>`).join("")}
+        </select>
+        <select id="pflt_src" class="inp sm" style="min-width:130px">
+          <option value="">All Sources</option>
+          <option value="in">In-House</option>
+          <option value="out">By Others</option>
+        </select>
+        <span id="pflt_count" style="font-size:11px;color:#6b7280;margin-left:4px"></span>
+        <button class="btn sm" id="pflt_reset" style="margin-left:auto">✕ Clear</button>
+      </div>
       <div id="addPanelForm" style="display:none;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px;margin:8px 0">
         <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;align-items:end">
           <label style="font-size:11px;color:#6b7280">Code<input id="np_code" class="inp sm" placeholder="e.g. GF-WL-99" style="width:100%"></label>
@@ -3132,6 +3150,36 @@ function bindData(){
       setMeta(inp.dataset.code, inp.dataset.meta, inp.value);
     };
   });
+  // ── Panel table filters ─────────────────────────────────────
+  (function wirePanelFilters(){
+    const fCode=$('#pflt_code'), fFam=$('#pflt_fam'), fFl=$('#pflt_fl'), fSrc=$('#pflt_src');
+    const countEl=$('#pflt_count'), resetBtn=$('#pflt_reset');
+    if(!fCode) return;
+    function applyFilters(){
+      const code=(fCode.value||'').trim().toLowerCase();
+      const fam=fFam.value, fl=fFl.value, src=fSrc.value;
+      const rows=$$('#view .tbl tbody tr');
+      let vis=0;
+      rows.forEach(tr=>{
+        const cells=tr.querySelectorAll('td');
+        if(cells.length<4){tr.style.display='';return;}
+        const rowCode=(cells[1].textContent||'').toLowerCase();
+        const rowFam=(cells[2].textContent||'').trim();
+        const rowFl=(cells[3].textContent||'').trim();
+        const rowSrc=(cells[cells.length-2].textContent||'').trim();
+        const matchCode=!code||rowCode.includes(code);
+        const matchFam=!fam||rowFam===fam;
+        const matchFl=!fl||rowFl===fl;
+        const matchSrc=!src||(src==='in'&&rowSrc==='In-House')||(src==='out'&&rowSrc==='By Others');
+        const show=matchCode&&matchFam&&matchFl&&matchSrc;
+        tr.style.display=show?'':'none';
+        if(show) vis++;
+      });
+      if(countEl) countEl.textContent=vis<rows.length?`${vis} of ${rows.length} shown`:'';
+    }
+    [fCode,fFam,fFl,fSrc].forEach(el=>{ el.oninput=applyFilters; el.onchange=applyFilters; });
+    if(resetBtn) resetBtn.onclick=()=>{ fCode.value=''; fFam.value=''; fFl.value=''; fSrc.value=''; applyFilters(); };
+  })();
   // Add Panel form toggle
   const addBtn = $("#addPanelBtn"), addForm = $("#addPanelForm");
   if(addBtn) addBtn.onclick = ()=>{
