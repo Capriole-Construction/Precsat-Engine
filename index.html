@@ -3374,8 +3374,8 @@ function refreshFloorSelectors(){
   }
   updateUI();
 }
-refreshFloorSelectors();
-render();
+try { refreshFloorSelectors(); } catch(e) { console.warn('refreshFloorSelectors:', e); }
+try { render(); } catch(e) { console.warn('render:', e); }
 
 // ============================================================
 // PROJECTS — ownCloud cloud save/load (mirrors Cost Builder)
