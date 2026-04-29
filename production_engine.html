@@ -3256,6 +3256,23 @@ window.pfShowHome = pfShowHome;
 window.pfShowApp  = pfShowApp;
 window.pfHomeLoadFile = pfHomeLoadFile;
 
+// ---- Patch metadata (Project No, Building No, etc.) stored in _pf_meta.json ----
+function _pfMetaUrl(cfg){ return _pfFolderUrl(cfg)+'_pf_meta.json'; }
+function _pfGetMeta(cfg){
+  return fetch(_pfWrap(_pfMetaUrl(cfg)),{headers:{'Authorization':_pfAuth(cfg)}})
+    .then(r=>{ if(r.status===404) return {}; if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .catch(()=>({}));
+}
+function _pfPutMeta(cfg, meta){
+  return fetch(_pfWrap(_pfMetaUrl(cfg)),{
+    method:'PUT', headers:{'Authorization':_pfAuth(cfg),'Content-Type':'application/json'},
+    body:JSON.stringify(meta)
+  }).then(r=>{ if(!r.ok&&r.status!==201&&r.status!==204) throw new Error('Meta save HTTP '+r.status); });
+}
+
+window._pfPatches = [];   // live list used for re-render
+window._pfMeta    = {};   // {filename: {projNo,buildingNo,nosOfBuildings,floorNo}}
+
 // ---- PROPFIND-based folder listing (like Cost Builder) ----
 function _pfPropfindList(cfg){
   const folderUrl = _pfFolderUrl(cfg);
@@ -3300,47 +3317,127 @@ function _pfCardHtml(p, idx){
   let modStr = '';
   if(p.modified){ try{ modStr = new Date(p.modified).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }catch(e){} }
 
-  // Metrics block — populated after async fetch
-  const bld  = p.BUILDINGS||'—';
+  const m = window._pfMeta[name]||{};
+  const projNo   = m.projNo||'';
+  const buildNo  = m.buildingNo||'';
+  const nosB     = m.nosOfBuildings||'';
+  const floorNo  = m.floorNo||'';
+
+  const bld   = p.BUILDINGS||'—';
   const types = p.typeCount!=null ? p.typeCount : '—';
-  const pieces = p.pieces!=null ? p.pieces : '—';
+  const pieces= p.pieces!=null ? p.pieces : '—';
   const wdays = p.workingDays!=null ? p.workingDays : '—';
   const start = p.startDate||'';
   const end   = p.endDate||'';
   const conc  = p.totalConc!=null ? p.totalConc.toFixed(1)+' m³' : '—';
 
   const metrics = [
-    {l:'Buildings', v:bld,    c:'#1e3a5f'},
+    {l:'Buildings',  v:bld,   c:'#1e3a5f'},
     {l:'Panel Types',v:types, c:'#1e3a5f'},
-    {l:'Pieces',    v:pieces, c:'#0891b2'},
-    {l:'Work Days', v:wdays,  c:'#059669'},
-    {l:'Start',     v:start,  c:'#b45309'},
-    {l:'Finish',    v:end,    c:'#7c3aed'},
-    {l:'Concrete',  v:conc,   c:'#1e3a5f'},
+    {l:'Pieces',     v:pieces,c:'#0891b2'},
+    {l:'Work Days',  v:wdays, c:'#059669'},
+    {l:'Start',      v:start, c:'#b45309'},
+    {l:'Finish',     v:end,   c:'#7c3aed'},
+    {l:'Concrete',   v:conc,  c:'#1e3a5f'},
   ];
 
-  const metricsHtml = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:10px 0 10px;background:#f8fafc;border-radius:8px;padding:8px 6px">'
+  const metricsHtml = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:10px 0 8px;background:#f8fafc;border-radius:8px;padding:8px 6px">'
     + metrics.map(m=>`<div style="text-align:center;min-width:0">
         <div style="font-size:7.5px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.l}</div>
         <div style="font-size:10px;font-weight:700;color:${m.c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.v}</div>
       </div>`).join('')
     + '</div>';
 
-  return `<div id="pf-card-${idx}" onclick="_pfHomeOpenProject('${encodeURIComponent(url)}','${encodeURIComponent(name)}')"
-    style="cursor:pointer;padding:16px;border-radius:12px;background:#fff;border:1.5px solid #e2e8f0;transition:all .15s;position:relative"
-    onmouseover="this.style.borderColor='#3b82f6';this.style.boxShadow='0 6px 18px rgba(59,130,246,.15)';this.style.transform='translateY(-2px)'"
-    onmouseout="this.style.borderColor='#e2e8f0';this.style.boxShadow='';this.style.transform=''">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-      <span style="font-size:20px">🏗</span>
-      <span style="font-size:13px;font-weight:700;color:#1e3a5f;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title)}</span>
+  // Project detail pills (only shown when set)
+  const pills = [
+    projNo  && `<span style="background:#eff6ff;color:#1e40af;padding:2px 7px;border-radius:10px;font-size:9.5px;font-weight:600">📋 ${esc(projNo)}</span>`,
+    buildNo && `<span style="background:#f0fdf4;color:#166534;padding:2px 7px;border-radius:10px;font-size:9.5px;font-weight:600">🏢 Bldg ${esc(buildNo)}</span>`,
+    nosB    && `<span style="background:#fefce8;color:#854d0e;padding:2px 7px;border-radius:10px;font-size:9.5px;font-weight:600">× ${esc(nosB)} Bldgs</span>`,
+    floorNo && `<span style="background:#fdf4ff;color:#6b21a8;padding:2px 7px;border-radius:10px;font-size:9.5px;font-weight:600">⬆ Fl ${esc(floorNo)}</span>`,
+  ].filter(Boolean);
+  const pillsHtml = pills.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${pills.join('')}</div>` : '';
+
+  return `<div id="pf-card-${idx}" style="border-radius:12px;background:#fff;border:1.5px solid #e2e8f0;transition:border-color .15s,box-shadow .15s;position:relative;overflow:hidden">
+    <div onclick="_pfHomeOpenProject('${encodeURIComponent(url)}','${encodeURIComponent(name)}')"
+      style="cursor:pointer;padding:16px 16px 12px"
+      onmouseover="this.parentElement.style.borderColor='#3b82f6';this.parentElement.style.boxShadow='0 6px 18px rgba(59,130,246,.15)'"
+      onmouseout="this.parentElement.style.borderColor='#e2e8f0';this.parentElement.style.boxShadow=''">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="font-size:20px">🏗</span>
+        <span style="font-size:13px;font-weight:700;color:#1e3a5f;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title)}</span>
+        <button onclick="event.stopPropagation();_pfOpenCardEdit(${idx})"
+          style="flex-shrink:0;background:none;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;padding:3px 7px;font-size:11px;color:#64748b"
+          title="Edit details">✏️ Edit</button>
+      </div>
+      ${pillsHtml}
+      ${metricsHtml}
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:6px">
+        ${modStr?`<span>🕐 ${modStr}</span>`:'<span></span>'}
+        <span style="color:#2563eb;font-weight:600">Open →</span>
+      </div>
     </div>
-    ${metricsHtml}
-    <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:6px">
-      ${modStr?`<span>🕐 ${modStr}</span>`:'<span></span>'}
-      <span style="color:#2563eb;font-weight:600">Open →</span>
+    <div id="pf-edit-${idx}" style="display:none;padding:14px 16px;border-top:1px solid #e2e8f0;background:#f8fafc">
+      <div style="font-size:11px;font-weight:700;color:#1e3a5f;margin-bottom:10px">Edit Details</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div>
+          <div style="font-size:9.5px;font-weight:600;color:#64748b;margin-bottom:3px;text-transform:uppercase">Project No.</div>
+          <input id="pf-ed-projNo-${idx}" value="${esc(projNo)}" placeholder="e.g. PRJ-001"
+            style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:inherit">
+        </div>
+        <div>
+          <div style="font-size:9.5px;font-weight:600;color:#64748b;margin-bottom:3px;text-transform:uppercase">Building No.</div>
+          <input id="pf-ed-buildNo-${idx}" value="${esc(buildNo)}" placeholder="e.g. B-01"
+            style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:inherit">
+        </div>
+        <div>
+          <div style="font-size:9.5px;font-weight:600;color:#64748b;margin-bottom:3px;text-transform:uppercase">Nos of Buildings</div>
+          <input id="pf-ed-nosB-${idx}" value="${esc(nosB)}" placeholder="e.g. 16" type="number" min="1"
+            style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:inherit">
+        </div>
+        <div>
+          <div style="font-size:9.5px;font-weight:600;color:#64748b;margin-bottom:3px;text-transform:uppercase">Floor No.</div>
+          <input id="pf-ed-floorNo-${idx}" value="${esc(floorNo)}" placeholder="e.g. GF+FF"
+            style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:inherit">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="_pfCloseCardEdit(${idx})"
+          style="padding:5px 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;font-size:11px;cursor:pointer;font-family:inherit">Cancel</button>
+        <button onclick="_pfSaveCardMeta(${idx},'${encodeURIComponent(name)}')"
+          style="padding:5px 12px;border:none;border-radius:6px;background:#1e3a5f;color:#fff;font-size:11px;cursor:pointer;font-weight:600;font-family:inherit">💾 Save</button>
+      </div>
     </div>
   </div>`;
 }
+
+window._pfOpenCardEdit = function(idx){
+  const ed = document.getElementById('pf-edit-'+idx);
+  if(ed) ed.style.display = ed.style.display==='none'?'block':'none';
+};
+window._pfCloseCardEdit = function(idx){
+  const ed = document.getElementById('pf-edit-'+idx);
+  if(ed) ed.style.display = 'none';
+};
+window._pfSaveCardMeta = function(idx, encName){
+  const name = decodeURIComponent(encName);
+  const g = id => (document.getElementById(id)||{}).value||'';
+  const entry = {
+    projNo:         g('pf-ed-projNo-'+idx).trim(),
+    buildingNo:     g('pf-ed-buildNo-'+idx).trim(),
+    nosOfBuildings: g('pf-ed-nosB-'+idx).trim(),
+    floorNo:        g('pf-ed-floorNo-'+idx).trim()
+  };
+  _pfLoad(); const cfg = window._pfConfig;
+  window._pfMeta[name] = entry;
+  _pfPutMeta(cfg, window._pfMeta)
+    .then(()=>{
+      _pfToast('✓ Details saved','ok');
+      // Re-render just this card
+      const p = window._pfPatches[idx];
+      if(p){ const card=document.getElementById('pf-card-'+idx); if(card) card.outerHTML=_pfCardHtml(p,idx); }
+    })
+    .catch(e=>_pfToast('✗ '+e.message,'err'));
+};
 
 // ---- Home screen refresh — uses PROPFIND, enriches cards from file data ----
 function _pfRefreshHome(){
@@ -3350,21 +3447,22 @@ function _pfRefreshHome(){
   if(!statEl||!listEl) return;
   if(!cfg.ocUser||!cfg.ocPass){
     statEl.innerHTML = `Not signed in — <span onclick="window._pfOpenSettings()" style="cursor:pointer;color:#1e3a5f;font-weight:700;text-decoration:underline">🔐 Sign In</span> to connect to your running patches`;
-    listEl.innerHTML = "";
-    return;
+    listEl.innerHTML = ""; return;
   }
   statEl.textContent = "⏳ Loading patches…";
   listEl.innerHTML = `<div style="grid-column:1/-1;padding:28px;text-align:center;color:#64748b;font-size:12px">⏳ Loading…</div>`;
 
-  _pfPropfindList(cfg).then(arr=>{
+  // Load file list + metadata in parallel
+  Promise.all([_pfPropfindList(cfg), _pfGetMeta(cfg)]).then(([arr, meta])=>{
+    window._pfMeta = meta||{};
     if(!arr.length){
       statEl.textContent = `✓ Connected — no running patches yet in ${cfg.ocFolder}`;
       listEl.innerHTML = `<div style="grid-column:1/-1;padding:28px;text-align:center;color:#94a3b8;font-size:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">No running patches found. Save a patch from the sidebar to get started.</div>`;
       return;
     }
     arr.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:"base"}));
+    window._pfPatches = arr;
     statEl.innerHTML = `✓ <strong>${arr.length}</strong> running patch${arr.length>1?"es":""}`;
-    // Render skeleton cards immediately
     listEl.innerHTML = arr.map((p,i)=>_pfCardHtml(p,i)).join("");
     // Enrich each card by fetching snapshot data
     arr.forEach((p,i)=>{
@@ -3383,6 +3481,7 @@ function _pfRefreshHome(){
             p.endDate     = sch.endDate     || (sch.days&&sch.days.length?sch.days[sch.days.length-1].date:'');
             p.totalConc   = sch.totalConcrete || sch.totalConc || null;
           }
+          window._pfPatches[i] = p;
           const card = document.getElementById('pf-card-'+i);
           if(card) card.outerHTML = _pfCardHtml(p,i);
         }).catch(()=>{});
@@ -3392,10 +3491,22 @@ function _pfRefreshHome(){
     listEl.innerHTML = `<div style="grid-column:1/-1;padding:28px;text-align:center;color:#dc2626;font-size:12px;background:#fef2f2;border:1px dashed #fca5a5;border-radius:10px">Failed to load — ${esc(e.message)}</div>`;
   });
 }
+
+// Open patch in same page — load data then show engine tabs
 window._pfHomeOpenProject = function(encUrl, encName){
-  // Open project in a new tab, passing cloud URL as query param
-  const pageUrl = window.location.href.split('?')[0];
-  window.open(pageUrl + '?pf_load=' + encUrl + '&pf_name=' + encName, '_blank');
+  const url = decodeURIComponent(encUrl), name = decodeURIComponent(encName);
+  _pfLoad(); const cfg = window._pfConfig;
+  _pfToast("⏳ Opening "+name.replace(/\.pfproj$/i,'')+"…","info");
+  fetch(_pfWrap(url),{headers:{"Authorization":_pfAuth(cfg)}})
+    .then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+    .then(snap=>{
+      if(restoreProjectSnapshot(snap)){
+        window._pfProjectSource = {type:"cloud", url, name};
+        const cfgNameEl = $("#cfgName"); if(cfgNameEl) cfgNameEl.value = name.replace(/\.pfproj$/i,"");
+        _pfToast("✓ Opened: "+name.replace(/\.pfproj$/i,''),"ok");
+        pfShowApp();
+      }
+    }).catch(e=>_pfToast("✗ "+e.message,"err"));
 };
 
 // ============================================================
@@ -3778,27 +3889,6 @@ if($("#cfgFileInput")){
 
   _pfRefresh();
 
-  // Auto-load project from query param (set when opening from home screen card)
-  const _qp = new URLSearchParams(window.location.search);
-  const _qLoad = _qp.get('pf_load'), _qName = _qp.get('pf_name');
-  if(_qLoad && _qName){
-    const _url = decodeURIComponent(_qLoad), _name = decodeURIComponent(_qName);
-    _pfLoad();
-    const _cfg = window._pfConfig;
-    _pfToast("⏳ Opening "+_name+"…","info");
-    fetch(_pfWrap(_url),{headers:{"Authorization":_pfAuth(_cfg)}})
-      .then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
-      .then(snap=>{
-        if(restoreProjectSnapshot(snap)){
-          window._pfProjectSource={type:"cloud",url:_url,name:_name};
-          const cfgNameEl=$("#cfgName"); if(cfgNameEl) cfgNameEl.value=_name.replace(/\.pfproj$/i,"");
-          _pfToast("✓ Opened: "+_name,"ok");
-          if(typeof pfShowApp==="function") pfShowApp();
-          // Remove query params from URL without reloading
-          history.replaceState({},"",window.location.pathname);
-        }
-      }).catch(e=>_pfToast("✗ Could not open patch: "+e.message,"err"));
-  }
 })();
 
 function refreshSidebarCounts(){
