@@ -3434,11 +3434,31 @@ window._pfCloseSettings=_pfCloseSettings;
 window._pfSaveSettings=_pfSaveSettings;
 window._pfTest=_pfTest;
 
+function _pfMkCol(cfg, path){
+  const base=(cfg.ocServer||"").replace(/\/$/,"")+"/remote.php/webdav";
+  const enc=path.split("/").map(p=>p?encodeURIComponent(p):p).join("/");
+  const url=base+enc;
+  return fetch(_pfWrap(url),{method:"MKCOL",headers:{"Authorization":_pfAuth(cfg)}})
+    .then(r=>r.status); // 201=created, 405=already exists, other=error
+}
+function _pfEnsureFolder(cfg){
+  // Create parent then child folder (ignore 405 = already exists)
+  const parts=(cfg.ocFolder||"/").split("/").filter(Boolean);
+  const tasks=parts.map((_,i)=>"/"+parts.slice(0,i+1).join("/"));
+  return tasks.reduce((p,path)=>p.then(()=>_pfMkCol(cfg,path).then(s=>{ if(s>=400&&s!==405) throw new Error("Cannot create folder (HTTP "+s+")"); })),Promise.resolve());
+}
 function _pfWebDavList(cfg){
   const folderUrl=_pfFolderUrl(cfg);
   const body=`<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/><d:getcontentlength/><d:getlastmodified/></d:prop></d:propfind>`;
-  return fetch(_pfWrap(folderUrl),{method:"PROPFIND",headers:{"Authorization":_pfAuth(cfg),"Depth":"1","Content-Type":"application/xml"},body})
-    .then(r=>{ if(r.status===401) throw new Error("Auth failed — check username / app password"); if(r.status===404) throw new Error("Folder not found: "+cfg.ocFolder); if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
+  const doList=()=>fetch(_pfWrap(folderUrl),{method:"PROPFIND",headers:{"Authorization":_pfAuth(cfg),"Depth":"1","Content-Type":"application/xml"},body})
+    .then(r=>{ if(r.status===401) throw new Error("Auth failed — check username / app password"); if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); });
+  return doList().catch(e=>{
+    // If 404 or 405 the folder may not exist yet — auto-create and retry
+    if(e.message==="HTTP 404"||e.message==="HTTP 405"){
+      return _pfEnsureFolder(cfg).then(doList);
+    }
+    throw e;
+  })
     .then(xml=>{
       const doc=new DOMParser().parseFromString(xml,"application/xml");
       const NS="DAV:";
