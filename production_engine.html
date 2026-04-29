@@ -242,7 +242,7 @@
   <span class="badge">v1.0</span>
 </div>
 
-<div class="app">
+<div class="app home-mode">
   <!-- SIDEBAR -->
   <div class="sidebar">
     <div class="sb-section">
@@ -356,19 +356,19 @@
       <!-- Body: cloud projects left, capabilities right -->
       <div style="flex:1;display:grid;grid-template-columns:1fr 320px;overflow:hidden">
 
-        <!-- LEFT: Cloud projects -->
+        <!-- LEFT: Running Patches -->
         <div style="padding:28px 32px;overflow-y:auto;border-right:1px solid #e2e8f0;display:flex;flex-direction:column">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0">
             <div style="font-size:13px;font-weight:700;color:#1e3a5f">☁ Running Patches</div>
             <div style="display:flex;gap:8px">
-              <button onclick="_pfRefresh()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;font-size:11px;font-weight:600;font-family:inherit">🔄 Refresh</button>
+              <button onclick="_pfRefreshHome()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;font-size:11px;font-weight:600;font-family:inherit">🔄 Refresh</button>
               <button onclick="window._pfOpenSettings()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#1e3a5f;color:#fff;border:none;font-size:11px;font-weight:600;font-family:inherit">🔐 Sign In</button>
             </div>
           </div>
           <div id="pfHomeCloudStatus" style="font-size:11px;color:#64748b;margin-bottom:16px">
             Not signed in — <span onclick="window._pfOpenSettings()" style="cursor:pointer;color:#1e3a5f;font-weight:700;text-decoration:underline">🔐 Sign In</span> to connect to your cloud running patches
           </div>
-          <div id="pfHomeCloudList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px"></div>
+          <div id="pfHomeCloudList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px"></div>
         </div>
 
         <!-- RIGHT: Capabilities -->
@@ -398,7 +398,7 @@
             <div style="padding:12px 14px;border-radius:10px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.04)">
               <div style="font-size:18px">☁</div>
               <div style="font-size:12px;font-weight:700;color:#1e3a5f;margin-top:5px">Cloud Save &amp; Load</div>
-              <div style="font-size:10.5px;color:#64748b;margin-top:3px;line-height:1.45">Save full projects (data + schedule) to Capriole ownCloud and open from anywhere.</div>
+              <div style="font-size:10.5px;color:#64748b;margin-top:3px;line-height:1.45">Save full patches to Capriole ownCloud and open from anywhere.</div>
             </div>
           </div>
         </div>
@@ -3256,7 +3256,93 @@ window.pfShowHome = pfShowHome;
 window.pfShowApp  = pfShowApp;
 window.pfHomeLoadFile = pfHomeLoadFile;
 
-// Populate the home screen cloud project grid (mirrors sidebar list but as cards)
+// ---- PROPFIND-based folder listing (like Cost Builder) ----
+function _pfPropfindList(cfg){
+  const folderUrl = _pfFolderUrl(cfg);
+  const body = '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/><d:getcontentlength/><d:getlastmodified/></d:prop></d:propfind>';
+  return fetch(_pfWrap(folderUrl),{
+    method:'PROPFIND',
+    headers:{'Authorization':_pfAuth(cfg),'Depth':'1','Content-Type':'application/xml'},
+    body
+  }).then(r=>{
+    if(r.status===401) throw new Error('Auth failed — check username / app password');
+    if(r.status===404) throw new Error('Folder not found: '+cfg.ocFolder);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.text();
+  }).then(xml=>{
+    const doc = new DOMParser().parseFromString(xml,'application/xml');
+    const ns = 'DAV:';
+    const get = (el,tag) => el.getElementsByTagNameNS(ns,tag)[0] || el.getElementsByTagName('d:'+tag)[0];
+    const responses = doc.getElementsByTagNameNS(ns,'response').length
+      ? doc.getElementsByTagNameNS(ns,'response')
+      : doc.getElementsByTagName('d:response');
+    const origin = (cfg.ocServer||'').replace(/\/$/,'');
+    const out = [];
+    for(let i=0;i<responses.length;i++){
+      const resp = responses[i];
+      const hrefEl = get(resp,'href'); if(!hrefEl) continue;
+      const href = hrefEl.textContent;
+      if(!/\.pfproj$/i.test(href)) continue;
+      const name = decodeURIComponent(href.split('/').filter(Boolean).pop()||'');
+      const modEl = get(resp,'getlastmodified');
+      const fullUrl = /^https?:\/\//i.test(href) ? href : origin+href;
+      out.push({name, url:fullUrl, modified:modEl?modEl.textContent:''});
+    }
+    return out;
+  });
+}
+
+// ---- Rich patch card HTML ----
+function _pfCardHtml(p, idx){
+  const name = p.name||'patch';
+  const url  = p.url||'';
+  const title = name.replace(/\.pfproj$/i,'');
+  let modStr = '';
+  if(p.modified){ try{ modStr = new Date(p.modified).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }catch(e){} }
+
+  // Metrics block — populated after async fetch
+  const bld  = p.BUILDINGS||'—';
+  const types = p.typeCount!=null ? p.typeCount : '—';
+  const pieces = p.pieces!=null ? p.pieces : '—';
+  const wdays = p.workingDays!=null ? p.workingDays : '—';
+  const start = p.startDate||'';
+  const end   = p.endDate||'';
+  const conc  = p.totalConc!=null ? p.totalConc.toFixed(1)+' m³' : '—';
+
+  const metrics = [
+    {l:'Buildings', v:bld,    c:'#1e3a5f'},
+    {l:'Panel Types',v:types, c:'#1e3a5f'},
+    {l:'Pieces',    v:pieces, c:'#0891b2'},
+    {l:'Work Days', v:wdays,  c:'#059669'},
+    {l:'Start',     v:start,  c:'#b45309'},
+    {l:'Finish',    v:end,    c:'#7c3aed'},
+    {l:'Concrete',  v:conc,   c:'#1e3a5f'},
+  ];
+
+  const metricsHtml = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:10px 0 10px;background:#f8fafc;border-radius:8px;padding:8px 6px">'
+    + metrics.map(m=>`<div style="text-align:center;min-width:0">
+        <div style="font-size:7.5px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.l}</div>
+        <div style="font-size:10px;font-weight:700;color:${m.c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.v}</div>
+      </div>`).join('')
+    + '</div>';
+
+  return `<div id="pf-card-${idx}" onclick="_pfHomeOpenProject('${encodeURIComponent(url)}','${encodeURIComponent(name)}')"
+    style="cursor:pointer;padding:16px;border-radius:12px;background:#fff;border:1.5px solid #e2e8f0;transition:all .15s;position:relative"
+    onmouseover="this.style.borderColor='#3b82f6';this.style.boxShadow='0 6px 18px rgba(59,130,246,.15)';this.style.transform='translateY(-2px)'"
+    onmouseout="this.style.borderColor='#e2e8f0';this.style.boxShadow='';this.style.transform=''">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <span style="font-size:20px">🏗</span>
+      <span style="font-size:13px;font-weight:700;color:#1e3a5f;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title)}</span>
+    </div>
+    ${metricsHtml}
+    <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:6px">
+      ${modStr?`<span>🕐 ${modStr}</span>`:'<span></span>'}
+      <span style="color:#2563eb;font-weight:600">Open →</span>
+    </div>
+  </div>`;
+}
+
+// ---- Home screen refresh — uses PROPFIND, enriches cards from file data ----
 function _pfRefreshHome(){
   _pfLoad();
   const cfg = window._pfConfig;
@@ -3267,31 +3353,43 @@ function _pfRefreshHome(){
     listEl.innerHTML = "";
     return;
   }
-  statEl.textContent = "⏳ Loading projects…";
-  listEl.innerHTML = "";
-  _pfWebDavList(cfg).then(arr=>{
+  statEl.textContent = "⏳ Loading patches…";
+  listEl.innerHTML = `<div style="grid-column:1/-1;padding:28px;text-align:center;color:#64748b;font-size:12px">⏳ Loading…</div>`;
+
+  _pfPropfindList(cfg).then(arr=>{
     if(!arr.length){
       statEl.textContent = `✓ Connected — no running patches yet in ${cfg.ocFolder}`;
-      listEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:24px 0">No running patches found. Save a patch from the sidebar to get started.</div>`;
+      listEl.innerHTML = `<div style="grid-column:1/-1;padding:28px;text-align:center;color:#94a3b8;font-size:12px;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px">No running patches found. Save a patch from the sidebar to get started.</div>`;
       return;
     }
     arr.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:"base"}));
-    statEl.innerHTML = `✓ <strong>${arr.length}</strong> project${arr.length>1?"s":""}`;
-    listEl.innerHTML = arr.map(p=>{
-      const title = p.name.replace(/\.pfproj$/i,"");
-      const date  = p.modified ? new Date(p.modified).toLocaleDateString() : "";
-      return `<div onclick="_pfHomeOpenProject('${encodeURIComponent(p.url)}','${encodeURIComponent(p.name)}')"
-                   style="cursor:pointer;padding:16px;border-radius:10px;background:#fff;border:1.5px solid #e2e8f0;transition:all .15s"
-                   onmouseover="this.style.borderColor='#3b82f6';this.style.boxShadow='0 6px 18px rgba(59,130,246,.15)';this.style.transform='translateY(-2px)'"
-                   onmouseout="this.style.borderColor='#e2e8f0';this.style.boxShadow='';this.style.transform=''">
-        <div style="font-size:22px;margin-bottom:6px">📁</div>
-        <div style="font-size:13px;font-weight:700;color:#1e3a5f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title)}</div>
-        ${date?`<div style="font-size:10px;color:#94a3b8;margin-top:4px">${date}</div>`:""}
-      </div>`;
-    }).join("");
+    statEl.innerHTML = `✓ <strong>${arr.length}</strong> running patch${arr.length>1?"es":""}`;
+    // Render skeleton cards immediately
+    listEl.innerHTML = arr.map((p,i)=>_pfCardHtml(p,i)).join("");
+    // Enrich each card by fetching snapshot data
+    arr.forEach((p,i)=>{
+      fetch(_pfWrap(p.url),{headers:{"Authorization":_pfAuth(cfg)}})
+        .then(r=>r.ok?r.json():null)
+        .then(snap=>{
+          if(!snap) return;
+          const inH = (snap.TYPES||[]).filter(t=>t.supplier!=="By Others"&&!t.byOthers);
+          p.BUILDINGS   = snap.BUILDINGS||'—';
+          p.typeCount   = (snap.TYPES||[]).length;
+          p.pieces      = inH.length && snap.BUILDINGS ? inH.length * snap.BUILDINGS : '—';
+          const sch = snap.schedule;
+          if(sch){
+            p.workingDays = sch.workingDays || (sch.days ? sch.days.length : null);
+            p.startDate   = sch.startDate   || (sch.days&&sch.days[0]?sch.days[0].date:'');
+            p.endDate     = sch.endDate     || (sch.days&&sch.days.length?sch.days[sch.days.length-1].date:'');
+            p.totalConc   = sch.totalConcrete || sch.totalConc || null;
+          }
+          const card = document.getElementById('pf-card-'+i);
+          if(card) card.outerHTML = _pfCardHtml(p,i);
+        }).catch(()=>{});
+    });
   }).catch(e=>{
     statEl.innerHTML = `<span style="color:#dc2626">✗ ${esc(e.message)}</span>`;
-    listEl.innerHTML = "";
+    listEl.innerHTML = `<div style="grid-column:1/-1;padding:28px;text-align:center;color:#dc2626;font-size:12px;background:#fef2f2;border:1px dashed #fca5a5;border-radius:10px">Failed to load — ${esc(e.message)}</div>`;
   });
 }
 window._pfHomeOpenProject = function(encUrl, encName){
