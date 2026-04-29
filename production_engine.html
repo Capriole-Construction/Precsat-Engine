@@ -3268,6 +3268,50 @@ function bindOrders(){
 }
 
 // ── Redistribute Pending Cells ────────────────────────────────
+
+// Compact each slot's cell timeline starting from startIso with no idle gaps.
+// Preserves the engine's cells-per-day grouping but eliminates blank days left
+// after discarding excess cells during the building-number remap step.
+function _pfCompactSlots(sched, startIso){
+  const weekend = sched.params && sched.params.weekend;
+  sched.slotAssignments.forEach(sl=>{
+    const cells = sched.allCells
+      .filter(c=>c.slotId===sl.slotId)
+      .sort((a,b)=>a.dateIso.localeCompare(b.dateIso)||a.b-b.b);
+    if(!cells.length) return;
+
+    // Extract the per-day cell count as the engine left it (after remap + discard)
+    const groups=[];
+    let prevD=null, cnt=0;
+    cells.forEach(c=>{
+      if(c.dateIso!==prevD){ if(prevD!==null) groups.push(cnt); prevD=c.dateIso; cnt=1; }
+      else cnt++;
+    });
+    if(prevD!==null) groups.push(cnt);
+
+    // Re-date cells consecutively from startIso, no gaps
+    const d = new Date(startIso+'T00:00:00');
+    if(!weekend) while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()+1);
+    let ci=0;
+    groups.forEach(count=>{
+      const iso = d.toISOString().split('T')[0];
+      for(let i=0;i<count;i++){ cells[ci].dateIso=iso; ci++; }
+      d.setDate(d.getDate()+1);
+      if(!weekend) while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()+1);
+    });
+  });
+
+  // Rebuild cellsByDate from the updated dateIso values
+  sched.cellsByDate={};
+  sched.allCells.forEach(c=>{
+    if(!sched.cellsByDate[c.dateIso]) sched.cellsByDate[c.dateIso]={};
+    const sid=c.slotId||'_';
+    if(!sched.cellsByDate[c.dateIso][sid]) sched.cellsByDate[c.dateIso][sid]=[];
+    sched.cellsByDate[c.dateIso][sid].push(c);
+  });
+  sched.allDates=Object.keys(sched.cellsByDate).sort();
+}
+
 function _nextWorkDay(dateStr){
   const weekend = schedule && schedule.params && schedule.params.weekend;
   const d = new Date(dateStr+'T00:00:00');
@@ -3284,8 +3328,18 @@ async function redistributePendingCells(){
 
   if(!pendingCells.length){ _pfToast('All panels are already marked ✓ Cast','info'); return; }
 
-  const pendingTypeSet     = new Set(pendingCells.map(c=>c.type));
-  const pendingBuildingSet = new Set(pendingCells.map(c=>c.b));
+  const pendingTypeSet = new Set(pendingCells.map(c=>c.type));
+
+  // Per-type sorted list of pending building numbers (excludes cast buildings)
+  const pendingByType = {};
+  pendingCells.forEach(c=>{
+    if(!pendingByType[c.type]) pendingByType[c.type]=new Set();
+    pendingByType[c.type].add(c.b);
+  });
+  Object.keys(pendingByType).forEach(t=>{ pendingByType[t]=[...pendingByType[t]].sort((a,b)=>a-b); });
+
+  // BUILDINGS = max pending-building count so engine creates enough slots per type
+  const maxPendingCount = Math.max(...Object.values(pendingByType).map(a=>a.length));
 
   // Start: day after latest cast date, or today
   let startDate;
@@ -3301,9 +3355,8 @@ async function redistributePendingCells(){
   const savedBuildings = BUILDINGS;
   const savedStart    = ($("#pStart")||{}).value||'';
 
-  // Override for pending-only run
   TYPES     = TYPES.filter(t=>pendingTypeSet.has(t.code));
-  BUILDINGS = pendingBuildingSet.size;
+  BUILDINGS = maxPendingCount;
   if($("#pStart"))    $("#pStart").value    = startDate;
   if($("#pBuildings")) $("#pBuildings").value = BUILDINGS;
 
@@ -3316,6 +3369,24 @@ async function redistributePendingCells(){
   BUILDINGS = savedBuildings;
   if($("#pStart"))    $("#pStart").value    = savedStart;
   if($("#pBuildings")) $("#pBuildings").value = BUILDINGS;
+
+  // Remap engine building indices (1..N) → actual pending building numbers per type,
+  // and discard any excess cells (types with fewer pending buildings than maxPendingCount).
+  const remapped = [];
+  schedule.allCells.forEach(c=>{
+    const pb = pendingByType[c.type];
+    if(!pb){ remapped.push(c); return; }
+    const idx = c.b - 1; // engine uses 1-based indices
+    if(idx >= pb.length) return; // excess cell — this type had fewer pending buildings
+    c.b = pb[idx];  // replace engine building index with actual pending building number
+    remapped.push(c);
+  });
+  schedule.allCells = remapped;
+
+  // Compact each slot's timeline: re-date cells consecutively from startDate with no gaps.
+  // Discarding cells (types with fewer pending buildings) can leave idle days mid-slot;
+  // this step shifts subsequent cells forward to fill those gaps immediately.
+  _pfCompactSlots(schedule, startDate);
 
   // Merge cast cells back into the new schedule
   _cast.forEach(c=>{
@@ -4933,22 +5004,29 @@ async function reschedulePending(){
   const pendingCells = schedule.allCells.filter(c => getStatus(c) !== 'cast');
   if(!pendingCells.length){ _pfToast('No pending panels to reschedule','info'); return; }
 
-  const pendingTypeSet     = new Set(pendingCells.map(c => c.type));
-  const pendingBuildingSet = new Set(pendingCells.map(c => c.b));
+  const pendingTypeSet = new Set(pendingCells.map(c => c.type));
+
+  // Per-type sorted list of pending building numbers (skips cast buildings)
+  const pendingByType = {};
+  pendingCells.forEach(c => {
+    if(!pendingByType[c.type]) pendingByType[c.type] = new Set();
+    pendingByType[c.type].add(c.b);
+  });
+  Object.keys(pendingByType).forEach(t => { pendingByType[t] = [...pendingByType[t]].sort((a,b)=>a-b); });
+
+  const maxPendingCount = Math.max(...Object.values(pendingByType).map(a => a.length));
 
   // Save globals
   const savedTypes    = TYPES;
   const savedBuildings = BUILDINGS;
   const savedStart    = ($("#pStart")||{}).value || '';
 
-  // Override engine inputs for pending-only run
   TYPES     = TYPES.filter(t => pendingTypeSet.has(t.code));
-  BUILDINGS = pendingBuildingSet.size;
+  BUILDINGS = maxPendingCount;
   if($("#pStart"))    $("#pStart").value    = cutoff;
   if($("#pBuildings")) $("#pBuildings").value = BUILDINGS;
 
-  // Stash locked cells before runEngine overwrites schedule
-  const _locked = lockedCells.slice();
+  const _locked = lockedCells.slice();   // stash before runEngine overwrites schedule
 
   await runEngine();   // sets global schedule + renders
 
@@ -4958,7 +5036,23 @@ async function reschedulePending(){
   if($("#pStart"))    $("#pStart").value    = savedStart;
   if($("#pBuildings")) $("#pBuildings").value = BUILDINGS;
 
-  // Merge locked cells into the new schedule
+  // Remap engine building indices → actual pending building numbers per type,
+  // discarding excess cells (types with fewer pending buildings than maxPendingCount).
+  const remapped = [];
+  schedule.allCells.forEach(c => {
+    const pb = pendingByType[c.type];
+    if(!pb){ remapped.push(c); return; }
+    const idx = c.b - 1;
+    if(idx >= pb.length) return; // excess cell
+    c.b = pb[idx];
+    remapped.push(c);
+  });
+  schedule.allCells = remapped;
+
+  // Compact each slot's timeline from cutoff with no gaps (same as redistributePendingCells)
+  _pfCompactSlots(schedule, cutoff);
+
+  // Merge locked (cast) cells back into the new schedule
   _locked.forEach(c => {
     if(!schedule.cellsByDate[c.dateIso]) schedule.cellsByDate[c.dateIso] = {};
     const sid = c.slotId || 'locked';
