@@ -358,8 +358,20 @@
               <div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:8px;line-height:1.6">Schedule panels · Optimise casting tables · Track mould cycles · Export reports</div>
             </div>
           </div>
-          <div style="display:flex;flex-direction:column;gap:8px;min-width:200px">
-            <button onclick="_pfSetPatchTab((window._pfProjectSource&&window._pfProjectSource.name||'Current Project').replace(/\.pfproj$/i,''));pfShowApp();" style="cursor:pointer;padding:11px 22px;border-radius:8px;background:#fff;color:#1e3a5f;font-size:12px;font-weight:700;border:none;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.2)">▶ Open Engine</button>
+          <div style="display:flex;flex-direction:column;gap:8px;min-width:220px">
+            <button id="newPatchBtn" onclick="document.getElementById('newPatchForm').style.display=document.getElementById('newPatchForm').style.display==='none'?'flex':'none'" style="cursor:pointer;padding:11px 22px;border-radius:8px;background:#fff;color:#1e3a5f;font-size:12px;font-weight:700;border:none;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.2)">＋ Create New Patch</button>
+            <!-- New Patch inline form -->
+            <div id="newPatchForm" style="display:none;flex-direction:column;gap:8px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.3);border-radius:10px;padding:14px;backdrop-filter:blur(8px)">
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:#7dd3fc;margin-bottom:2px">NEW PATCH DETAILS</div>
+              <input id="np_patchName"    placeholder="Patch Name *" style="padding:7px 10px;border-radius:6px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;font-family:inherit;font-size:12px;outline:none" oninput="this.style.borderColor=this.value?'rgba(255,255,255,.5)':'#f87171'">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+                <input id="np_projNo"    placeholder="Project No." style="padding:7px 10px;border-radius:6px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:11px;outline:none">
+                <input id="np_buildNo"   placeholder="Building No." style="padding:7px 10px;border-radius:6px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:11px;outline:none">
+                <input id="np_nosBuilds" placeholder="No. of Buildings" style="padding:7px 10px;border-radius:6px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:11px;outline:none">
+                <input id="np_floorNo"   placeholder="Floor No." style="padding:7px 10px;border-radius:6px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:11px;outline:none">
+              </div>
+              <button onclick="window._pfCreateNewPatch()" style="padding:8px;border-radius:7px;background:#f59e0b;color:#1e3a5f;font-size:12px;font-weight:800;border:none;font-family:inherit;cursor:pointer;margin-top:2px">▶ Open Engine</button>
+            </div>
             <label style="cursor:pointer;padding:10px 22px;border-radius:8px;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.3);font-size:12px;font-weight:600;font-family:inherit;text-align:center;backdrop-filter:blur(6px)">
               📂 Open .pfproj<input type="file" accept=".pfproj,.json" style="display:none" onchange="pfHomeLoadFile(this.files[0]);this.value=''">
             </label>
@@ -3466,7 +3478,7 @@ ${filterParts.length?`<div class="filter-bar"><strong>Filtered by:</strong>${fil
 <table>
   <thead><tr>
     <th class="c" style="width:26px">#</th>
-    <th style="width:130px">Panel Code</th>
+    <th style="width:130px;text-align:left">Panel Code</th>
     <th class="c" style="width:46px">Family</th>
     <th class="c" style="width:38px">Floor</th>
     <th class="r" style="width:56px">Width<br><span style="font-weight:400;opacity:.7">(mm)</span></th>
@@ -3688,6 +3700,29 @@ function pfHomeLoadFile(file){
 window.pfShowHome = pfShowHome;
 window.pfShowApp  = pfShowApp;
 window.pfHomeLoadFile = pfHomeLoadFile;
+
+// ---- Create New Patch from home-screen form ----
+window._pfCreateNewPatch = function(){
+  const nameEl = document.getElementById('np_patchName');
+  const name   = (nameEl&&nameEl.value||'').trim();
+  if(!name){ if(nameEl) nameEl.style.borderColor='#f87171'; return; }
+  const projNo    = ((document.getElementById('np_projNo')||{}).value||'').trim();
+  const buildNo   = ((document.getElementById('np_buildNo')||{}).value||'').trim();
+  const nosBuilds = ((document.getElementById('np_nosBuilds')||{}).value||'').trim();
+  const floorNo   = ((document.getElementById('np_floorNo')||{}).value||'').trim();
+  // Store metadata locally
+  if(!window._pfMeta) window._pfMeta = {};
+  window._pfMeta[name+'.pfproj'] = { projNo, buildingNo:buildNo, nosOfBuildings:nosBuilds, floorNo };
+  try{ localStorage.setItem(PF_META_LS_KEY, JSON.stringify(window._pfMeta)); } catch(e){}
+  // Set as active project (type:"new" = not yet saved to cloud)
+  window._pfProjectSource = { type:'new', name: name+'.pfproj' };
+  const cfgNameEl = document.getElementById('cfgName');
+  if(cfgNameEl) cfgNameEl.value = name;
+  _pfSetPatchTab(name);
+  const form = document.getElementById('newPatchForm');
+  if(form) form.style.display = 'none';
+  pfShowApp();
+};
 
 // ---- Patch metadata — localStorage primary, cloud _pf_meta.json as sync ----
 var PF_META_LS_KEY = 'pf_patch_meta_v1';
@@ -3927,12 +3962,14 @@ function _pfRefreshHome(){
     window._pfPatches = arr;
     statEl.innerHTML = `✓ <strong>${arr.length}</strong> running patch${arr.length>1?"es":""}`;
     listEl.innerHTML = arr.map((p,i)=>_pfCardHtml(p,i)).join("");
-    // Enrich each card by fetching snapshot data
+    // Enrich each card by fetching snapshot data; cache snap for instant open
+    if(!window._pfSnapCache) window._pfSnapCache = {};
     arr.forEach((p,i)=>{
       fetch(_pfWrap(p.url),{headers:{"Authorization":_pfAuth(cfg)}})
         .then(r=>r.ok?r.json():null)
         .then(snap=>{
           if(!snap) return;
+          window._pfSnapCache[p.url] = snap;          // cache for card open
           const inH = (snap.TYPES||[]).filter(t=>t.supplier!=="By Others"&&!t.byOthers);
           p.BUILDINGS   = snap.BUILDINGS||'—';
           p.typeCount   = (snap.TYPES||[]).length;
@@ -3970,15 +4007,28 @@ function _pfRefreshHome(){
 window._pfHomeOpenProject = function(encUrl, encName){
   const url = decodeURIComponent(encUrl), name = decodeURIComponent(encName);
   _pfLoad(); const cfg = window._pfConfig;
-  _pfToast("⏳ Opening "+name.replace(/\.pfproj$/i,'')+"…","info");
+  const shortName = name.replace(/\.pfproj$/i,'');
+  // Use cached snap if available (fetched during home refresh) — instant open
+  const cached = window._pfSnapCache && window._pfSnapCache[url];
+  if(cached){
+    if(restoreProjectSnapshot(cached)){
+      window._pfProjectSource = {type:"cloud", url, name};
+      const cfgNameEl = $("#cfgName"); if(cfgNameEl) cfgNameEl.value = shortName;
+      _pfToast("✓ Opened: "+shortName,"ok");
+      _pfSetPatchTab(shortName);
+      pfShowApp();
+    }
+    return;
+  }
+  _pfToast("⏳ Opening "+shortName+"…","info");
   fetch(_pfWrap(url),{headers:{"Authorization":_pfAuth(cfg)}})
     .then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
     .then(snap=>{
       if(restoreProjectSnapshot(snap)){
         window._pfProjectSource = {type:"cloud", url, name};
-        const cfgNameEl = $("#cfgName"); if(cfgNameEl) cfgNameEl.value = name.replace(/\.pfproj$/i,"");
-        _pfToast("✓ Opened: "+name.replace(/\.pfproj$/i,''),"ok");
-        _pfSetPatchTab(name.replace(/\.pfproj$/i,''));
+        const cfgNameEl = $("#cfgName"); if(cfgNameEl) cfgNameEl.value = shortName;
+        _pfToast("✓ Opened: "+shortName,"ok");
+        _pfSetPatchTab(shortName);
         pfShowApp();
       }
     }).catch(e=>_pfToast("✗ "+e.message,"err"));
@@ -4133,18 +4183,27 @@ var _pfIndexCache = null; // {list, ts} — in-memory cache to avoid redundant G
 function _pfIndexUrl(cfg){
   return _pfFolderUrl(cfg)+"_pf_index.json";
 }
-function _pfGetIndex(cfg){
-  // Return cached copy if fresh (< 30 s)
-  if(_pfIndexCache && (Date.now()-_pfIndexCache.ts < 30000)) return Promise.resolve(_pfIndexCache.list.slice());
+function _pfFetchIndex(cfg){
   return fetch(_pfWrap(_pfIndexUrl(cfg)),{headers:{"Authorization":_pfAuth(cfg)}})
     .then(r=>{
       if(r.status===401) throw new Error("Auth failed — check username / app password");
       if(r.status===404) return [];
       if(!r.ok) throw new Error("HTTP "+r.status);
       return r.json().then(d=>Array.isArray(d)?d:(d.projects||[]));
+    });
+}
+function _pfGetIndex(cfg){
+  // Return cached copy if fresh (< 30 s)
+  if(_pfIndexCache && (Date.now()-_pfIndexCache.ts < 30000)) return Promise.resolve(_pfIndexCache.list.slice());
+  // Try once; on auth failure retry after 1.5 s (Nextcloud can briefly 401 on cold connections)
+  return _pfFetchIndex(cfg)
+    .catch(e=>{
+      if(!e.message.startsWith("Auth")) return [];   // non-auth error → empty
+      return new Promise(res=>setTimeout(res,1500))   // wait 1.5 s
+        .then(()=>_pfFetchIndex(cfg))                  // retry once
+        .catch(()=>{ throw e; });                      // still 401 → propagate
     })
-    .then(list=>{ _pfIndexCache={list,ts:Date.now()}; return list.slice(); })
-    .catch(e=>{ if(e.message.startsWith("Auth")) throw e; return []; });
+    .then(list=>{ _pfIndexCache={list,ts:Date.now()}; return list.slice(); });
 }
 function _pfPutIndex(cfg, list){
   _pfIndexCache = {list, ts:Date.now()}; // update cache immediately
