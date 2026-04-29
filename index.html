@@ -3218,6 +3218,43 @@ function bindData(){
     $$('#view .opn-close-btn').forEach(btn=>{
       btn.onclick=(e)=>{ e.stopPropagation(); const p=document.getElementById('opn-panel-'+btn.dataset.code); if(p) p.style.display='none'; };
     });
+    // In-place refresh: update badge + popover list without full render
+    function refreshOpeningCell(code){
+      const m = getMeta(code);
+      const wins  = m.openings.filter(o=>o.type==='win');
+      const doors = m.openings.filter(o=>o.type==='door');
+      // Update summary badge
+      const editBtn = document.querySelector(`.opn-edit-btn[data-code="${code}"]`);
+      if(editBtn){
+        const badgeSpan = editBtn.parentElement;
+        // Rebuild badge nodes before the edit button
+        while(badgeSpan.firstChild !== editBtn) badgeSpan.removeChild(badgeSpan.firstChild);
+        const parts=[];
+        if(wins.length)  parts.push(`<span style="background:#dbeafe;color:#1d4ed8;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700">${wins.length} Win</span>`);
+        if(doors.length) parts.push(`<span style="background:#fef9c3;color:#854d0e;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700">${doors.length} Door</span>`);
+        if(!parts.length) parts.push('<span style="color:#9ca3af;font-size:10px">—</span>');
+        const tmp=document.createElement('span');
+        tmp.innerHTML=parts.join(' ');
+        [...tmp.childNodes].forEach(n=>badgeSpan.insertBefore(n,editBtn));
+      }
+      // Rebuild popover list tbody
+      const listTbl=document.getElementById('opn-list-'+code);
+      if(listTbl){
+        const tbody=listTbl.querySelector('tbody');
+        if(tbody){
+          tbody.innerHTML=m.openings.map((o,oi)=>`<tr>
+            <td style="padding:2px 4px"><span style="padding:1px 7px;border-radius:8px;font-size:10px;font-weight:700;${o.type==='win'?'background:#dbeafe;color:#1d4ed8':'background:#fef9c3;color:#854d0e'}">${o.type==='win'?'Window':'Door'}</span></td>
+            <td style="padding:2px 4px;text-align:right">${o.w}</td>
+            <td style="padding:2px 4px;text-align:right">${o.l}</td>
+            <td style="padding:2px 4px"><button class="btn xs opn-del-btn" style="color:#991b1b;padding:1px 5px" data-code="${code}" data-idx="${oi}">✕</button></td>
+          </tr>`).join('');
+          // Re-wire newly created delete buttons
+          tbody.querySelectorAll('.opn-del-btn').forEach(b=>{
+            b.onclick=(e)=>{ e.stopPropagation(); const m2=getMeta(b.dataset.code); m2.openings.splice(+b.dataset.idx,1); setMetaOpenings(b.dataset.code,m2.openings); refreshOpeningCell(b.dataset.code); };
+          });
+        }
+      }
+    }
     // Delete opening
     $$('#view .opn-del-btn').forEach(btn=>{
       btn.onclick=(e)=>{
@@ -3226,7 +3263,7 @@ function bindData(){
         const m=getMeta(code);
         m.openings.splice(idx,1);
         setMetaOpenings(code,m.openings);
-        render();
+        refreshOpeningCell(code);
       };
     });
     // Add opening
@@ -3242,7 +3279,8 @@ function bindData(){
         const m=getMeta(code);
         m.openings.push({type:typeEl.value, w, l});
         setMetaOpenings(code,m.openings);
-        render();
+        wEl.value=''; lEl.value='';
+        refreshOpeningCell(code);
       };
     });
     // Close when clicking outside any popover or edit button (registered once)
