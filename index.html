@@ -3029,6 +3029,7 @@ function viewData(){
           (auto-rule: weight > ${fmt(HEAVY_KG_LIMIT/1000,0)} t → By Others)
         </span>
         <span style="margin-left:auto"></span>
+        <button class="btn sm" id="pnlPrintBtn" title="Print / Save as PDF">🖨 Print PDF</button>
         <button class="btn sm primary" id="addPanelBtn">＋ Add Panel</button>
         <button class="btn sm" id="srcAllIn">All In-House</button>
         <button class="btn sm" id="srcReset">Reset to default</button>
@@ -3180,6 +3181,121 @@ function bindData(){
     [fCode,fFam,fFl,fSrc].forEach(el=>{ el.oninput=applyFilters; el.onchange=applyFilters; });
     if(resetBtn) resetBtn.onclick=()=>{ fCode.value=''; fFam.value=''; fFl.value=''; fSrc.value=''; applyFilters(); };
   })();
+  // ── Print Panel List PDF ────────────────────────────────────
+  if($("#pnlPrintBtn")) $("#pnlPrintBtn").onclick = function(){
+    // Collect visible rows from the live table
+    const rows = $$('#view .tbl tbody tr');
+    const cols = ['#','Code','Family','Floor','Width (mm)','Height (mm)','Thick (mm)','m³','kg','Total Pieces','Opening W','Opening L','Door W','Door L','MEP','Source'];
+    let tbody = '';
+    let visIdx = 0;
+    rows.forEach(tr=>{
+      if(tr.style.display==='none') return;
+      visIdx++;
+      const td = tr.querySelectorAll('td');
+      // Extract text values; inputs need .value
+      const get = (i)=>{
+        if(!td[i]) return '';
+        const inp = td[i].querySelector('input[type="number"]');
+        if(inp) return inp.value||'0';
+        const cb = td[i].querySelector('input[type="checkbox"]');
+        if(cb) return cb.checked ? '✓' : '✗';
+        return (td[i].textContent||'').replace(/●custom/,'').trim();
+      };
+      const isByOthers = (get(15)||'').includes('Others');
+      const heavy = parseFloat(get(8))>HEAVY_KG_LIMIT;
+      const rowStyle = isByOthers ? 'background:#fff5f5' : (visIdx%2===0 ? 'background:#f9fafb' : '');
+      tbody += `<tr style="${rowStyle}">
+        <td style="text-align:center;color:#6b7280">${visIdx}</td>
+        <td><strong>${get(1)}</strong></td>
+        <td style="text-align:center"><span style="background:#1e3a5f;color:#fff;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">${get(2)}</span></td>
+        <td style="text-align:center">${get(3)}</td>
+        <td style="text-align:right">${get(4)}</td>
+        <td style="text-align:right">${get(5)}</td>
+        <td style="text-align:right">${get(6)}</td>
+        <td style="text-align:right">${get(7)}</td>
+        <td style="text-align:right;${heavy?'color:#991b1b;font-weight:700':''}">${get(8)}${heavy?' ⚠':''}</td>
+        <td style="text-align:center">${get(9)}</td>
+        <td style="text-align:right">${get(10)}</td>
+        <td style="text-align:right">${get(11)}</td>
+        <td style="text-align:right">${get(12)}</td>
+        <td style="text-align:right">${get(13)}</td>
+        <td style="text-align:right">${get(14)}</td>
+        <td><span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;${isByOthers?'background:#fde8e8;color:#991b1b':'background:#d1fae5;color:#065f46'}">${get(15)}</span></td>
+      </tr>`;
+    });
+    // Filter summary line
+    const fCode=($('#pflt_code')||{}).value||'';
+    const fFam=($('#pflt_fam')||{}).value||'';
+    const fFl=($('#pflt_fl')||{}).value||'';
+    const fSrc=($('#pflt_src')||{}).value||'';
+    const filterParts=[];
+    if(fCode) filterParts.push('Code: "'+fCode+'"');
+    if(fFam)  filterParts.push('Family: '+fFam);
+    if(fFl)   filterParts.push('Floor: '+fFl);
+    if(fSrc)  filterParts.push('Source: '+(fSrc==='in'?'In-House':'By Others'));
+    const filterLine = filterParts.length ? '<p style="color:#6b7280;font-size:11px;margin:2px 0 0">Filters: '+filterParts.join(' · ')+'</p>' : '';
+    const totalIn  = TYPES.filter(isInHouse).length;
+    const totalOut = TYPES.filter(isByOthers).length;
+    const dateStr = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+    const html = `<!doctype html><html><head><meta charset="utf-8">
+<title>Master Panel List — NAHEEL CAMP G+1</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Century Gothic","Segoe UI",Arial,sans-serif;font-size:11px;color:#1f2937;background:#fff;padding:18px 22px}
+  .hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #f59e0b;padding-bottom:10px;margin-bottom:14px}
+  .hdr-left{display:flex;align-items:center;gap:12px}
+  .hdr-logo{height:36px;width:auto}
+  .hdr-title{font-size:16px;font-weight:800;color:#1e3a5f;letter-spacing:.5px}
+  .hdr-sub{font-size:10px;color:#6b7280;margin-top:2px;text-transform:uppercase;letter-spacing:.8px}
+  .hdr-date{font-size:10px;color:#6b7280;text-align:right}
+  .summary{display:flex;gap:18px;margin-bottom:12px;font-size:11px}
+  .s-chip{padding:4px 12px;border-radius:12px;font-weight:700}
+  .s-in{background:#d1fae5;color:#065f46}
+  .s-out{background:#fde8e8;color:#991b1b}
+  table{width:100%;border-collapse:collapse;font-size:10.5px}
+  thead tr{background:#1e3a5f;color:#fff}
+  thead th{padding:6px 6px;text-align:left;font-weight:700;font-size:10px;letter-spacing:.3px;white-space:nowrap}
+  thead th.num{text-align:right}
+  thead th.ctr{text-align:center}
+  tbody tr{border-bottom:1px solid #e5e7eb}
+  tbody td{padding:5px 6px;vertical-align:middle}
+  @page{size:A3 landscape;margin:15mm 12mm}
+  @media print{body{padding:0} .no-print{display:none}}
+</style></head><body>
+<div class="hdr">
+  <div class="hdr-left">
+    <img class="hdr-logo" src="https://capriole-construction.github.io/KnowledgeBase/Books%20and%20References/capriole-platform/logo.png" onerror="this.style.display='none'">
+    <div>
+      <div class="hdr-title">Master Panel List — NAHEEL CAMP G+1</div>
+      <div class="hdr-sub">Precast Production Engine · Capriole Construction</div>
+    </div>
+  </div>
+  <div class="hdr-date">Printed: ${dateStr}<br>${visIdx} panels shown</div>
+</div>
+<div class="summary">
+  <span class="s-chip s-in">${totalIn} In-House</span>
+  <span class="s-chip s-out">${totalOut} By Others</span>
+  ${filterLine}
+</div>
+<table>
+  <thead><tr>
+    <th style="width:28px" class="ctr">#</th>
+    <th>Code</th><th class="ctr">Family</th><th class="ctr">Floor</th>
+    <th class="num">Width</th><th class="num">Height</th><th class="num">Thick</th>
+    <th class="num">m³</th><th class="num">kg</th><th class="num">Pieces</th>
+    <th class="num">Opn W</th><th class="num">Opn L</th>
+    <th class="num">Door W</th><th class="num">Door L</th><th class="num">MEP</th>
+    <th>Source</th>
+  </tr></thead>
+  <tbody>${tbody}</tbody>
+</table>
+<p class="no-print" style="margin-top:16px;font-size:11px;color:#6b7280">Use browser <b>Print → Save as PDF</b> · Recommended paper: A3 Landscape</p>
+</body></html>`;
+    const w = window.open('','_blank','width=1200,height=800');
+    w.document.write(html);
+    w.document.close();
+    w.onload = ()=>{ w.focus(); w.print(); };
+  };
   // Add Panel form toggle
   const addBtn = $("#addPanelBtn"), addForm = $("#addPanelForm");
   if(addBtn) addBtn.onclick = ()=>{
@@ -3304,11 +3420,12 @@ function _pfSetPatchTab(name){
     t.appendChild(close);
     bar.appendChild(t);
   }
-  // Set label before the close span
+  // Set/update text label (always a dedicated text node before the close span)
   const label = name || "Patch";
-  t.childNodes[0].textContent
-    ? (t.childNodes[0].nodeValue = label)
-    : t.insertBefore(document.createTextNode(label), t.firstChild);
+  let textNode = null;
+  t.childNodes.forEach(n=>{ if(n.nodeType===3) textNode=n; });
+  if(textNode) textNode.nodeValue = label;
+  else t.insertBefore(document.createTextNode(label), t.firstChild);
   t.title = label;
 }
 window._pfClosePatchTab = function(){
