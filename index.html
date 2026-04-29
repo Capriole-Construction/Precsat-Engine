@@ -3316,7 +3316,7 @@ if($("#pBuildings")){
     if(n>=1 && n<=MAX_BUILDINGS){ BUILDINGS = n; saveBuildingsCount(); refreshSidebarCounts(); }
   };
 }
-syncTablesToEngine();
+try { syncTablesToEngine(); } catch(e) { console.warn('syncTablesToEngine:', e); }
 // Floor selectors are driven by the actual `fl` field on TYPES — they must
 // rebuild whenever TYPES changes (add panel / delete panel / edit floor) so
 // the optimiser's floor selector stays in lock-step with the Data tab.
