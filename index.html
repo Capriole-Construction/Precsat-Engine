@@ -3581,6 +3581,9 @@ function _pfLoadFromCloud(url, name){
       if(restoreProjectSnapshot(snap)){
         window._pfProjectSource={type:"cloud",url,name};
         _pfToast("✓ Loaded: "+name,"ok");
+        // Pre-fill project name field so Save overwrites without re-typing
+        const cfgNameEl=$("#cfgName");
+        if(cfgNameEl) cfgNameEl.value=name.replace(/\.pfproj$/i,"");
       }
     }).catch(e=>_pfToast("✗ "+e.message,"err"));
 }
@@ -3613,7 +3616,11 @@ function _pfDownloadLocal(name, snap){
 // ---- Wire Save button ----
 if($("#cfgSaveBtn")){
   $("#cfgSaveBtn").onclick=()=>{
-    const name=($("#cfgName")?.value||"").trim();
+    // Use typed name, or fall back to currently loaded project name
+    let name=($("#cfgName")?.value||"").trim();
+    if(!name && window._pfProjectSource && window._pfProjectSource.name){
+      name=window._pfProjectSource.name.replace(/\.pfproj$/i,"");
+    }
     if(!name){ alert("Please enter a project name."); return; }
     _pfLoad();
     const cfg=window._pfConfig;
