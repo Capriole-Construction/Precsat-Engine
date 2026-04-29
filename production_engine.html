@@ -3404,15 +3404,15 @@ function bindData(){
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:"Century Gothic","Segoe UI",Arial,sans-serif;font-size:11px;color:#1f2937;background:#fff}
   /* ─ Page header band ─ */
-  .page-hdr{background:linear-gradient(135deg,#1e3a5f 0%,#0f4d7a 100%);color:#fff;padding:14px 20px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:4px solid #f59e0b}
+  .page-hdr{background:#fff;color:#1e3a5f;padding:12px 20px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:4px solid #f59e0b;border-top:4px solid #1e3a5f}
   .ph-left{display:flex;align-items:center;gap:14px}
-  .ph-logo{height:40px;width:auto;filter:brightness(0) invert(1);opacity:.9}
-  .ph-divider{width:1px;height:36px;background:rgba(255,255,255,.25)}
-  .ph-title{font-size:17px;font-weight:800;letter-spacing:.4px;line-height:1.2}
-  .ph-sub{font-size:9.5px;opacity:.7;text-transform:uppercase;letter-spacing:.9px;margin-top:2px}
-  .ph-right{text-align:right;font-size:9.5px;opacity:.8;line-height:1.6}
+  .ph-logo{height:44px;width:auto}
+  .ph-divider{width:1px;height:36px;background:#d1d5db}
+  .ph-title{font-size:17px;font-weight:800;letter-spacing:.4px;line-height:1.2;color:#1e3a5f}
+  .ph-sub{font-size:9.5px;color:#6b7280;text-transform:uppercase;letter-spacing:.9px;margin-top:2px}
+  .ph-right{text-align:right;font-size:9.5px;color:#6b7280;line-height:1.6}
   /* ─ Stats bar ─ */
-  .stats-bar{display:flex;gap:0;border-bottom:2px solid #e5e7eb;background:#f8fafc}
+  .stats-bar{display:flex;gap:0;border-bottom:2px solid #e5e7eb;background:#f0f4ff}
   .stat{flex:1;padding:8px 14px;border-right:1px solid #e5e7eb;display:flex;flex-direction:column;gap:1px}
   .stat:last-child{border-right:none}
   .stat-val{font-size:15px;font-weight:800;color:#1e3a5f}
@@ -3424,9 +3424,9 @@ function bindData(){
   .f-chip{background:#fde68a;color:#78350f;padding:2px 8px;border-radius:8px;font-weight:700;font-size:9.5px}
   /* ─ Table ─ */
   .wrap{padding:0 0 20px}
-  table{width:100%;border-collapse:collapse;font-size:10px}
+  table{width:100%;border-collapse:collapse;font-size:10px;table-layout:fixed}
   thead tr{background:#1e3a5f;color:#fff;page-break-inside:avoid}
-  thead th{padding:7px 6px;font-weight:700;font-size:9px;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;border-right:1px solid rgba(255,255,255,.12)}
+  thead th{padding:7px 6px;font-weight:700;font-size:9px;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;border-right:1px solid rgba(255,255,255,.12);overflow:hidden;text-overflow:ellipsis}
   thead th:last-child{border-right:none}
   th.r{text-align:right} th.c{text-align:center}
   tbody tr{border-bottom:1px solid #e5e7eb;page-break-inside:avoid}
@@ -3466,7 +3466,7 @@ ${filterParts.length?`<div class="filter-bar"><strong>Filtered by:</strong>${fil
 <table>
   <thead><tr>
     <th class="c" style="width:26px">#</th>
-    <th>Panel Code</th>
+    <th style="width:130px">Panel Code</th>
     <th class="c" style="width:46px">Family</th>
     <th class="c" style="width:38px">Floor</th>
     <th class="r" style="width:56px">Width<br><span style="font-weight:400;opacity:.7">(mm)</span></th>
