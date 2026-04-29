@@ -3256,18 +3256,32 @@ window.pfShowHome = pfShowHome;
 window.pfShowApp  = pfShowApp;
 window.pfHomeLoadFile = pfHomeLoadFile;
 
-// ---- Patch metadata (Project No, Building No, etc.) stored in _pf_meta.json ----
+// ---- Patch metadata — localStorage primary, cloud _pf_meta.json as sync ----
+var PF_META_LS_KEY = 'pf_patch_meta_v1';
 function _pfMetaUrl(cfg){ return _pfFolderUrl(cfg)+'_pf_meta.json'; }
+
 function _pfGetMeta(cfg){
+  // 1) Start with whatever is in localStorage
+  let ls = {};
+  try { ls = JSON.parse(localStorage.getItem(PF_META_LS_KEY)||'{}'); } catch(e){}
+  // 2) Try to merge with cloud version (cloud wins for keys it has)
   return fetch(_pfWrap(_pfMetaUrl(cfg)),{headers:{'Authorization':_pfAuth(cfg)}})
-    .then(r=>{ if(r.status===404) return {}; if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-    .catch(()=>({}));
+    .then(r=>r.status===404?{}:r.ok?r.json():{})
+    .then(cloud=>Object.assign({},ls,cloud))
+    .catch(()=>ls);
 }
+
 function _pfPutMeta(cfg, meta){
+  // Always save to localStorage first (never fails)
+  try { localStorage.setItem(PF_META_LS_KEY, JSON.stringify(meta)); } catch(e){}
+  // Best-effort cloud sync — silently ignore auth errors
   return fetch(_pfWrap(_pfMetaUrl(cfg)),{
     method:'PUT', headers:{'Authorization':_pfAuth(cfg),'Content-Type':'application/json'},
     body:JSON.stringify(meta)
-  }).then(r=>{ if(!r.ok&&r.status!==201&&r.status!==204) throw new Error('Meta save HTTP '+r.status); });
+  }).then(r=>{
+    if(!r.ok&&r.status!==201&&r.status!==204&&r.status!==401&&r.status!==403)
+      throw new Error('Cloud sync HTTP '+r.status);
+  }).catch(()=>{}); // cloud sync failure is non-fatal
 }
 
 window._pfPatches = [];   // live list used for re-render
