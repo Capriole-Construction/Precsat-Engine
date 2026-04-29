@@ -17,6 +17,13 @@
   .header .sub{font-size:11px;opacity:.7;letter-spacing:1px;text-transform:uppercase;z-index:1}
   .header .badge{background:#f59e0b;color:#1e3a5f;font-size:10px;padding:3px 9px;border-radius:10px;font-weight:800;letter-spacing:1px;z-index:1}
   .header .spacer{flex:1}
+  /* ── Patch tab bar ───────────────────────────────────────── */
+  #pfTabBar{background:#0b1a2e;display:flex;align-items:flex-end;padding:0 18px;gap:3px;border-bottom:2px solid #1e3a5f;min-height:36px}
+  .pf-tab{display:inline-flex;align-items:center;gap:6px;padding:7px 16px 6px;font-size:11.5px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;background:transparent;color:#64748b;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;transition:background .15s,color .15s;letter-spacing:.3px}
+  .pf-tab:hover:not(.pf-tab-active){background:rgba(255,255,255,.06);color:#94a3b8}
+  .pf-tab-active{background:#0f172a;color:#f59e0b;border-color:#1e3a5f;border-bottom-color:#0f172a;margin-bottom:-2px;padding-bottom:8px}
+  .pf-tab-close{font-size:13px;opacity:.5;margin-left:2px;line-height:1}
+  .pf-tab-close:hover{opacity:1}
 
   /* Layout */
   .app{display:grid;grid-template-columns:300px 1fr;gap:0;min-height:calc(100vh - 60px)}
@@ -242,6 +249,10 @@
   <span class="badge">v1.0</span>
 </div>
 
+<div id="pfTabBar">
+  <button class="pf-tab pf-tab-active" id="pfTabHome" onclick="pfShowHome()">🏠 Home</button>
+</div>
+
 <div class="app home-mode">
   <!-- SIDEBAR -->
   <div class="sidebar">
@@ -344,7 +355,7 @@
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;min-width:200px">
-            <button onclick="pfShowApp()" style="cursor:pointer;padding:11px 22px;border-radius:8px;background:#fff;color:#1e3a5f;font-size:12px;font-weight:700;border:none;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.2)">▶ Open Engine</button>
+            <button onclick="_pfSetPatchTab((window._pfProjectSource&&window._pfProjectSource.name||'Current Project').replace(/\.pfproj$/i,''));pfShowApp();" style="cursor:pointer;padding:11px 22px;border-radius:8px;background:#fff;color:#1e3a5f;font-size:12px;font-weight:700;border:none;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.2)">▶ Open Engine</button>
             <label style="cursor:pointer;padding:10px 22px;border-radius:8px;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.3);font-size:12px;font-weight:600;font-family:inherit;text-align:center;backdrop-filter:blur(6px)">
               📂 Open .pfproj<input type="file" accept=".pfproj,.json" style="display:none" onchange="pfHomeLoadFile(this.files[0]);this.value=''">
             </label>
@@ -3223,12 +3234,47 @@ function dl(blob,name){
 // ============================================================
 // Home / App screen switching
 // ============================================================
+function _pfSetActiveTab(which){
+  const tHome = $("#pfTabHome"), tPatch = $("#pfTabPatch");
+  if(tHome)  tHome.classList.toggle("pf-tab-active",  which==="home");
+  if(tPatch) tPatch.classList.toggle("pf-tab-active", which==="patch");
+}
+function _pfSetPatchTab(name){
+  const bar = $("#pfTabBar");
+  if(!bar) return;
+  let t = $("#pfTabPatch");
+  if(!t){
+    t = document.createElement("button");
+    t.id = "pfTabPatch";
+    t.className = "pf-tab";
+    t.onclick = function(){ pfShowApp(); };
+    const close = document.createElement("span");
+    close.className = "pf-tab-close";
+    close.title = "Close patch";
+    close.textContent = "×";
+    close.onclick = function(e){ e.stopPropagation(); _pfClosePatchTab(); };
+    t.appendChild(close);
+    bar.appendChild(t);
+  }
+  // Set label before the close span
+  const label = name || "Patch";
+  t.childNodes[0].textContent
+    ? (t.childNodes[0].nodeValue = label)
+    : t.insertBefore(document.createTextNode(label), t.firstChild);
+  t.title = label;
+}
+window._pfClosePatchTab = function(){
+  const t = $("#pfTabPatch"); if(t) t.remove();
+  window._pfProjectSource = null;
+  pfShowHome();
+};
 function pfShowHome(){
   const home = $("#pfHomeScreen"), app = $("#pfAppScreen");
   const appWrap = document.querySelector(".app");
   if(home) home.style.display = "flex";
   if(app)  app.style.display  = "none";
   if(appWrap) appWrap.classList.add("home-mode");
+  _pfSetActiveTab("home");
   _pfRefreshHome();
 }
 function pfShowApp(){
@@ -3237,6 +3283,7 @@ function pfShowApp(){
   if(home) home.style.display = "none";
   if(app)  app.style.display  = "flex";
   if(appWrap) appWrap.classList.remove("home-mode");
+  _pfSetActiveTab("patch");
   renderTabs(); render();
 }
 function pfHomeLoadFile(file){
@@ -3247,7 +3294,12 @@ function pfHomeLoadFile(file){
       const snap = JSON.parse(ev.target.result);
       if(!snap.version||snap.version<2){ alert("Not a valid project file."); return; }
       if(!confirm(`Load project "${snap.name||file.name}"?\nThis will replace all current data.`)) return;
-      if(restoreProjectSnapshot(snap)){ _pfToast("✓ Project loaded","ok"); pfShowApp(); }
+      if(restoreProjectSnapshot(snap)){
+        const pname = (snap.name || file.name).replace(/\.pfproj$/i,'');
+        _pfToast("✓ Project loaded","ok");
+        _pfSetPatchTab(pname);
+        pfShowApp();
+      }
     } catch(err){ alert("Failed to read file: "+err.message); }
   };
   reader.readAsText(file);
@@ -3518,6 +3570,7 @@ window._pfHomeOpenProject = function(encUrl, encName){
         window._pfProjectSource = {type:"cloud", url, name};
         const cfgNameEl = $("#cfgName"); if(cfgNameEl) cfgNameEl.value = name.replace(/\.pfproj$/i,"");
         _pfToast("✓ Opened: "+name.replace(/\.pfproj$/i,''),"ok");
+        _pfSetPatchTab(name.replace(/\.pfproj$/i,''));
         pfShowApp();
       }
     }).catch(e=>_pfToast("✗ "+e.message,"err"));
@@ -3799,7 +3852,7 @@ function _pfSaveToCloud(name){
         return _pfPutIndex(cfg,list);
       });
     })
-    .then(()=>{ _pfToast("✓ Saved to cloud: "+fileName,"ok"); _pfRefresh(); })
+    .then(()=>{ _pfToast("✓ Saved to cloud: "+fileName,"ok"); _pfSetPatchTab(fileName.replace(/\.pfproj$/i,'')); _pfRefresh(); })
     .catch(e=>{ _pfToast("✗ Save failed: "+e.message,"err"); _pfDownloadLocal(name,snap); });
 }
 
@@ -3884,7 +3937,7 @@ if($("#cfgFileInput")){
 // ---- Init ----
 (function _pfInit(){
   _pfLoad();
-  try{ const s=localStorage.getItem(PF_CC_SRC_KEY); if(s) window._pfProjectSource=JSON.parse(s); } catch(e){}
+  try{ const s=localStorage.getItem(PF_CC_SRC_KEY); if(s){ window._pfProjectSource=JSON.parse(s); if(window._pfProjectSource&&window._pfProjectSource.name) _pfSetPatchTab(window._pfProjectSource.name.replace(/\.pfproj$/i,'')); } } catch(e){}
 
   // Wire ALL sign-in triggers via JS (more reliable than inline onclick attributes)
   document.querySelectorAll(
