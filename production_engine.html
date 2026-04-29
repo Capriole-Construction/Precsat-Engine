@@ -3439,13 +3439,16 @@ function _pfMkCol(cfg, path){
   const enc=path.split("/").map(p=>p?encodeURIComponent(p):p).join("/");
   const url=base+enc;
   return fetch(_pfWrap(url),{method:"MKCOL",headers:{"Authorization":_pfAuth(cfg)}})
-    .then(r=>r.status); // 201=created, 405=already exists, other=error
+    .then(r=>r.status)
+    .catch(()=>0); // network error → treat as non-fatal, proceed
 }
 function _pfEnsureFolder(cfg){
-  // Create parent then child folder (ignore 405 = already exists)
+  // Create each level; ignore 201/405/501 (created/exists/not-impl); only fail on 401
   const parts=(cfg.ocFolder||"/").split("/").filter(Boolean);
   const tasks=parts.map((_,i)=>"/"+parts.slice(0,i+1).join("/"));
-  return tasks.reduce((p,path)=>p.then(()=>_pfMkCol(cfg,path).then(s=>{ if(s>=400&&s!==405) throw new Error("Cannot create folder (HTTP "+s+")"); })),Promise.resolve());
+  return tasks.reduce((p,path)=>p.then(()=>_pfMkCol(cfg,path).then(s=>{
+    if(s===401) throw new Error("Auth failed — check username / app password");
+  })),Promise.resolve());
 }
 function _pfWebDavList(cfg){
   const folderUrl=_pfFolderUrl(cfg);
@@ -3453,8 +3456,8 @@ function _pfWebDavList(cfg){
   const doList=()=>fetch(_pfWrap(folderUrl),{method:"PROPFIND",headers:{"Authorization":_pfAuth(cfg),"Depth":"1","Content-Type":"application/xml"},body})
     .then(r=>{ if(r.status===401) throw new Error("Auth failed — check username / app password"); if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); });
   return doList().catch(e=>{
-    // If 404 or 405 the folder may not exist yet — auto-create and retry
-    if(e.message==="HTTP 404"||e.message==="HTTP 405"){
+    // Folder may not exist — auto-create and retry once
+    if(/HTTP (404|405|501|409|423)/.test(e.message)){
       return _pfEnsureFolder(cfg).then(doList);
     }
     throw e;
