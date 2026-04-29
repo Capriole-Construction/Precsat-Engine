@@ -1,0 +1,3633 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Precast Production Engine — NAHEEL CAMP G+1</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;font-family:"Century Gothic","Segoe UI",Arial,sans-serif;color:#1f2937;background:#0f172a}
+  /* Animated gradient bg for engine theme */
+  body{background:radial-gradient(ellipse at top left,#1e3a5f 0%,#0f172a 50%,#020617 100%);min-height:100vh}
+  .header{background:linear-gradient(90deg,#1e3a5f,#0f4d7a 50%,#1e3a5f);color:#fff;padding:14px 22px;display:flex;align-items:center;gap:18px;border-bottom:2px solid #f59e0b;position:relative;overflow:hidden}
+  .header::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(245,158,11,.15),transparent);animation:shimmer 4s infinite}
+  @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+  .header h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.5px;z-index:1}
+  .header .sub{font-size:11px;opacity:.7;letter-spacing:1px;text-transform:uppercase;z-index:1}
+  .header .badge{background:#f59e0b;color:#1e3a5f;font-size:10px;padding:3px 9px;border-radius:10px;font-weight:800;letter-spacing:1px;z-index:1}
+  .header .spacer{flex:1}
+
+  /* Layout */
+  .app{display:grid;grid-template-columns:300px 1fr;gap:0;min-height:calc(100vh - 60px)}
+  .sidebar{background:#111827;color:#e5e7eb;padding:18px;border-right:1px solid #1f2937;overflow-y:auto}
+  .main{padding:22px;overflow-y:auto;background:#f4f6f9;color:#1f2937}
+
+  /* Sidebar */
+  .sb-section{margin-bottom:22px}
+  .sb-h{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:#f59e0b;font-weight:700;margin-bottom:10px;border-bottom:1px solid #374151;padding-bottom:6px}
+  .sb-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12.5px}
+  .sb-row label{color:#9ca3af;font-size:11px}
+  .sb-row input,.sb-row select{background:#1f2937;color:#e5e7eb;border:1px solid #374151;padding:5px 8px;border-radius:3px;font-size:12px;width:90px;text-align:right;font-family:inherit}
+  .sb-row input:focus,.sb-row select:focus{outline:none;border-color:#f59e0b}
+  .sb-row.full input{width:100%;text-align:left}
+  .sb-stat{background:#1f2937;border-radius:5px;padding:8px 10px;margin-bottom:6px;border-left:3px solid #f59e0b}
+  .sb-stat .v{font-size:18px;font-weight:700;color:#fff}
+  .sb-stat .l{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.6px}
+
+  /* Big run button */
+  .run-btn{width:100%;padding:14px;background:linear-gradient(135deg,#f59e0b,#dc2626);color:#fff;border:0;border-radius:6px;font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 12px rgba(245,158,11,.4);transition:.2s;font-family:inherit}
+  .run-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(245,158,11,.6)}
+  .run-btn:active{transform:translateY(0)}
+  .run-btn:disabled{opacity:.6;cursor:wait}
+  .run-btn.ready{animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 4px 12px rgba(245,158,11,.4)}50%{box-shadow:0 4px 24px rgba(245,158,11,.8)}}
+
+  /* Main panels */
+  .panel{background:#fff;border:1px solid #e3e8ef;border-radius:8px;padding:16px;margin-bottom:16px;box-shadow:0 2px 6px rgba(0,0,0,.06)}
+  .panel h2{margin:0 0 12px;font-size:13px;color:#1e3a5f;font-weight:700;text-transform:uppercase;letter-spacing:.8px;border-bottom:2px solid #f59e0b;padding-bottom:6px;display:inline-block}
+
+  /* KPIs */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px}
+  .kpi{background:linear-gradient(135deg,#fff,#f9fafb);border:1px solid #e3e8ef;border-radius:6px;padding:14px;border-left:4px solid #1e3a5f;position:relative;overflow:hidden}
+  .kpi.gold{border-left-color:#f59e0b}
+  .kpi.green{border-left-color:#059669}
+  .kpi.red{border-left-color:#dc2626}
+  .kpi .l{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+  .kpi .v{font-size:26px;font-weight:700;color:#1e3a5f;line-height:1.1;margin-top:4px}
+  .kpi .s{font-size:11px;color:#9ca3af;margin-top:2px}
+  .kpi.gold .v{color:#b45309}
+  .kpi.green .v{color:#065f46}
+  .kpi.red .v{color:#991b1b}
+
+  /* Buttons */
+  .btn{padding:7px 14px;border:1px solid #c9d1dc;background:#fff;color:#1e3a5f;border-radius:4px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+  .btn:hover{background:#f0f4fa;border-color:#1e3a5f}
+  .btn.primary{background:#1e3a5f;color:#fff;border-color:#1e3a5f}
+  .btn.primary:hover{background:#2a4f80}
+  .btn.gold{background:#f59e0b;color:#fff;border-color:#f59e0b}
+  .btn.gold:hover{background:#d97706}
+  .btn.sm{padding:4px 9px;font-size:11px}
+  .btn.xs{padding:2px 6px;font-size:10px}
+  .inp{padding:5px 7px;border:1px solid #c9d1dc;background:#fff;color:#0f172a;border-radius:4px;font-size:12px;font-family:inherit}
+  .inp:focus{outline:none;border-color:#1e3a5f;box-shadow:0 0 0 2px rgba(30,58,95,.15)}
+  .inp.sm{padding:3px 6px;font-size:11px}
+  .inp.xs{padding:2px 4px;font-size:11px;border-radius:3px}
+
+  /* Gantt */
+  .gantt-wrap{overflow:auto;max-height:520px;border:1px solid #e3e8ef;border-radius:5px;background:#fff;position:relative}
+  .gantt{display:grid;font-size:11px;min-width:1200px}
+  .gantt-h{background:#1e3a5f;color:#fff;padding:6px 4px;text-align:center;font-weight:700;font-size:10px;border-right:1px solid #2a4f80;position:sticky;top:0;z-index:2}
+  .gantt-h.weekend{background:#0f172a}
+  .gantt-h.today{background:#f59e0b;color:#1e3a5f}
+  .gantt-row{display:contents}
+  .gantt-cell{padding:3px 4px;border-right:1px solid #f1f5f9;border-bottom:1px solid #f1f5f9;min-height:28px;position:relative;font-size:10px;color:#fff;text-align:center;display:flex;align-items:center;justify-content:center;line-height:1.1;overflow:hidden}
+  .gantt-cell.empty{background:#fafbfc;color:transparent}
+  .gantt-cell.weekend{background:repeating-linear-gradient(45deg,#f9fafb,#f9fafb 4px,#e5e7eb 4px,#e5e7eb 8px)}
+  .gantt-mould{background:#1e3a5f;color:#fff;font-weight:700;padding:6px 8px;border-right:2px solid #f59e0b;position:sticky;left:0;z-index:1;font-size:11px;display:flex;align-items:center;min-height:28px}
+  .gantt-mould.h{background:#1e3a5f;border-bottom:1px solid #2a4f80;position:sticky;top:0;z-index:3}
+  .gantt-mould.totals{background:#f59e0b;color:#1e3a5f;border-top:2px solid #1e3a5f;position:sticky;bottom:0;z-index:2}
+  .gantt-cell.totals{background:#fff7ed;color:#1e3a5f;font-weight:700;border-top:2px solid #f59e0b;position:sticky;bottom:0;z-index:1;font-size:12px}
+  .gantt-cell.totals.weekend{background:repeating-linear-gradient(45deg,#fff7ed,#fff7ed 4px,#fde68a 4px,#fde68a 8px)}
+
+  /* Cell colors per family */
+  .c-IP{background:linear-gradient(135deg,#1e3a5f,#2a4f80)}
+  .c-WL{background:linear-gradient(135deg,#059669,#047857)}
+  .c-WN{background:linear-gradient(135deg,#7c3aed,#5b21b6)}
+  .c-PB{background:linear-gradient(135deg,#dc2626,#991b1b)}
+  .c-IP.last,.c-WL.last,.c-WN.last,.c-PB.last{box-shadow:inset -3px 0 0 #f59e0b}
+  .gantt-cell:hover{outline:2px solid #f59e0b;outline-offset:-2px;z-index:5}
+
+  /* Legend */
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;font-size:11px}
+  .lg-item{display:flex;align-items:center;gap:5px;color:#374151}
+  .lg-sw{width:14px;height:14px;border-radius:3px}
+
+  /* Tables */
+  table.tbl{width:100%;border-collapse:collapse;font-size:12px;background:#fff}
+  table.tbl th{background:#1e3a5f;color:#fff;text-align:left;padding:7px 8px;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+  table.tbl th.num{text-align:right}
+  table.tbl th.ctr{text-align:center}
+  .src-pill{display:inline-block;padding:2px 7px;border-radius:9px;font-size:10px;font-weight:700}
+  .src-pill.in{background:#dcfce7;color:#065f46}
+  .src-pill.out{background:#fee2e2;color:#991b1b}
+  table.tbl td{padding:6px 8px;border-bottom:1px solid #eef1f5}
+  table.tbl tr:hover td{background:#fafbfd}
+  .num{text-align:right}
+  .ctr{text-align:center}
+
+  /* Pills */
+  .pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;color:#fff}
+  .pill.IP{background:#1e3a5f}
+  .pill.WL{background:#059669}
+  .pill.WN{background:#7c3aed}
+  .pill.PB{background:#dc2626}
+
+  /* Progress overlay */
+  .runner{position:fixed;inset:0;background:rgba(15,23,42,.85);display:none;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(4px)}
+  .runner.show{display:flex}
+  .runner-box{background:#1e3a5f;border:2px solid #f59e0b;border-radius:10px;padding:30px 40px;color:#fff;text-align:center;min-width:380px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  .runner-box h3{margin:0 0 14px;color:#f59e0b;letter-spacing:1.5px;font-size:14px;text-transform:uppercase}
+  .runner-prog{height:8px;background:#0f172a;border-radius:4px;overflow:hidden;margin:14px 0}
+  .runner-prog > div{height:100%;background:linear-gradient(90deg,#f59e0b,#dc2626);transition:width .15s;width:0%}
+  .runner-step{font-size:12px;color:#94a3b8;font-family:"Courier New",monospace;height:18px}
+  .runner-stat{display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-top:8px}
+
+  /* Tabs */
+  .tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid #e3e8ef}
+  .tab{padding:10px 18px;background:transparent;border:0;border-bottom:3px solid transparent;font-size:12px;font-weight:600;color:#6b7280;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;font-family:inherit}
+  .tab:hover{color:#1e3a5f}
+  .tab.active{color:#1e3a5f;border-bottom-color:#f59e0b}
+
+  /* Tooltip */
+  .tip{position:fixed;background:#0f172a;color:#fff;padding:8px 12px;border-radius:5px;font-size:11px;pointer-events:none;z-index:30;display:none;border:1px solid #f59e0b;line-height:1.5;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+  .tip.show{display:block}
+  .tip b{color:#f59e0b}
+
+  .empty-state{padding:60px 20px;text-align:center;color:#94a3b8;font-size:14px}
+  .empty-state .ico{font-size:48px;margin-bottom:14px;opacity:.4}
+  .empty-state b{color:#1e3a5f;font-size:18px;display:block;margin-bottom:6px}
+
+  /* Toolbar */
+  .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+
+  /* Table Plan cards */
+  .tplan-card{background:#fff;border:1px solid #e3e8ef;border-radius:8px;margin-bottom:18px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.05)}
+  .tplan-head{padding:10px 14px;border-bottom:1px solid #e3e8ef;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .tplan-head.IP{background:linear-gradient(90deg,rgba(30,58,95,.08),transparent);border-left:5px solid #1e3a5f}
+  .tplan-head.WL{background:linear-gradient(90deg,rgba(5,150,105,.08),transparent);border-left:5px solid #059669}
+  .tplan-head.WN{background:linear-gradient(90deg,rgba(124,58,237,.08),transparent);border-left:5px solid #7c3aed}
+  .tplan-head.PB{background:linear-gradient(90deg,rgba(220,38,38,.08),transparent);border-left:5px solid #dc2626}
+  .tplan-head.idle{background:#f9fafb;border-left:5px solid #cbd5e1}
+  .tplan-head h3{margin:0;font-size:14px;color:#1e3a5f;font-weight:700}
+  .tplan-head .meta{font-size:11px;color:#6b7280}
+  .tplan-head .stat{font-size:11px;color:#374151;background:#f3f4f6;padding:3px 8px;border-radius:10px}
+
+  .tplan-body{padding:12px 14px}
+  .patch{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:10px;margin-bottom:8px;page-break-inside:avoid}
+  .patch.IP{border-left:4px solid #1e3a5f}
+  .patch.WL{border-left:4px solid #059669}
+  .patch.WN{border-left:4px solid #7c3aed}
+  .patch.PB{border-left:4px solid #dc2626}
+  .patch-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:12px}
+  .patch-head .num{background:#1e3a5f;color:#fff;font-weight:700;padding:2px 8px;border-radius:4px;font-size:11px}
+  .patch-head .code{font-weight:700;font-family:"Courier New",monospace;font-size:13px;color:#1e3a5f}
+  .patch-head .dims{color:#374151;font-size:11px}
+  .patch-head .kg{color:#7c2d12;font-weight:600;font-size:11px}
+  .patch-head .supplier{color:#6b7280;font-size:10px;font-style:italic}
+  .patch-head .range{margin-left:auto;font-size:11px;color:#475569}
+
+  .day-grid{display:grid;grid-template-columns:repeat(16,minmax(0,1fr));gap:3px}
+  .day-cell{padding:4px 2px;text-align:center;font-size:10px;font-weight:600;color:#fff;border-radius:3px;line-height:1.15;min-height:34px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .day-cell.IP{background:#1e3a5f}
+  .day-cell.WL{background:#059669}
+  .day-cell.WN{background:#7c3aed}
+  .day-cell.PB{background:#dc2626}
+  .day-cell .b{font-size:11px;font-weight:700}
+  .day-cell .d{font-size:8.5px;opacity:.85;font-weight:500}
+
+  /* Per-day row layout (multi-panel days) */
+  .dayrow{display:grid;grid-template-columns:170px 1fr;gap:10px;padding:8px;border:1px solid #e5e7eb;border-radius:5px;margin-bottom:6px;background:#fff;page-break-inside:avoid}
+  .dayrow:nth-child(even){background:#f9fafb}
+  .dayrow-h{display:flex;flex-direction:column;gap:3px;font-size:11px;color:#374151}
+  .dayrow-num{font-weight:700;font-size:12px;color:#1e3a5f}
+  .dayrow-date{color:#1e3a5f;font-weight:600}
+  .dayrow-meta{font-size:10px;color:#6b7280}
+  .dayrow-bar{height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden;margin-top:4px}
+  .dayrow-bar > div{height:100%}
+  .dayrow-content{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  .tsketch{flex:0 0 360px;background:#fff;border:1px solid #e5e7eb;border-radius:4px;display:block}
+  .dlots{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:280px}
+  .dlot{padding:6px 9px;border-radius:4px;color:#fff;min-width:140px;font-size:11px;line-height:1.3}
+  .dlot.IP{background:#1e3a5f}
+  .dlot.WL{background:#059669}
+  .dlot.WN{background:#7c3aed}
+  .dlot.PB{background:#dc2626}
+  .dlot-h{font-weight:700}
+  .dlot-d{opacity:.85;font-size:10px;margin-top:2px}
+
+  /* TOC chips */
+  .tplan-toc{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .tplan-toc a{text-decoration:none;font-size:11px;padding:4px 10px;border-radius:14px;background:#1e3a5f;color:#fff;font-weight:600}
+  .tplan-toc a:hover{background:#f59e0b;color:#1e3a5f}
+  .tplan-toc a.IP{background:#1e3a5f}
+  .tplan-toc a.WL{background:#059669}
+  .tplan-toc a.WN{background:#7c3aed}
+  .tplan-toc a.PB{background:#dc2626}
+  .tplan-toc a.idle{background:#94a3b8}
+
+  @media print{
+    body{background:#fff}
+    .sidebar,.run-btn,.tabs,.toolbar,.runner{display:none!important}
+    .app{grid-template-columns:1fr}
+    .main{padding:10px}
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="sub">⚙ Production Engine</div>
+    <h1>NAHEEL CAMP G+1 · Precast Mould Plan</h1>
+  </div>
+  <div class="spacer"></div>
+  <span class="badge">v1.0</span>
+</div>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sb-section">
+      <div class="sb-h">Project</div>
+      <div class="sb-stat"><div class="l">Buildings</div><div class="v">16</div></div>
+      <div class="sb-stat"><div class="l">Unique Panel Types</div><div class="v">91</div></div>
+      <div class="sb-stat"><div class="l">In-House Pieces</div><div class="v" id="totalPieces">—</div><div class="l" id="byOthersPieces" style="margin-top:4px">— By Others</div></div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-h">Engine Parameters</div>
+      <div class="sb-row"><label>Start date</label><input type="date" id="pStart" value="2026-04-28"></div>
+      <div class="sb-row"><label>Buildings</label><input type="number" id="pBuildings" value="16" min="1" max="16" title="Run optimization on this many buildings (max 16)"></div>
+      <div class="sb-row"><label>Work weekends</label>
+        <select id="pWeekend"><option value="0">No</option><option value="1">Yes</option></select>
+      </div>
+      <div class="sb-row"><label>Shuttering (mm)</label><input type="number" id="pShutter" value="300" min="0" max="1000" step="50"></div>
+      <div class="sb-row"><label>Floor</label>
+        <select id="pFloorMode" title="Pick a single floor to run optimisation on, or 'All floors', or open Custom for multi-select">
+          <option value="all">All floors</option>
+          <option value="fl:GF">Only GF</option>
+          <option value="fl:FF">Only FF</option>
+          <option value="custom">Custom selection…</option>
+        </select>
+      </div>
+      <div class="sb-row" id="pFloorCustomRow" style="display:none;align-items:flex-start">
+        <label style="margin-top:4px">Floors</label>
+        <div id="pFloors" style="display:flex;flex-wrap:wrap;gap:6px;flex:1"></div>
+      </div>
+      <div class="sb-row" style="margin-top:-4px">
+        <label></label>
+        <div id="pFloorActive" style="font-size:11px;color:#9ca3af;flex:1"></div>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-h">Optimization</div>
+      <div class="sb-row"><label>Strategy</label>
+        <select id="pStrat">
+          <option value="batch">Batch by type (min changeovers)</option>
+          <option value="round">Round-robin (balanced)</option>
+          <option value="floor">By Floor (GF → FF → RF)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- PROJECT SAVE / LOAD (Cloud + Local) -->
+    <div class="sb-section" id="runConfigSection">
+      <div class="sb-h" style="display:flex;align-items:center;justify-content:space-between">
+        <span>☁ Projects</span>
+        <span id="pfCloudBadge" style="font-size:9px;padding:2px 7px;border-radius:10px;background:#1e3a5f;color:#93c5fd;display:none">Connected</span>
+      </div>
+      <!-- Project name + save -->
+      <div class="sb-row" style="gap:6px">
+        <input id="cfgName" type="text" placeholder="Project name…"
+               style="flex:1;padding:4px 6px;border:1px solid #374151;border-radius:5px;background:#1f2937;color:#f9fafb;font-size:12px">
+        <button id="cfgSaveBtn" title="Save project to cloud (or download locally if not connected)"
+                style="padding:4px 10px;background:#2563eb;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;white-space:nowrap">💾 Save</button>
+      </div>
+      <!-- Action row -->
+      <div style="display:flex;gap:6px;margin-top:4px">
+        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:5px 0;background:#374151;color:#d1d5db;border:1px solid #4b5563;border-radius:5px;cursor:pointer;font-size:11px">
+          📂 Open File<input id="cfgFileInput" type="file" accept=".pfproj,.json" style="display:none">
+        </label>
+        <button id="pfSignInBtn" onclick="_pfOpenSettings()"
+                style="flex:1;padding:5px 0;background:#1e3a5f;color:#93c5fd;border:1px solid #1e40af;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600">🔐 Sign In</button>
+      </div>
+      <!-- Cloud status + refresh -->
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+        <div id="pfCloudStatus" style="flex:1;font-size:10px;color:#6b7280">Not connected to cloud</div>
+        <button onclick="_pfRefresh()" style="padding:3px 8px;background:#1f2937;color:#6b7280;border:1px solid #374151;border-radius:4px;cursor:pointer;font-size:10px">🔄</button>
+      </div>
+      <!-- Cloud project list -->
+      <div id="cfgList" style="display:flex;flex-direction:column;gap:4px;margin-top:6px"></div>
+    </div>
+
+    <button class="run-btn ready" id="runBtn">▶ Run Optimization</button>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main" style="display:flex;flex-direction:column;overflow:hidden">
+
+    <!-- HOME SCREEN (shown by default, hidden after schedule runs) -->
+    <div id="pfHomeScreen" style="flex:1;overflow-y:auto;background:#f0f2f5;display:flex;flex-direction:column">
+
+      <!-- Brand strip -->
+      <div style="background:linear-gradient(135deg,#1e3a5f 0%,#0f4c81 50%,#0ea5e9 100%);padding:32px 48px 28px;color:#fff;position:relative;overflow:hidden;flex-shrink:0">
+        <div style="position:absolute;top:-60px;right:-60px;width:280px;height:280px;background:radial-gradient(circle,rgba(255,255,255,.1),transparent 70%);border-radius:50%;pointer-events:none"></div>
+        <div style="position:absolute;bottom:-80px;right:140px;width:220px;height:220px;background:radial-gradient(circle,rgba(14,165,233,.18),transparent 70%);border-radius:50%;pointer-events:none"></div>
+        <div style="position:relative;width:100%;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:22px">
+            <img src="https://capriole-construction.github.io/KnowledgeBase/Books%20and%20References/capriole-platform/logo.png"
+                 alt="Capriole" onerror="this.style.display='none'"
+                 style="height:72px;width:auto;object-fit:contain;filter:brightness(0) invert(1);opacity:.92;flex-shrink:0">
+            <div>
+              <div style="font-size:10px;font-weight:700;letter-spacing:3px;color:#7dd3fc;margin-bottom:8px">CAPRIOLE PRECAST ENGINE · v1.0</div>
+              <div style="font-size:26px;font-weight:700;letter-spacing:.2px;line-height:1.2">Precast Production Engine</div>
+              <div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:8px;line-height:1.6">Schedule panels · Optimise casting tables · Track mould cycles · Export reports</div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;min-width:200px">
+            <button onclick="pfShowApp()" style="cursor:pointer;padding:11px 22px;border-radius:8px;background:#fff;color:#1e3a5f;font-size:12px;font-weight:700;border:none;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.2)">▶ Open Engine</button>
+            <label style="cursor:pointer;padding:10px 22px;border-radius:8px;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.3);font-size:12px;font-weight:600;font-family:inherit;text-align:center;backdrop-filter:blur(6px)">
+              📂 Open .pfproj<input type="file" accept=".pfproj,.json" style="display:none" onchange="pfHomeLoadFile(this.files[0]);this.value=''">
+            </label>
+            <button onclick="_pfOpenSettings()" style="cursor:pointer;padding:10px 22px;border-radius:8px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.85);border:1.5px solid rgba(255,255,255,.18);font-size:12px;font-weight:600;font-family:inherit">🔐 Sign In to Cloud</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Body: cloud projects left, capabilities right -->
+      <div style="flex:1;display:grid;grid-template-columns:1fr 320px;overflow:hidden">
+
+        <!-- LEFT: Cloud projects -->
+        <div style="padding:28px 32px;overflow-y:auto;border-right:1px solid #e2e8f0;display:flex;flex-direction:column">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0">
+            <div style="font-size:13px;font-weight:700;color:#1e3a5f">☁ Cloud Projects</div>
+            <div style="display:flex;gap:8px">
+              <button onclick="_pfRefresh()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;font-size:11px;font-weight:600;font-family:inherit">🔄 Refresh</button>
+              <button onclick="_pfOpenSettings()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#1e3a5f;color:#fff;border:none;font-size:11px;font-weight:600;font-family:inherit">🔐 Sign In</button>
+            </div>
+          </div>
+          <div id="pfHomeCloudStatus" style="font-size:11px;color:#64748b;margin-bottom:16px">
+            Not signed in — <span onclick="_pfOpenSettings()" style="cursor:pointer;color:#1e3a5f;font-weight:700;text-decoration:underline">🔐 Sign In</span> to connect to your cloud projects
+          </div>
+          <div id="pfHomeCloudList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px"></div>
+        </div>
+
+        <!-- RIGHT: Capabilities -->
+        <div style="padding:28px 24px;overflow-y:auto;background:#f8fafc">
+          <div style="font-size:12px;font-weight:700;color:#1e3a5f;letter-spacing:.4px;text-transform:uppercase;margin-bottom:14px">What you can do</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="padding:12px 14px;border-radius:10px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.04)">
+              <div style="font-size:18px">🏗</div>
+              <div style="font-size:12px;font-weight:700;color:#1e3a5f;margin-top:5px">Production Scheduling</div>
+              <div style="font-size:10.5px;color:#64748b;margin-top:3px;line-height:1.45">Auto-schedule all panel types across buildings, minimising casting days.</div>
+            </div>
+            <div style="padding:12px 14px;border-radius:10px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.04)">
+              <div style="font-size:18px">📐</div>
+              <div style="font-size:12px;font-weight:700;color:#1e3a5f;margin-top:5px">Table Layout Optimisation</div>
+              <div style="font-size:10.5px;color:#64748b;margin-top:3px;line-height:1.45">MaxRects bin-packing with 300 mm offset, row alignment, and edge gravity.</div>
+            </div>
+            <div style="padding:12px 14px;border-radius:10px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.04)">
+              <div style="font-size:18px">🏭</div>
+              <div style="font-size:12px;font-weight:700;color:#1e3a5f;margin-top:5px">Mould Cycle Tracking</div>
+              <div style="font-size:10.5px;color:#64748b;margin-top:3px;line-height:1.45">Track shutter changes, template reuse, and mould assignments per slot.</div>
+            </div>
+            <div style="padding:12px 14px;border-radius:10px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.04)">
+              <div style="font-size:18px">📊</div>
+              <div style="font-size:12px;font-weight:700;color:#1e3a5f;margin-top:5px">Overview &amp; KPIs</div>
+              <div style="font-size:10.5px;color:#64748b;margin-top:3px;line-height:1.45">Daily concrete m³, Gantt chart, family stats, and peak day analysis.</div>
+            </div>
+            <div style="padding:12px 14px;border-radius:10px;background:#fff;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,.04)">
+              <div style="font-size:18px">☁</div>
+              <div style="font-size:12px;font-weight:700;color:#1e3a5f;margin-top:5px">Cloud Save &amp; Load</div>
+              <div style="font-size:10.5px;color:#64748b;margin-top:3px;line-height:1.45">Save full projects (data + schedule) to Capriole ownCloud and open from anywhere.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- APP SCREEN (tabs + view, hidden until opened) -->
+    <div id="pfAppScreen" style="flex:1;display:none;flex-direction:column;overflow:hidden">
+      <div class="tabs">
+        <button class="tab-home" onclick="pfShowHome()" title="Back to Home" style="padding:8px 14px;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-size:18px;color:#94a3b8" title="Home">🏠</button>
+        <button class="tab active" data-tab="overview">📊 Overview</button>
+        <button class="tab" data-tab="gantt">📅 Gantt Schedule</button>
+        <button class="tab" data-tab="moulds">🏭 Mould Assignments</button>
+        <button class="tab" data-tab="orders">📋 Order Schedule</button>
+        <button class="tab" data-tab="plan">📐 Table Plan</button>
+        <button class="tab" data-tab="tables">🪵 Casting Tables</button>
+        <button class="tab" data-tab="data">💾 Data</button>
+      </div>
+      <div id="view" style="flex:1;overflow-y:auto"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- CLOUD SETTINGS MODAL — at body root so z-index works from anywhere -->
+<div id="pfSettingsModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:9998;align-items:center;justify-content:center;font-family:'Century Gothic','Segoe UI',Arial,sans-serif">
+  <div style="background:#fff;border-radius:14px;padding:28px 24px;width:340px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.35)">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#1e3a5f">☁ Sign in to Cloud</div>
+        <div style="font-size:10px;color:#64748b;margin-top:2px">Capriole ownCloud · cloud.capriolegroup.org</div>
+      </div>
+      <div onclick="_pfCloseSettings()" style="cursor:pointer;font-size:18px;color:#94a3b8;margin-top:-2px;line-height:1">✕</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <input id="pfOcUser" placeholder="ownCloud username" autocomplete="username"
+             style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;outline:none"
+             onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'">
+      <input id="pfOcPass" type="password" placeholder="App password (xxxx-xxxx-xxxx-xxxx)" autocomplete="current-password"
+             style="width:100%;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;outline:none"
+             onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#cbd5e1'"
+             onkeydown="if(event.key==='Enter')_pfSaveSettings()">
+      <div style="font-size:10px;color:#94a3b8">ownCloud → Settings → Security → App passwords → create "Precast Factory"</div>
+    </div>
+    <button onclick="_pfSaveSettings()" style="width:100%;padding:11px;border-radius:8px;background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff;border:none;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:16px;margin-bottom:8px">Connect →</button>
+    <button onclick="_pfTest()" style="width:100%;padding:9px;border-radius:8px;background:#f8fafc;color:#334155;border:1px solid #e2e8f0;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer">⚡ Test Connection</button>
+  </div>
+</div>
+
+<!-- Runner overlay -->
+<div class="runner" id="runner">
+  <div class="runner-box">
+    <h3>⚙ Engine Running</h3>
+    <div class="runner-step" id="rStep">Initializing...</div>
+    <div class="runner-prog"><div id="rBar"></div></div>
+    <div class="runner-stat">
+      <span id="rPieces">0 pieces scheduled</span>
+      <span id="rPos">0/0 positions</span>
+    </div>
+  </div>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+"use strict";
+
+// ============================================================
+// NAHEEL CAMP G+1 DATA — extracted from project Excel file
+// ============================================================
+let TYPES = [
+  // GF IP250 — 19 types
+  {code:"GF-IP-01",fam:"IP",fl:"GF",w:6317,h:3400,t:250,m3:3.84,kg:9600,supplier:"UPC AUH"},
+  {code:"GF-IP-02",fam:"IP",fl:"GF",w:3409,h:3400,t:250,m3:2.11,kg:5275},
+  {code:"GF-IP-03",fam:"IP",fl:"GF",w:4642,h:3400,t:250,m3:2.95,kg:7375},
+  {code:"GF-IP-04",fam:"IP",fl:"GF",w:1393,h:3180,t:250,m3:1.00,kg:2500},
+  {code:"GF-IP-05",fam:"IP",fl:"GF",w:2610,h:3330,t:250,m3:1.25,kg:3125},
+  {code:"GF-IP-06",fam:"IP",fl:"GF",w:1393,h:3180,t:250,m3:1.02,kg:2550},
+  {code:"GF-IP-08",fam:"IP",fl:"GF",w:4302,h:3400,t:250,m3:2.74,kg:6850},
+  {code:"GF-IP-09",fam:"IP",fl:"GF",w:3449,h:3400,t:250,m3:2.14,kg:5350},
+  {code:"GF-IP-10",fam:"IP",fl:"GF",w:6317,h:3400,t:250,m3:3.84,kg:9600,supplier:"UPC AUH"},
+  {code:"GF-IP-11",fam:"IP",fl:"GF",w:5276,h:3400,t:250,m3:3.46,kg:8650},
+  {code:"GF-IP-12",fam:"IP",fl:"GF",w:3476,h:3400,t:250,m3:2.58,kg:6450},
+  {code:"GF-IP-13",fam:"IP",fl:"GF",w:6317,h:3400,t:250,m3:3.89,kg:9725,supplier:"UPC AUH"},
+  {code:"GF-IP-14",fam:"IP",fl:"GF",w:3449,h:3400,t:250,m3:2.14,kg:5350},
+  {code:"GF-IP-15",fam:"IP",fl:"GF",w:4144,h:3400,t:250,m3:2.68,kg:6700},
+  {code:"GF-IP-16",fam:"IP",fl:"GF",w:6784,h:3400,t:250,m3:4.40,kg:11000,supplier:"UPC AUH"},
+  {code:"GF-IP-17",fam:"IP",fl:"GF",w:3409,h:3400,t:250,m3:2.14,kg:5350},
+  {code:"GF-IP-18",fam:"IP",fl:"GF",w:6317,h:3400,t:250,m3:3.89,kg:9725,supplier:"UPC AUH"},
+  {code:"GF-IP-19",fam:"IP",fl:"GF",w:3476,h:3400,t:250,m3:2.58,kg:6450},
+  {code:"GF-IP-20",fam:"IP",fl:"GF",w:5276,h:3400,t:250,m3:3.46,kg:8650},
+  // FF IP250 — 13 types
+  {code:"FF-IP-01",fam:"IP",fl:"FF",w:6317,h:4504,t:250,m3:4.89,kg:12225},
+  {code:"FF-IP-02",fam:"IP",fl:"FF",w:3409,h:4504,t:250,m3:2.67,kg:6675},
+  {code:"FF-IP-03",fam:"IP",fl:"FF",w:4642,h:4504,t:250,m3:3.75,kg:9375},
+  {code:"FF-IP-04",fam:"IP",fl:"FF",w:1968,h:4504,t:250,m3:1.76,kg:4400},
+  {code:"FF-IP-05",fam:"IP",fl:"FF",w:4302,h:4504,t:250,m3:3.39,kg:8475},
+  {code:"FF-IP-06",fam:"IP",fl:"FF",w:3449,h:4504,t:250,m3:2.70,kg:6750},
+  {code:"FF-IP-07",fam:"IP",fl:"FF",w:6317,h:4504,t:250,m3:4.59,kg:11475},
+  {code:"FF-IP-08",fam:"IP",fl:"FF",w:5276,h:4504,t:250,m3:4.31,kg:10775},
+  {code:"FF-IP-09",fam:"IP",fl:"FF",w:3476,h:4504,t:250,m3:3.11,kg:7775},
+  {code:"FF-IP-11",fam:"IP",fl:"FF",w:3449,h:4504,t:250,m3:2.71,kg:6775},
+  {code:"FF-IP-12",fam:"IP",fl:"FF",w:4144,h:4504,t:250,m3:3.32,kg:8300},
+  {code:"FF-IP-16",fam:"IP",fl:"FF",w:3476,h:4504,t:250,m3:3.11,kg:7775},
+  {code:"FF-IP-17",fam:"IP",fl:"FF",w:5276,h:4504,t:250,m3:4.18,kg:10450},
+  // GF WL200 — 10 types
+  {code:"GF-WL-01",fam:"WL",fl:"GF",w:3876,h:3180,t:200,m3:2.13,kg:5325},
+  {code:"GF-WL-02",fam:"WL",fl:"GF",w:5476,h:3180,t:200,m3:2.62,kg:6550},
+  {code:"GF-WL-03",fam:"WL",fl:"GF",w:3368,h:3330,t:200,m3:2.28,kg:5700},
+  {code:"GF-WL-04",fam:"WL",fl:"GF",w:6784,h:3130,t:200,m3:3.57,kg:8925},
+  {code:"GF-WL-05",fam:"WL",fl:"GF",w:3368,h:3330,t:200,m3:2.25,kg:5625},
+  {code:"GF-WL-06",fam:"WL",fl:"GF",w:4252,h:3130,t:200,m3:1.92,kg:4800},
+  {code:"GF-WL-07",fam:"WL",fl:"GF",w:5624,h:3130,t:200,m3:2.69,kg:6725},
+  {code:"GF-WL-08",fam:"WL",fl:"GF",w:3876,h:3130,t:200,m3:2.13,kg:5325},
+  {code:"GF-WL-09",fam:"WL",fl:"GF",w:3448,h:3330,t:200,m3:2.39,kg:5975},
+  {code:"GF-WL-10",fam:"WL",fl:"GF",w:1773,h:3330,t:200,m3:1.18,kg:2950},
+  // FF WL200 — 9 types
+  {code:"FF-WL-01",fam:"WL",fl:"FF",w:3876,h:3134,t:200,m3:1.81,kg:4525},
+  {code:"FF-WL-02",fam:"WL",fl:"FF",w:5476,h:3134,t:200,m3:2.54,kg:6350},
+  {code:"FF-WL-03",fam:"WL",fl:"FF",w:3368,h:3334,t:200,m3:2.27,kg:5675},
+  {code:"FF-WL-05",fam:"WL",fl:"FF",w:3368,h:3334,t:200,m3:2.24,kg:5600},
+  {code:"FF-WL-06",fam:"WL",fl:"FF",w:4252,h:3134,t:200,m3:1.88,kg:4700},
+  {code:"FF-WL-07",fam:"WL",fl:"FF",w:5624,h:3134,t:200,m3:2.69,kg:6725},
+  {code:"FF-WL-08",fam:"WL",fl:"FF",w:3876,h:3134,t:200,m3:1.82,kg:4550},
+  {code:"FF-WL-09",fam:"WL",fl:"FF",w:3448,h:3334,t:200,m3:2.29,kg:5725},
+  {code:"FF-WL-10",fam:"WL",fl:"FF",w:3448,h:3334,t:200,m3:2.29,kg:5725},
+  // GF WN120 — 19 types
+  {code:"GF-WN-02",fam:"WN",fl:"GF",w:1568,h:2670,t:120,m3:0.50,kg:1250},
+  {code:"GF-WN-03",fam:"WN",fl:"GF",w:1568,h:2670,t:120,m3:0.50,kg:1250},
+  {code:"GF-WN-04",fam:"WN",fl:"GF",w:1568,h:2670,t:120,m3:0.50,kg:1250},
+  {code:"GF-WN-05",fam:"WN",fl:"GF",w:1568,h:2670,t:120,m3:0.50,kg:1250},
+  {code:"GF-WN-06",fam:"WN",fl:"GF",w:6558,h:2670,t:120,m3:0.67,kg:1675},
+  {code:"GF-WN-07",fam:"WN",fl:"GF",w:3368,h:3170,t:120,m3:1.26,kg:3150},
+  {code:"GF-WN-08",fam:"WN",fl:"GF",w:3876,h:3120,t:120,m3:1.27,kg:3175},
+  {code:"GF-WN-09",fam:"WN",fl:"GF",w:5029,h:3120,t:120,m3:1.32,kg:3300},
+  {code:"GF-WN-10",fam:"WN",fl:"GF",w:5000,h:3120,t:120,m3:1.59,kg:3975},
+  {code:"GF-WN-11",fam:"WN",fl:"GF",w:4268,h:2670,t:120,m3:0.41,kg:1025},
+  {code:"GF-WN-12",fam:"WN",fl:"GF",w:1568,h:2670,t:120,m3:0.50,kg:1250},
+  {code:"GF-WN-13",fam:"WN",fl:"GF",w:1568,h:2670,t:120,m3:0.50,kg:1250},
+  {code:"GF-WN-14",fam:"WN",fl:"GF",w:1568,h:2670,t:120,m3:0.50,kg:1250},
+  {code:"GF-WN-15",fam:"WN",fl:"GF",w:1728,h:3120,t:120,m3:1.29,kg:3225},
+  {code:"GF-WN-16",fam:"WN",fl:"GF",w:3516,h:3120,t:120,m3:0.60,kg:1500},
+  {code:"GF-WN-17",fam:"WN",fl:"GF",w:2952,h:3120,t:120,m3:1.53,kg:3825},
+  {code:"GF-WN-18",fam:"WN",fl:"GF",w:3448,h:3120,t:120,m3:1.29,kg:3225},
+  {code:"GF-WN-19",fam:"WN",fl:"GF",w:5624,h:3120,t:120,m3:1.53,kg:3825},
+  {code:"GF-WN-20",fam:"WN",fl:"GF",w:3876,h:3120,t:120,m3:1.27,kg:3175},
+  // FF WN120 — 20 types
+  {code:"FF-WN-01",fam:"WN",fl:"FF",w:1568,h:2674,t:120,m3:0.48,kg:1200},
+  {code:"FF-WN-02",fam:"WN",fl:"FF",w:1568,h:2674,t:120,m3:0.48,kg:1200},
+  {code:"FF-WN-03",fam:"WN",fl:"FF",w:1568,h:2674,t:120,m3:0.48,kg:1200},
+  {code:"FF-WN-04",fam:"WN",fl:"FF",w:1568,h:2674,t:120,m3:0.48,kg:1200},
+  {code:"FF-WN-05",fam:"WN",fl:"FF",w:1568,h:2674,t:120,m3:0.48,kg:1200},
+  {code:"FF-WN-06",fam:"WN",fl:"FF",w:6568,h:2674,t:120,m3:0.67,kg:1675},
+  {code:"FF-WN-07",fam:"WN",fl:"FF",w:3368,h:3174,t:120,m3:1.28,kg:3200},
+  {code:"FF-WN-08",fam:"WN",fl:"FF",w:3876,h:3124,t:120,m3:1.29,kg:3225},
+  {code:"FF-WN-09",fam:"WN",fl:"FF",w:5029,h:3124,t:120,m3:1.33,kg:3325},
+  {code:"FF-WN-10",fam:"WN",fl:"FF",w:5000,h:3124,t:120,m3:1.33,kg:3325},
+  {code:"FF-WN-11",fam:"WN",fl:"FF",w:4268,h:2674,t:120,m3:0.41,kg:1025},
+  {code:"FF-WN-12",fam:"WN",fl:"FF",w:1568,h:2674,t:120,m3:0.48,kg:1200},
+  {code:"FF-WN-13",fam:"WN",fl:"FF",w:1568,h:2674,t:120,m3:0.48,kg:1200},
+  {code:"FF-WN-14",fam:"WN",fl:"FF",w:1568,h:2674,t:120,m3:0.48,kg:1200},
+  {code:"FF-WN-15",fam:"WN",fl:"FF",w:3448,h:3124,t:120,m3:1.30,kg:3250},
+  {code:"FF-WN-16",fam:"WN",fl:"FF",w:3516,h:3124,t:120,m3:0.75,kg:1875},
+  {code:"FF-WN-17",fam:"WN",fl:"FF",w:2952,h:3124,t:120,m3:0.64,kg:1600},
+  {code:"FF-WN-18",fam:"WN",fl:"FF",w:3448,h:3124,t:120,m3:1.29,kg:3225},
+  {code:"FF-WN-19",fam:"WN",fl:"FF",w:5624,h:3124,t:120,m3:1.54,kg:3850},
+  {code:"FF-WN-20",fam:"WN",fl:"FF",w:3876,h:3124,t:120,m3:1.27,kg:3175},
+  // FF Parapet Beam — 1 type
+  {code:"FF-PB-01",fam:"PB",fl:"FF",w:2500,h:800,t:250,m3:0.43,kg:1075},
+];
+
+const MAX_BUILDINGS = 16; // project total
+function loadBuildingsCount(){
+  try{ const raw = localStorage.getItem("pe_buildings_v1"); if(raw){ const n=parseInt(raw); if(n>=1 && n<=MAX_BUILDINGS) return n; } }catch(e){}
+  return MAX_BUILDINGS;
+}
+function saveBuildingsCount(){ try{ localStorage.setItem("pe_buildings_v1", String(BUILDINGS)); }catch(e){} }
+let BUILDINGS = loadBuildingsCount();
+const FAMILIES = ["IP","WL","WN","PB"];
+const FAM_NAMES = {IP:"Insulated Panel (250mm)",WL:"Wall Panel (200mm)",WN:"Window Panel (120mm)",PB:"Parapet Beam"};
+
+// ============================================================
+// Source overrides — In-House vs By Others
+// Default rule: panels > 7 tons (7000 kg) are By Others.
+// Pre-tagged supplier (e.g. "UPC AUH") also = By Others by default.
+// User overrides stored in localStorage.
+// ============================================================
+const HEAVY_KG_LIMIT = 7000;
+function loadSrcOverrides(){
+  try{ const raw = localStorage.getItem("pe_src_v1"); if(raw) return JSON.parse(raw)||{}; }catch(e){}
+  return {};
+}
+function saveSrcOverrides(){ try{ localStorage.setItem("pe_src_v1", JSON.stringify(SRC_OVR)); }catch(e){} }
+let SRC_OVR = loadSrcOverrides();
+
+// Per-panel metadata: openings, door openings, MEP embeds (counts).
+// Stored as { code: {opn:0, doors:0, mep:0} } in localStorage.
+function loadTypeMeta(){
+  try{ const raw = localStorage.getItem("pe_meta_v1"); if(raw) return JSON.parse(raw)||{}; }catch(e){}
+  return {};
+}
+function saveTypeMeta(){ try{ localStorage.setItem("pe_meta_v1", JSON.stringify(TYPE_META)); }catch(e){} }
+let TYPE_META = loadTypeMeta();
+function getMeta(code){
+  const m = TYPE_META[code] || {};
+  return {
+    opnW:  +m.opnW  || 0,
+    opnL:  +m.opnL  || 0,
+    doorsW:+m.doorsW|| 0,
+    doorsL:+m.doorsL|| 0,
+    mep:   +m.mep   || 0
+  };
+}
+function setMeta(code, key, val){
+  if(!TYPE_META[code]) TYPE_META[code] = {opnW:0,opnL:0,doorsW:0,doorsL:0,mep:0};
+  TYPE_META[code][key] = +val||0;
+  saveTypeMeta();
+}
+
+// MOULD FINGERPRINT — two panels share the same mould if (and only if) their
+// dimensions are identical. Family/floor differences do NOT change the mould.
+// Used by the scheduler's continuity logic so a slot keeps yesterday's shutter
+// when ANY panel of the same dimension still needs casting.
+function dimKey(t){
+  if(!t) return "";
+  const lo = Math.min(t.w, t.h), hi = Math.max(t.w, t.h);
+  return `${lo}x${hi}x${t.t||0}`;
+}
+
+// User-added panels persist separately and are merged into TYPES at load.
+function loadUserTypes(){
+  try{ const raw = localStorage.getItem("pe_usertypes_v1"); if(raw) return JSON.parse(raw)||[]; }catch(e){}
+  return [];
+}
+function saveUserTypes(){
+  try{ localStorage.setItem("pe_usertypes_v1", JSON.stringify(TYPES.filter(t=>t._user))); }catch(e){}
+}
+// Merge any previously saved user panels
+loadUserTypes().forEach(u => {
+  if(!TYPES.find(x=>x.code===u.code)) TYPES.push(Object.assign({_user:true}, u));
+});
+function defaultByOthers(t){
+  if(t.kg > HEAVY_KG_LIMIT) return true;
+  if(t.supplier && t.supplier !== "in-house") return true;
+  return false;
+}
+function isByOthers(t){
+  if(SRC_OVR[t.code] !== undefined) return !!SRC_OVR[t.code];
+  return defaultByOthers(t);
+}
+function isInHouse(t){ return !isByOthers(t); }
+
+// ============================================================
+// Casting Tables — physical resources
+// Default: 10 tables of 6m × 8m
+// ============================================================
+const DEFAULT_TABLES = [];
+for(let i=1;i<=10;i++){
+  DEFAULT_TABLES.push({id:`T${String(i).padStart(2,"0")}`, name:`Table ${i}`, L:8000, W:6000, allows:["IP","WL","WN","PB"], active:true});
+}
+function loadTables(){
+  try{
+    const raw = localStorage.getItem("pe_tables_v1");
+    if(raw){ const arr = JSON.parse(raw); if(Array.isArray(arr) && arr.length) return arr; }
+  }catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULT_TABLES));
+}
+function saveTables(){ try{ localStorage.setItem("pe_tables_v1", JSON.stringify(TABLES)); }catch(e){} }
+let TABLES = loadTables();
+
+// ============================================================
+// State
+// ============================================================
+let activeTab = "overview";
+let schedule = null;     // optimization output
+let params = {};
+let tipEl = null;
+
+// Cast/skip status persistence — keyed by type|building since dates shift on reschedule.
+function loadCastStatus(){ try{ return JSON.parse(localStorage.getItem("pe_status_v1")||"{}"); }catch(e){ return {}; } }
+function saveCastStatus(){ try{ localStorage.setItem("pe_status_v1", JSON.stringify(CAST_STATUS)); }catch(e){} }
+let CAST_STATUS = loadCastStatus();
+function statusKey(c){ return `${c.type}|${c.b}`; }
+function getStatus(c){ return CAST_STATUS[statusKey(c)] || "pending"; }
+function setStatus(c, val){
+  if(val==="pending") delete CAST_STATUS[statusKey(c)];
+  else CAST_STATUS[statusKey(c)] = val;
+  saveCastStatus();
+}
+
+// ============================================================
+// Helpers
+// ============================================================
+function $(s,r=document){return r.querySelector(s)}
+function $$(s,r=document){return Array.from(r.querySelectorAll(s))}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function fmt(n,d=0){return Number(n).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d})}
+function isWeekend(d){const w=d.getDay();return w===0||w===6}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function isoDate(d){return d.toISOString().slice(0,10)}
+function dayLabel(d){return d.toLocaleDateString(undefined,{day:"2-digit",month:"short"})}
+
+function readParams(){
+  // Sync BUILDINGS from sidebar before each run so downstream code sees the right count
+  const b = parseInt($("#pBuildings")?.value);
+  if(b>=1 && b<=MAX_BUILDINGS) BUILDINGS = b; else BUILDINGS = MAX_BUILDINGS;
+  saveBuildingsCount();
+  // Floors: modes —
+  //   all              → every floor in the data
+  //   fl:<floor-code>  → quick-pick: a single data-defined floor (e.g. "fl:GF")
+  //   single           → secondary dropdown picks the floor
+  //   custom           → checkbox group for arbitrary multi-floor selection
+  const allFloors = [...new Set(TYPES.map(t=>t.fl).filter(Boolean))];
+  const mode = $("#pFloorMode")?.value || "all";
+  let floors;
+  if(mode.startsWith("fl:")){
+    const f = mode.slice(3);
+    floors = allFloors.includes(f) ? [f] : allFloors.slice();
+  } else if(mode === "single"){
+    const f = $("#pFloorSingle")?.value;
+    floors = f ? [f] : allFloors.slice();
+  } else if(mode === "custom"){
+    const flChecks = document.querySelectorAll('#pFloors input[type=checkbox]');
+    floors = [...flChecks].filter(c=>c.checked).map(c=>c.dataset.fl);
+    if(floors.length === 0) floors = allFloors.slice();
+  } else {
+    floors = allFloors.slice();
+  }
+  return {
+    start: $("#pStart").value || "2026-04-28",
+    buildings: BUILDINGS,
+    weekend: $("#pWeekend").value==="1",
+    parallel: 64, // safety cap on slot count; effective limit is active table count
+    shutter: parseInt($("#pShutter").value)||0,
+    strat: $("#pStrat").value,
+    floors,
+  };
+}
+
+// ============================================================
+// OPTIMIZATION ENGINE
+// ============================================================
+async function runEngine(){
+  params = readParams();
+  // SINGLE-BUILDING SCHEDULE + REPLICATE: schedule the casting distribution
+  // for ONE building only, then duplicate each scheduled day across the
+  // user's actual building count (one building per consecutive working day).
+  // Every day's mould/type distribution is preserved exactly — only the
+  // building number and date change.
+  const userBuildings = BUILDINGS;
+  BUILDINGS = 1;
+  $("#runBtn").disabled = true;
+  $("#runner").classList.add("show");
+  await sleep(50);
+
+  // Step 1: Build orders for In-House panels only (By Others are excluded
+  // from production scheduling). Floor filter from sidebar restricts which
+  // floors get scheduled — types on un-checked floors are excluded entirely.
+  setStep("📋 Generating orders (in-house only)...", 5);
+  const orders = [];
+  const byOthersTypes = TYPES.filter(isByOthers);
+  const floorSet = new Set(params.floors || []);
+  const onSelectedFloor = (t)=> !t.fl || floorSet.size===0 || floorSet.has(t.fl);
+  TYPES.filter(t => isInHouse(t) && onSelectedFloor(t)).forEach(t=>{
+    for(let b=1; b<=BUILDINGS; b++){
+      orders.push({type:t.code, fam:t.fam, fl:t.fl, w:t.w, h:t.h, kg:t.kg, b});
+    }
+  });
+  await sleep(150);
+
+  // Step 2: Build slots from the active casting tables (shuttering-aware fit)
+  setStep("🏭 Mapping mould slots to casting tables...", 15);
+  const activeTables = TABLES.filter(t=>t.active!==false);
+  await sleep(150);
+
+  // Step 3: Group types per family — only In-House panels on selected floors
+  setStep("📦 Grouping panel types by family (in-house only)...", 25);
+  const typesByFam = {IP:[],WL:[],WN:[],PB:[]};
+  const unfit = []; // panels that don't fit any active table
+  TYPES.filter(t => isInHouse(t) && onSelectedFloor(t)).forEach(t => {
+    const candidate = activeTables.filter(tab => fitsTable(t,tab,params.shutter) && (tab.allows||[]).includes(t.fam));
+    if(candidate.length===0){ unfit.push(t); return; }
+    typesByFam[t.fam].push(t);
+  });
+  Object.keys(typesByFam).forEach(f=>{
+    if(params.strat==="batch") typesByFam[f].sort((a,b)=> a.code.localeCompare(b.code));
+  });
+  await sleep(150);
+
+  // Step 4: Load-balanced table allocation across families to minimize makespan.
+  // Each family's demand = casting-cycles needed, given best table packing × #pieces.
+  // Allocate tables proportional to (demand / avg panels-per-cycle), then iterate to
+  // shave the longest expected family-time by stealing tables from the shortest.
+  setStep("⚙ Load-balancing tables across families...", 40);
+  const slotAssignments = []; // {slotId, fam, label, tableId, tableName, tableL, tableW, types:[]}
+  let slotId = 1;
+
+  const famsActive = FAMILIES.filter(f => typesByFam[f].length>0);
+  const totalAvail = Math.min(params.parallel, activeTables.length);
+
+  // Per-family casting-cycle demand (best-case panels-per-cycle on largest fitting table)
+  // Uses 2D grid packing with rotation: try both orientations, pick max
+  function bestPackPerCycle(t){
+    const longSide  = Math.max(t.w,t.h) + params.shutter;
+    const shortSide = Math.min(t.w,t.h) + params.shutter;
+    let best = 1;
+    activeTables.forEach(tab=>{
+      // Shutter only counts BETWEEN panels (panels sit flush at the table
+      // edge), so the effective packing bin is the table grown by `shutter`
+      // on each axis — items remain (w+shutter, h+shutter).
+      const L = Math.max(tab.L,tab.W) + params.shutter, W = Math.min(tab.L,tab.W) + params.shutter;
+      // Orientation A: long along L
+      let a = 0;
+      if(longSide<=L && shortSide<=W){
+        a = Math.floor(L/longSide) * Math.floor(W/shortSide);
+      }
+      // Orientation B: rotated (long along W)
+      let b = 0;
+      if(shortSide<=L && longSide<=W){
+        b = Math.floor(L/shortSide) * Math.floor(W/longSide);
+      }
+      const fit = Math.max(a,b);
+      if(fit>best) best = fit;
+    });
+    return Math.max(1,best);
+  }
+  const famDemand = {}; // cycles required if family had only 1 dedicated table
+  famsActive.forEach(f=>{
+    famDemand[f] = typesByFam[f].reduce((sum,t)=> sum + (BUILDINGS / bestPackPerCycle(t)), 0);
+  });
+  const totalDemand = famsActive.reduce((s,f)=>s+famDemand[f],0);
+
+  // Initial proportional allocation (min 1 per active family)
+  const famTableCount = {};
+  let allocated = 0;
+  famsActive.forEach(f=>{
+    famTableCount[f] = Math.max(1, Math.floor((famDemand[f]/totalDemand)*totalAvail));
+    allocated += famTableCount[f];
+  });
+  // Distribute leftovers to families with largest projected makespan
+  while(allocated < totalAvail){
+    const f = famsActive.slice().sort((a,b)=> (famDemand[b]/famTableCount[b]) - (famDemand[a]/famTableCount[a]))[0];
+    famTableCount[f]++; allocated++;
+  }
+  // If over-allocated, trim from family with shortest projected time
+  while(allocated > totalAvail){
+    const f = famsActive.slice()
+      .filter(x=>famTableCount[x]>1)
+      .sort((a,b)=> (famDemand[a]/famTableCount[a]) - (famDemand[b]/famTableCount[b]))[0];
+    if(!f) break;
+    famTableCount[f]--; allocated--;
+  }
+  // Iterative makespan rebalancing: steal a table from the shortest family and give to longest
+  // if it strictly reduces the max projected days. Cap iterations.
+  for(let iter=0; iter<20; iter++){
+    const sorted = famsActive.slice().sort((a,b)=> (famDemand[b]/famTableCount[b]) - (famDemand[a]/famTableCount[a]));
+    const longest = sorted[0], shortest = sorted[sorted.length-1];
+    if(longest===shortest || famTableCount[shortest]<=1) break;
+    const beforeMax = famDemand[longest]/famTableCount[longest];
+    const afterMax = Math.max(
+      famDemand[longest]/(famTableCount[longest]+1),
+      famDemand[shortest]/(famTableCount[shortest]-1)
+    );
+    if(afterMax + 1e-9 < beforeMax){
+      famTableCount[longest]++; famTableCount[shortest]--;
+    } else break;
+  }
+
+  // Pick physical tables for each family, in priority order: PB → WN → WL → IP
+  // (smaller first so big IP doesn't grab them all). Each table reserved for one family this run.
+  const tableFam = {};
+  const famTablePicks = {};
+  ["PB","WN","WL","IP"].filter(f=>famsActive.includes(f)).forEach(fam=>{
+    const need = famTableCount[fam]||0;
+    const pool = activeTables.filter(tab =>
+      !tableFam[tab.id] &&
+      (tab.allows||[]).includes(fam) &&
+      typesByFam[fam].some(t => fitsTable(t,tab,params.shutter))
+    );
+    // Prefer tables that fit MORE of this family's types
+    pool.sort((a,b)=>{
+      const af = typesByFam[fam].filter(t=>fitsTable(t,a,params.shutter)).length;
+      const bf = typesByFam[fam].filter(t=>fitsTable(t,b,params.shutter)).length;
+      return bf-af;
+    });
+    famTablePicks[fam] = pool.slice(0, need);
+    famTablePicks[fam].forEach(tab=> tableFam[tab.id]=fam);
+  });
+
+  // Build slots
+  famsActive.forEach(fam=>{
+    const tabs = famTablePicks[fam]||[];
+    if(tabs.length===0) return;
+    tabs.forEach((tab,i)=>{
+      slotAssignments.push({
+        slotId: slotId++, fam,
+        label: `${fam}-${String(i+1).padStart(2,"0")} · ${tab.id}`,
+        tableId: tab.id, tableName: tab.name, tableL: tab.L, tableW: tab.W,
+        types: [],
+        floors: new Set(),  // populated below as types are assigned
+      });
+    });
+    // Round-robin distribute this family's types onto its tables (only if fits).
+    // Bias: when multiple slots tie on type count, prefer the one already
+    // hosting the type's floor — keeps each slot's types clustered to a
+    // single floor whenever possible so floor-restricted optimisation runs
+    // produce visually coherent slot layouts.
+    const famSlots = slotAssignments.filter(s=>s.fam===fam);
+    typesByFam[fam].forEach(t=>{
+      const fitSlots = famSlots.filter(s=>{
+        const tab = activeTables.find(x=>x.id===s.tableId);
+        return fitsTable(t,tab,params.shutter);
+      });
+      if(fitSlots.length===0){ unfit.push(t); return; }
+      fitSlots.sort((a,b)=>{
+        // 1) prefer slot already containing this floor (no new floor added)
+        const aHas = a.floors.has(t.fl) ? 0 : 1;
+        const bHas = b.floors.has(t.fl) ? 0 : 1;
+        if(aHas !== bHas) return aHas - bHas;
+        // 2) then by lowest current type count (load balance)
+        return a.types.length - b.types.length;
+      });
+      fitSlots[0].types.push(t);
+      if(t.fl) fitSlots[0].floors.add(t.fl);
+    });
+    // Append floor tag to each slot's label for the views: e.g. "WL-01 · T05 · GF".
+    famSlots.forEach(s=>{
+      const fls = [...s.floors].sort();
+      if(fls.length === 1)      s.label += ` · ${fls[0]}`;
+      else if(fls.length > 1)   s.label += ` · ${fls.join("/")}`;
+      s.floors = fls; // store as array for JSON-friendly downstream use
+    });
+  });
+  await sleep(200);
+
+  // Step 5: Build day-by-day schedule using a GLOBAL CROSS-FAMILY QUEUE.
+  // All in-house panels share one pool. Each working day, every active table packs
+  // from the same queue (filtered by tab.allows). This eliminates near-empty days
+  // by letting any table absorb leftover panels from any family it can host.
+  setStep("📅 Building schedule (global cross-family pool)...", 55);
+  const startDate = new Date(params.start+"T08:00:00");
+  const cellsByDate = {};       // dateIso → { slotId → array of cells }
+  const slotTimeline = {};      // slotId → [cells]
+  const allCells = [];
+  let scheduledCount = 0;
+  slotAssignments.forEach(s=> slotTimeline[s.slotId] = []);
+
+  // Build ONE global queue, ordered per the chosen Strategy:
+  //  • "round" (default): B1 of all fams → B2 of all → ... so building-fronts advance together.
+  //  • "batch": all 16 buildings of one type, then next type — minimizes mould changeovers.
+  //  • "floor": cast all GF panels first (16 buildings worth), then FF, then RF — supports
+  //             site-erection sequence which proceeds floor-by-floor.
+  const famOrder = ["PB","WN","WL","IP"].filter(f=>famsActive.includes(f));
+  const globalQueue = [];
+  // Eligibility helper (used for all strategies) — also collects unfit on first pass.
+  const seenUnfit = new Set();
+  function fitsAnySlot(t, fam){
+    return slotAssignments.some(s=>{
+      const tab = activeTables.find(x=>x.id===s.tableId);
+      return tab && (tab.allows||[]).includes(fam) && fitsTable(t,tab,params.shutter);
+    });
+  }
+  if(params.strat === "batch"){
+    // Type-major: walk families, then types in their already-sorted order, then b=1..N
+    famOrder.forEach(fam=>{
+      typesByFam[fam].forEach(t=>{
+        if(!fitsAnySlot(t,fam)){ if(!seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
+        for(let b=1; b<=BUILDINGS; b++) globalQueue.push({type:t.code, b, t, fam});
+      });
+    });
+  } else if(params.strat === "floor"){
+    // Floor-major: cast GF for all buildings first, then FF, then RF — matches
+    // site erection sequence. Within a floor: walk families × types × buildings.
+    const floorOrder = ["GF","FF","RF"];
+    floorOrder.forEach(fl=>{
+      famOrder.forEach(fam=>{
+        typesByFam[fam].filter(t=> t.fl===fl).forEach(t=>{
+          if(!fitsAnySlot(t,fam)){ if(!seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
+          for(let b=1; b<=BUILDINGS; b++) globalQueue.push({type:t.code, b, t, fam});
+        });
+      });
+    });
+    // Catch any panels with non-standard floor codes at the end (preserves completeness)
+    famOrder.forEach(fam=>{
+      typesByFam[fam].filter(t=> !floorOrder.includes(t.fl)).forEach(t=>{
+        if(!fitsAnySlot(t,fam)){ if(!seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
+        for(let b=1; b<=BUILDINGS; b++) globalQueue.push({type:t.code, b, t, fam});
+      });
+    });
+  } else {
+    // "round": original building-major ordering, smaller families first within a building
+    for(let b=1; b<=BUILDINGS; b++){
+      famOrder.forEach(fam=>{
+        typesByFam[fam].forEach(t=>{
+          if(!fitsAnySlot(t,fam)){ if(b===1 && !seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
+          globalQueue.push({type:t.code, b, t, fam});
+        });
+      });
+    }
+  }
+  const totalToSchedule = globalQueue.length;
+
+  // Global schedule: advance one working day at a time, ALL tables pack from same queue.
+  // Sort largest table first each day so big panels claim big tables first.
+  let dayIdx = 0;
+  let guard = 0;
+  const safety = globalQueue.length * 3 + 200;
+  // PER-SLOT LOT TEMPLATE: each slot keeps a "template" — the SET of mould
+  // types currently installed plus the SET of buildings already cast with
+  // that template. While remainingBuildings (= BUILDINGS - usedBuildings.size)
+  // is > 0 AND a fresh building still has all template types pending, we
+  // reserve one panel of each template type from that one unused building
+  // and pack ONLY those (no top-up). When remainingBuildings hits 0 — or no
+  // fresh building has the full type set — we free-pack a new lot and reset
+  // the template from that lot's types.
+  const slotTemplate = {};      // slotId → {types:Set<typeCode>, usedBuildings:Set<int>}
+  let shutterChanges = 0;       // counted on each free-pack reset (new types vs prior template)
+
+  // Find a building b in [1..BUILDINGS] not yet used for this template such
+  // that EVERY template type still has a fitting panel (type, b) in queue.
+  function pickFreshBuilding(slot, tab){
+    const tpl = slotTemplate[slot.slotId];
+    if(!tpl || !tpl.types.size) return null;
+    if(tpl.usedBuildings.size >= BUILDINGS) return null;
+    const allow = tab.allows || FAMILIES;
+    // Shutter is between-panel only; effective bin = table + shutter on each axis.
+    const L = Math.max(tab.L, tab.W) + params.shutter, W = Math.min(tab.L, tab.W) + params.shutter;
+    const fits = (t)=>{
+      const O = TABLE_EDGE_OFFSET;
+      return (t.w + params.shutter) <= (L - 2*O) && (t.h + params.shutter) <= (W - 2*O);
+    };
+    for(let b=1; b<=BUILDINGS; b++){
+      if(tpl.usedBuildings.has(b)) continue;
+      let ok = true;
+      for(const typ of tpl.types){
+        const found = globalQueue.some(it =>
+          it.b === b && it.type === typ && fits(it.t) &&
+          (!allow || !it.fam || allow.includes(it.fam))
+        );
+        if(!found){ ok = false; break; }
+      }
+      if(ok) return b;
+    }
+    return null;
+  }
+
+  while(globalQueue.length && guard++ < safety){
+    let dt = addDays(startDate, dayIdx);
+    while(!params.weekend && isWeekend(dt)){ dayIdx++; dt = addDays(startDate, dayIdx); }
+    const iso = isoDate(dt);
+    let placedThisDay = 0;
+
+    // Slots whose existing template can still be re-used (template-mode) go
+    // FIRST so they claim their (type, building) panels before any free-pack
+    // slot drains them. Within each group, larger tables go first.
+    const slotFresh = new Map();
+    for(const s of slotAssignments){
+      const tab = activeTables.find(x=>x.id===s.tableId);
+      slotFresh.set(s.slotId, tab ? pickFreshBuilding(s, tab) : null);
+    }
+    const orderedSlots = slotAssignments.slice().sort((a,b)=>{
+      const aHas = slotFresh.get(a.slotId) !== null ? 1 : 0;
+      const bHas = slotFresh.get(b.slotId) !== null ? 1 : 0;
+      if(aHas !== bHas) return bHas - aHas;
+      return (b.tableL*b.tableW) - (a.tableL*a.tableW);
+    });
+
+    for(const slot of orderedSlots){
+      if(globalQueue.length===0) break;
+      const tab = activeTables.find(x=>x.id===slot.tableId);
+      if(!tab) continue;
+
+      let lot = [];
+      let templateMode = false;
+      const tpl = slotTemplate[slot.slotId];
+
+      // TEMPLATE MODE — MAKE GOOD USE OF THE TABLE: pack MULTIPLE template
+      // cycles per day. Each cycle is "one panel of each template type from
+      // one fresh (unused) building". We keep adding cycles into whatever
+      // free space remains until either no fresh building has a full type
+      // set or the next cycle's panels won't fit. This dramatically lifts
+      // table utilisation while preserving template purity (only template
+      // types are cast on this slot until the template resets).
+      if(tpl && tpl.types.size > 0 && tpl.usedBuildings.size < BUILDINGS){
+        const allow = tab.allows || FAMILIES;
+        const L = Math.max(tab.L, tab.W) + params.shutter;
+        const W = Math.min(tab.L, tab.W) + params.shutter;
+        const fits = (t)=>{
+          // Fixed orientation: t.w along L, t.h along W; both checked against offset-reduced bin.
+          const O = TABLE_EDGE_OFFSET;
+          return (t.w + params.shutter) <= (L - 2*O) && (t.h + params.shutter) <= (W - 2*O);
+        };
+        const claimed = new Set();   // queue items locked in for this lot
+        const consumed = [];         // fresh buildings cast this day
+        const { O: _O2 } = { O: TABLE_EDGE_OFFSET };
+        let freeRects = [{x:_O2, y:_O2, w:L-2*_O2, h:W-2*_O2}];
+        let allPlaced = [];
+        for(let b=1; b<=BUILDINGS; b++){
+          if(tpl.usedBuildings.has(b)) continue;
+          // Gather one (type, b) panel per template type, skipping items
+          // already claimed by an earlier cycle this day.
+          const picks = [];
+          let missingType = false;
+          for(const typ of tpl.types){
+            const found = globalQueue.find(it =>
+              it.b === b && it.type === typ && !claimed.has(it) &&
+              (!allow || !it.fam || allow.includes(it.fam)) && fits(it.t)
+            );
+            if(!found){ missingType = true; break; }
+            picks.push(found);
+          }
+          if(missingType) continue;
+          // ROTATION-AWARE MULTI-ORDERING SEARCH: maxRectsRun already tries
+          // both orientations per item, but the SEED ORDER it processes items
+          // in is what fixes which panel "anchors" the layout. Different
+          // anchors leave radically different leftover rects, so we try a
+          // small bouquet of orderings and keep the one that
+          //   (a) fits ALL template picks, AND
+          //   (b) leaves the most usable leftover space for the top-up pass.
+          // The metric for (b) is the area of the LARGEST free rect — a
+          // single big rect hosts more variety than many slivers of equal
+          // total area, which directly attacks the "WL panels too tall to
+          // fit in the bottom 2.6m strip" problem the user is hitting.
+          const cloneRects = (rs)=> rs.map(r=>({...r}));
+          // Snapshot layouts so failed orderings can be rolled back cleanly
+          // (maxRectsRun mutates item.layout in-place).
+          const snapLayouts = ()=> picks.map(p => p.layout);
+          const restoreLayouts = (snap)=> picks.forEach((p,i)=> p.layout = snap[i]);
+          const initSnap = snapLayouts();
+          const orderings = [
+            picks.slice().sort((p,q)=> (q.t.w*q.t.h) - (p.t.w*p.t.h)),     // area desc
+            picks.slice().sort((p,q)=> (p.t.w*p.t.h) - (q.t.w*q.t.h)),     // area asc
+            picks.slice().sort((p,q)=> Math.max(q.t.w,q.t.h) - Math.max(p.t.w,p.t.h)), // longest-side desc
+            picks.slice().sort((p,q)=> Math.min(q.t.w,q.t.h) - Math.min(p.t.w,p.t.h)), // shortest-side desc
+            picks.slice(),                                                  // original
+          ];
+          const rectScore = (rs)=> rs.reduce((m,r)=> Math.max(m, r.w*r.h), 0);
+          let bestPlaced = null, bestFree = null, bestScore = -1;
+          for(const seed of orderings){
+            restoreLayouts(initSnap);
+            const placed = maxRectsRun(seed, L, W, params.shutter, cloneRects(freeRects));
+            if(placed.length !== picks.length) continue;
+            const sc = rectScore(placed._freeRects);
+            if(sc > bestScore){
+              bestScore = sc;
+              bestPlaced = placed.slice();
+              bestFree = placed._freeRects;
+            }
+          }
+          if(!bestPlaced){
+            restoreLayouts(initSnap);
+            continue; // not all fit in any ordering — try next b
+          }
+          // Re-run the winning ordering so the picks' layout fields are set
+          // to the layout that produced bestFree (last loop iteration may
+          // have left stale layouts on the picks).
+          restoreLayouts(initSnap);
+          const winnerSeed = orderings.find(o => {
+            restoreLayouts(initSnap);
+            const p = maxRectsRun(o, L, W, params.shutter, cloneRects(freeRects));
+            return p.length === picks.length && rectScore(p._freeRects) === bestScore;
+          });
+          restoreLayouts(initSnap);
+          const placed = maxRectsRun(winnerSeed, L, W, params.shutter, freeRects);
+          placed.forEach(p => claimed.add(p));
+          allPlaced = allPlaced.concat(placed);
+          freeRects = placed._freeRects;
+          consumed.push(b);
+        }
+        if(allPlaced.length > 0){
+          // OPPORTUNISTIC TOP-UP — TWO PASSES:
+          //  Pass 1: same-family items (respects tab.allows). Bias toward
+          //          types already on the table today (zero swap cost),
+          //          then largest area first.
+          //  Pass 2: CROSS-FAMILY fallback. If real slack remains after
+          //          pass 1 — defined as a free rect with both dims big
+          //          enough to host another panel — open the pool to all
+          //          families. This is the lever that converts "structural"
+          //          dead space (caused by family-restricted templates) into
+          //          productive casting and is the user's explicit goal of
+          //          making the table footprint earn its keep.
+          const runTopUp = (pool)=>{
+            if(!pool.length || !freeRects || !freeRects.length) return;
+            const top = maxRectsRun(pool, L, W, params.shutter, freeRects);
+            if(top.length){
+              top.forEach(p => claimed.add(p));
+              allPlaced = allPlaced.concat(top);
+              freeRects = top._freeRects;
+            }
+          };
+          const placedTypes = new Set(allPlaced.map(p => p.type));
+          const orderTopUp = (pool)=> pool.slice().sort((a,b)=>{
+            const aHas = placedTypes.has(a.type) ? 1 : 0;
+            const bHas = placedTypes.has(b.type) ? 1 : 0;
+            if(aHas !== bHas) return bHas - aHas;
+            return (b.t.w*b.t.h) - (a.t.w*a.t.h);
+          });
+          // Pass 1: same-family
+          const sameFam = globalQueue.filter(it =>
+            !claimed.has(it) &&
+            (!allow || !it.fam || allow.includes(it.fam)) &&
+            fits(it.t)
+          );
+          runTopUp(orderTopUp(sameFam));
+          // Pass 2: cross-family fallback (only if there's still meaningful
+          // slack — at least one free rect that could host a real panel).
+          const minPanelDim = 1000; // mm — anything smaller is rounding noise
+          const stillSlack = (freeRects||[]).some(r =>
+            (r.w - params.shutter) >= minPanelDim &&
+            (r.h - params.shutter) >= minPanelDim
+          );
+          if(stillSlack){
+            const others = globalQueue.filter(it =>
+              !claimed.has(it) && fits(it.t) &&
+              !(!allow || !it.fam || allow.includes(it.fam))
+            );
+            runTopUp(orderTopUp(others));
+          }
+          // Edge-gravity: shift each panel right & down to the table edge or
+          // next panel. Converts open table area into mould-side contact.
+          pushPanelsToEdges(allPlaced, L, W, params.shutter);
+          normalizeRows(allPlaced, params.shutter);
+          const winSet = new Set(allPlaced);
+          for(let i=globalQueue.length-1; i>=0; i--){
+            if(winSet.has(globalQueue[i])) globalQueue.splice(i,1);
+          }
+          consumed.forEach(b => tpl.usedBuildings.add(b));
+          lot = allPlaced;
+          templateMode = true;
+        }
+      }
+
+      // FREE-PACK MODE — MAX-FILL with SWAP MINIMISATION: no template,
+      // exhausted, or no fresh building has the full type set. We pack
+      // for high table fill, but BIAS TOWARDS REUSING PRIOR TEMPLATE TYPES
+      // so each new mould installed (= swap) is paid for in extra area.
+      // Score = placed_area − SWAP_PENALTY × (new_types not in prevSet).
+      // Two strategies are tried and the higher-scoring one wins:
+      //   (A) pure max-fill across 4 orderings
+      //   (B) prev-anchored: pack prev-type panels first, top up with
+      //       others — this preserves moulds whenever it isn't too costly.
+      if(!templateMode){
+        const allow = tab.allows || FAMILIES;
+        const L = Math.max(tab.L, tab.W) + params.shutter;
+        const W = Math.min(tab.L, tab.W) + params.shutter;
+        const TABLE_AREA = L * W;
+        // Each swap costs ~15% of table area in the score — a swap is only
+        // accepted if it unlocks at least that much extra fill. Tune here.
+        const SWAP_PENALTY = 0.15 * TABLE_AREA;
+        const fits = (t)=>{
+          const O = TABLE_EDGE_OFFSET;
+          return (t.w + params.shutter) <= (L - 2*O) && (t.h + params.shutter) <= (W - 2*O);
+        };
+        const eligible = globalQueue.filter(it =>
+          (!allow || !it.fam || allow.includes(it.fam)) && fits(it.t)
+        );
+        if(eligible.length === 0) continue;
+
+        const prevSet = (tpl && tpl.types) ? tpl.types : new Set();
+        const scoreFor = (placed)=>{
+          const area = placed.reduce((s,p)=> s + p.layout.pw*p.layout.ph, 0);
+          if(prevSet.size === 0) return area;
+          const placedTypes = new Set(placed.map(p => p.type));
+          let newTypes = 0;
+          for(const t of placedTypes){ if(!prevSet.has(t)) newTypes++; }
+          return area - newTypes * SWAP_PENALTY;
+        };
+
+        // (A) Pure max-fill — try several orderings, then top-up leftover space.
+        const maxFillOrderings = [
+          eligible.slice().sort((a,b)=> (b.t.w*b.t.h)-(a.t.w*a.t.h)),            // area desc
+          eligible.slice().sort((a,b)=> (a.t.w*a.t.h)-(b.t.w*b.t.h)),            // area asc
+          eligible.slice().sort((a,b)=> Math.max(b.t.w,b.t.h)-Math.max(a.t.w,a.t.h)), // long-side desc
+          eligible.slice().sort((a,b)=> b.t.h - a.t.h),                           // height desc → row-friendly
+          eligible.slice().sort((a,b)=> a.t.h - b.t.h),                           // height asc
+          eligible.slice(),                                                         // original order
+        ];
+        let bestPlaced = [];
+        let bestScore = -Infinity;
+        for(const seed of maxFillOrderings){
+          const first = maxRectsRun(seed, L, W, params.shutter);
+          // Top-up: fill leftover free rects with remaining eligible panels
+          const usedA = new Set(first);
+          const remaining = eligible.filter(it => !usedA.has(it));
+          let combined = first.slice();
+          if(remaining.length && first._freeRects && first._freeRects.length){
+            const topUpA = maxRectsRun(
+              remaining.slice().sort((a,b)=> (b.t.w*b.t.h)-(a.t.w*a.t.h)),
+              L, W, params.shutter, first._freeRects
+            );
+            combined = first.concat(topUpA);
+          }
+          const sc = scoreFor(combined);
+          if(sc > bestScore){ bestScore = sc; bestPlaced = combined; }
+        }
+
+        // (B) Prev-anchored: pack prev-type panels first to preserve moulds,
+        // then top up the leftover free rects with other types. Only
+        // attempted when there IS a prior template AND prev-type panels
+        // still remain in the eligible pool.
+        if(prevSet.size > 0){
+          const prevItems = eligible.filter(it => prevSet.has(it.type));
+          const otherItems = eligible.filter(it => !prevSet.has(it.type));
+          if(prevItems.length > 0){
+            const prevOrderings = [
+              prevItems.slice().sort((a,b)=> (b.t.w*b.t.h)-(a.t.w*a.t.h)),
+              prevItems.slice().sort((a,b)=> Math.max(b.t.w,b.t.h)-Math.max(a.t.w,a.t.h)),
+              prevItems.slice().sort((a,b)=> Math.min(b.t.w,b.t.h)-Math.min(a.t.w,a.t.h)),
+            ];
+            let bestPrev = []; let bestPrevArea = -1; let bestPrevFree = null;
+            for(const seed of prevOrderings){
+              const placed = maxRectsRun(seed, L, W, params.shutter);
+              const area = placed.reduce((s,p)=> s + p.layout.pw*p.layout.ph, 0);
+              if(area > bestPrevArea){ bestPrevArea = area; bestPrev = placed; bestPrevFree = placed._freeRects; }
+            }
+            let topUp = [];
+            if(otherItems.length > 0 && bestPrevFree && bestPrevFree.length){
+              const otherOrderings = [
+                otherItems.slice().sort((a,b)=> (b.t.w*b.t.h)-(a.t.w*a.t.h)),
+                otherItems.slice().sort((a,b)=> Math.max(b.t.w,b.t.h)-Math.max(a.t.w,a.t.h)),
+                otherItems.slice().sort((a,b)=> Math.min(b.t.w,b.t.h)-Math.min(a.t.w,a.t.h)),
+              ];
+              let bestTopArea = -1;
+              for(const seed of otherOrderings){
+                const placed = maxRectsRun(seed, L, W, params.shutter, bestPrevFree);
+                const area = placed.reduce((s,p)=> s + p.layout.pw*p.layout.ph, 0);
+                if(area > bestTopArea){ bestTopArea = area; topUp = placed; }
+              }
+            }
+            const anchored = bestPrev.concat(topUp);
+            const sc = scoreFor(anchored);
+            if(sc > bestScore){ bestScore = sc; bestPlaced = anchored; }
+          }
+        }
+
+        if(bestPlaced.length === 0) continue;
+        // Edge-gravity: shift each panel right & down to the table edge or
+        // next panel. Converts open table area into mould-side contact.
+        pushPanelsToEdges(bestPlaced, L, W, params.shutter);
+        normalizeRows(bestPlaced, params.shutter);
+        const winSet = new Set(bestPlaced);
+        for(let i=globalQueue.length-1; i>=0; i--){
+          if(winSet.has(globalQueue[i])) globalQueue.splice(i,1);
+        }
+        lot = bestPlaced;
+        const newTypes = new Set(lot.map(c => c.type));
+        const prevTypes = tpl ? tpl.types : null;
+        if(prevTypes){
+          for(const t of newTypes){ if(!prevTypes.has(t)) shutterChanges++; }
+        } else {
+          shutterChanges += newTypes.size; // initial install
+        }
+        // usedBuildings starts EMPTY — a building only counts as "used" once
+        // the FULL template is cast on it (which happens in template-mode).
+        slotTemplate[slot.slotId] = { types: newTypes, usedBuildings: new Set() };
+      }
+
+      lot.forEach((item, idx)=>{
+        const cell = {
+          slotId: slot.slotId, slotLabel: slot.label, fam: item.fam,
+          type: item.type, b: item.b, kg: item.t.kg, w: item.t.w, h: item.t.h,
+          dayIdx, dateIso: iso, dt: new Date(dt),
+          lotIdx: idx, lotSize: lot.length,
+          layout: item.layout || null,
+          isLast: false,
+        };
+        if(!cellsByDate[iso]) cellsByDate[iso] = {};
+        if(!cellsByDate[iso][slot.slotId]) cellsByDate[iso][slot.slotId] = [];
+        cellsByDate[iso][slot.slotId].push(cell);
+        slotTimeline[slot.slotId].push(cell);
+        allCells.push(cell);
+        scheduledCount++;
+        placedThisDay++;
+      });
+    }
+    // No table accepted any item this day (shouldn't happen post-filter) — drop head to avoid infinite loop
+    if(placedThisDay===0){
+      const item = globalQueue.shift();
+      if(item) unfit.push(item.t);
+    }
+    dayIdx++;
+    if(dayIdx % 5 === 0){
+      const pct = totalToSchedule>0 ? scheduledCount/totalToSchedule : 0;
+      setStep(`📅 Scheduling... day ${dayIdx}, ${scheduledCount}/${totalToSchedule} placed`, 55 + Math.round(pct*30));
+      $("#rPieces").textContent = `${fmt(scheduledCount)} / ${fmt(totalToSchedule)} pieces scheduled`;
+      $("#rPos").textContent = `day ${dayIdx}`;
+      await sleep(0);
+    }
+  }
+
+  // EXPAND ACROSS BUILDINGS: 1-building schedule is replicated userBuildings
+  // times. Each original day becomes userBuildings consecutive working days,
+  // building-numbered 1..userBuildings, with identical type/layout per day.
+  if(userBuildings > 1){
+    const sortedDays = Object.keys(cellsByDate).sort();
+    const newCellsByDate = {};
+    const newSlotTimeline = {};
+    slotAssignments.forEach(s => newSlotTimeline[s.slotId] = []);
+    const newAllCells = [];
+    let outDayIdx = 0;
+    for(const iso of sortedDays){
+      const dayCells = cellsByDate[iso];
+      for(let b=1; b<=userBuildings; b++){
+        let dt = addDays(startDate, outDayIdx);
+        while(!params.weekend && isWeekend(dt)){ outDayIdx++; dt = addDays(startDate, outDayIdx); }
+        const outIso = isoDate(dt);
+        if(!newCellsByDate[outIso]) newCellsByDate[outIso] = {};
+        for(const slotId of Object.keys(dayCells)){
+          const cells = dayCells[slotId];
+          if(!newCellsByDate[outIso][slotId]) newCellsByDate[outIso][slotId] = [];
+          for(const c of cells){
+            const nc = { ...c, b, dayIdx: outDayIdx, dateIso: outIso, dt: new Date(dt), isLast: false };
+            newCellsByDate[outIso][slotId].push(nc);
+            (newSlotTimeline[slotId] = newSlotTimeline[slotId] || []).push(nc);
+            newAllCells.push(nc);
+          }
+        }
+        outDayIdx++;
+      }
+    }
+    // Replace in place so KPIs/UI see the expanded schedule.
+    Object.keys(cellsByDate).forEach(k => delete cellsByDate[k]);
+    Object.assign(cellsByDate, newCellsByDate);
+    Object.keys(slotTimeline).forEach(k => { slotTimeline[k] = newSlotTimeline[k] || []; });
+    allCells.length = 0;
+    for(const c of newAllCells) allCells.push(c);
+    scheduledCount = newAllCells.length;
+  }
+  // Restore actual building count for KPI / UI / by-others reporting.
+  BUILDINGS = userBuildings;
+
+  // Mark isLast on the last cell of each type globally
+  const lastIdxPerType = {};
+  allCells.forEach((c,i)=>{ lastIdxPerType[c.type] = i; });
+  Object.values(lastIdxPerType).forEach(i=>{ allCells[i].isLast = true; });
+
+  // Step 6: Compute KPIs
+  setStep("📊 Computing KPIs...", 90);
+  await sleep(150);
+
+  const allDates = Object.keys(cellsByDate).sort();
+  const lastDate = allDates[allDates.length-1];
+  const firstDate = allDates[0];
+  const totalDays = allDates.length;
+  const calendarDays = Math.round((new Date(lastDate)-new Date(firstDate))/86400000)+1;
+  const totalKg = allCells.reduce((s,c)=>s+c.kg,0);
+  const totalM3 = allCells.reduce((s,c)=>{ const t=TYPES.find(x=>x.code===c.type); return s + (t?.m3||0); },0);
+  // Per-day concrete volume (m³ cast per working day).
+  // cellsByDate is { iso: { slotId: [cells] } } — flatten then sum m³ per type.
+  const m3ByDate = {};
+  allDates.forEach(d=>{
+    const dayBuckets = cellsByDate[d] || {};
+    let v = 0;
+    for(const slotId of Object.keys(dayBuckets)){
+      for(const c of dayBuckets[slotId]){
+        const t = TYPES.find(x=>x.code===c.type);
+        v += (t?.m3 || 0);
+      }
+    }
+    m3ByDate[d] = v;
+  });
+  const dailyM3Values = allDates.map(d=>m3ByDate[d]);
+  const avgM3PerDay = totalDays>0 ? totalM3/totalDays : 0;
+  const peakM3PerDay = dailyM3Values.length ? Math.max(...dailyM3Values) : 0;
+  const peakM3Date   = allDates.find(d=>m3ByDate[d]===peakM3PerDay) || "";
+  // Utilization = panels actually cast vs working days × slots (1 cycle/day)
+  const utilization = slotAssignments.length>0 && totalDays>0
+    ? (allCells.length/(slotAssignments.length*totalDays))*100 : 0;
+
+  // Per-family stats
+  const famStats = {};
+  FAMILIES.forEach(f=>{
+    const fc = allCells.filter(c=>c.fam===f);
+    const famSlots = slotAssignments.filter(s=>s.fam===f).length;
+    famStats[f] = {pieces:fc.length, kg:fc.reduce((s,c)=>s+c.kg,0), slots:famSlots, types:typesByFam[f].length};
+  });
+
+  schedule = {
+    params, slotAssignments, slotTimeline, cellsByDate, allCells, allDates,
+    firstDate, lastDate, totalDays, calendarDays, totalKg, totalM3, utilization, famStats,
+    m3ByDate, avgM3PerDay, peakM3PerDay, peakM3Date,
+    totalPieces: allCells.length,
+    shutterChanges,
+    unfit: [...new Set(unfit.map(t=>t.code))].map(c=>TYPES.find(t=>t.code===c)),
+    activeTables: activeTables.map(t=>({id:t.id,name:t.name,L:t.L,W:t.W})),
+    byOthers: byOthersTypes.map(t=>({code:t.code, fam:t.fam, w:t.w, h:t.h, kg:t.kg, pieces:BUILDINGS})),
+    byOthersPieces: byOthersTypes.length * BUILDINGS,
+    byOthersKg: byOthersTypes.reduce((s,t)=>s+t.kg*BUILDINGS,0),
+  };
+
+  setStep("✓ Optimization complete", 100);
+  await sleep(400);
+  $("#runner").classList.remove("show");
+  $("#runBtn").disabled = false;
+  $("#runBtn").classList.remove("ready");
+  activeTab = "overview";
+  pfShowApp();
+}
+function setStep(t,p){
+  $("#rStep").textContent = t;
+  $("#rBar").style.width = p+"%";
+}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+
+// ============================================================
+// VIEWS
+// ============================================================
+function renderTabs(){
+  $$(".tab").forEach(b=>b.classList.toggle("active", b.dataset.tab===activeTab));
+}
+function render(){
+  // Tables and Data tabs work without an optimization run
+  if(activeTab==="tables"){
+    $("#view").innerHTML = viewTables();
+    bindTables();
+    return;
+  }
+  if(activeTab==="data"){
+    $("#view").innerHTML = viewData();
+    bindData();
+    return;
+  }
+  if(!schedule){
+    $("#view").innerHTML = `
+      <div class="panel">
+        <div class="empty-state">
+          <div class="ico">⚙</div>
+          <b>Engine Ready</b>
+          Configure parameters in the sidebar, then click<br>
+          <b style="display:inline;color:#f59e0b">▶ Run Optimization</b><br>
+          to generate the production schedule.
+          <div style="margin-top:18px;font-size:11px;color:#cbd5e1">
+            <b>91 unique panel types</b> · <b>16 buildings</b> · <b>1,456 pieces</b> total
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+  const v = $("#view");
+  if(activeTab==="overview")  v.innerHTML = viewOverview();
+  else if(activeTab==="gantt")    { v.innerHTML = viewGantt(); bindGantt(); }
+  else if(activeTab==="moulds")   v.innerHTML = viewMoulds();
+  else if(activeTab==="orders")  { v.innerHTML = viewOrders(); bindOrders(); }
+  else if(activeTab==="plan")    { v.innerHTML = viewTablePlan(); bindTablePlan(); }
+  else if(activeTab==="tables")  { v.innerHTML = viewTables(); bindTables(); }
+  else if(activeTab==="data")    { v.innerHTML = viewData(); bindData(); }
+}
+
+// --- 2D bin-packing: how many panels (with shuttering) fit on a table simultaneously ---
+// Uses Next-Fit-Decreasing-Height shelf algorithm with rotation. Each panel can be
+// laid in either orientation (long-along-L or rotated). Tries each pending queue item
+// in both orientations; opens new shelves when the current row is full.
+// HIGH-UTILIZATION 2D PACKER
+// MaxRects with Best Short Side Fit + free-rectangle splitting + rotation.
+// Tries multiple item orderings and keeps the lot with highest area fill.
+// Typically achieves 90%+ table utilization vs ~75% from shelf packing.
+function packLot(queue, tab, shutter, allowedFams, strat, prevTypes, reservedFor, mySlotId){
+  // Shutter is between-panel only — panels sit flush at the table edge — so
+  // the effective bin is the actual table grown by `shutter` on each axis,
+  // while items keep their (w+shutter, h+shutter) footprint. Boundary
+  // panels' shutter spills into the virtual extra space (i.e. outside the
+  // real table) and is not enforced.
+  const L = Math.max(tab.L, tab.W) + shutter;
+  const W = Math.min(tab.L, tab.W) + shutter;
+  const TABLE_AREA = L * W;
+  // Mould-reuse safeguard: drop continuity if it cuts table fill below this
+  // fraction AND a free pack would do meaningfully better. 0.80 per spec.
+  const REUSE_MIN_UTIL = 0.80;
+  // Normalise prevTypes into a Set so callers can pass Set, array, or null.
+  const prevSet = prevTypes instanceof Set ? prevTypes
+    : Array.isArray(prevTypes) ? new Set(prevTypes)
+    : (prevTypes ? new Set([prevTypes]) : new Set());
+
+  // Eligible items (family allowed + fits at least one orientation).
+  // Items reserved for OTHER tables (type-continuity reservations) are skipped
+  // — that guarantees each table keeps its own previous-day arrangement.
+  let eligible = [];
+  for(const item of queue){
+    if(allowedFams && item.fam && !allowedFams.includes(item.fam)) continue;
+    if(reservedFor && reservedFor.has(item) && reservedFor.get(item) !== mySlotId) continue;
+    const lo = Math.max(item.t.w, item.t.h) + shutter;
+    const sh = Math.min(item.t.w, item.t.h) + shutter;
+    if((lo<=L && sh<=W) || (lo<=W && sh<=L)) eligible.push(item);
+  }
+  if(eligible.length===0) return [];
+
+  // ARRANGEMENT CONTINUITY: the slot's "arrangement" yesterday is the SET of
+  // type codes cast on it (e.g. {A,B,C} for a 3-panel lot). Today we primary-
+  // pack ANY panel whose type matches ANY type from yesterday — that way the
+  // same arrangement repeats across consecutive days, just for different
+  // buildings, until a type is exhausted across all 16 buildings.
+  const reusePrev = prevSet.size>0 && eligible.some(it => prevSet.has(it.type));
+
+  // STRATEGY: "batch" — primary pack with one mould (or yesterday's moulds when
+  // reusing), then TOP UP leftover free space with other dim groups so the
+  // table is still filled. This keeps changeovers low without wasting area.
+  if(strat === "batch"){
+    let headSet;
+    if(reusePrev){
+      headSet = prevSet; // reuse yesterday's full type set
+    } else {
+      headSet = new Set([eligible[0].type]);
+    }
+
+    // ANCHOR PASS (continuity only): place ONE panel of each prev type FIRST so
+    // yesterday's arrangement is guaranteed to repeat today. Without this step,
+    // the BSSF packer can pick higher-area combinations that drop a type.
+    let anchorPlaced = []; let anchorFreeRects = null;
+    if(reusePrev){
+      const seenTypes = new Set();
+      const anchors = [];
+      for(const item of eligible){
+        if(prevSet.has(item.type) && !seenTypes.has(item.type)){
+          seenTypes.add(item.type);
+          anchors.push(item);
+          if(seenTypes.size === prevSet.size) break;
+        }
+      }
+      // Larger anchors first — improves packing of irregular shapes.
+      anchors.sort((a,b)=> (b.t.w*b.t.h)-(a.t.w*a.t.h));
+      anchorPlaced = maxRectsRun(anchors, L, W, shutter);
+      anchorFreeRects = anchorPlaced._freeRects;
+    }
+    const anchorSet = new Set(anchorPlaced);
+
+    const primary = eligible.filter(it => headSet.has(it.type) && !anchorSet.has(it));
+    const secondary = eligible.filter(it => !headSet.has(it.type) && !anchorSet.has(it));
+
+    // 1) Pack as much of the primary type as possible — try all 4 orderings.
+    let bestPrimary = []; let bestArea = -1; let bestFreeRects = null;
+    const primaryOrderings = [
+      primary.slice().sort((a,b)=> (b.t.w*b.t.h)-(a.t.w*a.t.h)),
+      primary.slice().sort((a,b)=> Math.max(b.t.w,b.t.h)-Math.max(a.t.w,a.t.h)),
+      primary.slice().sort((a,b)=> Math.min(b.t.w,b.t.h)-Math.min(a.t.w,a.t.h)),
+      primary.slice(),
+    ];
+    const primarySeed = anchorFreeRects;
+    for(const seed of primaryOrderings){
+      const placed = maxRectsRun(seed, L, W, shutter, primarySeed);
+      const area = placed.reduce((s,p)=> s + p.layout.pw*p.layout.ph, 0);
+      if(area > bestArea){ bestArea = area; bestPrimary = placed; bestFreeRects = placed._freeRects; }
+    }
+
+    // 2) Top up: pack other types into the leftover free rectangles.
+    let topUp = [];
+    if(secondary.length && bestFreeRects && bestFreeRects.length){
+      let bestTopArea = -1; let bestTop = [];
+      const secOrderings = [
+        secondary.slice().sort((a,b)=> (b.t.w*b.t.h)-(a.t.w*a.t.h)),
+        secondary.slice().sort((a,b)=> Math.max(b.t.w,b.t.h)-Math.max(a.t.w,a.t.h)),
+        secondary.slice().sort((a,b)=> Math.min(b.t.w,b.t.h)-Math.min(a.t.w,a.t.h)),
+      ];
+      for(const seed of secOrderings){
+        const placed = maxRectsRun(seed, L, W, shutter, bestFreeRects);
+        const area = placed.reduce((s,p)=> s + p.layout.pw*p.layout.ph, 0);
+        if(area > bestTopArea){ bestTopArea = area; bestTop = placed; }
+      }
+      topUp = bestTop;
+    }
+
+    const allPlaced = anchorPlaced.concat(bestPrimary, topUp);
+    const reuseArea = allPlaced.reduce((s,p)=> s + p.layout.pw*p.layout.ph, 0);
+    const reuseUtil = TABLE_AREA>0 ? reuseArea/TABLE_AREA : 0;
+
+    // 80% UTILIZATION SAFEGUARD: only fires when we were trying to *reuse* the
+    // previous mould (reusePrev=true). If sticking with prevDim left the table
+    // under-filled and a free pack does better, swap moulds for this slot-day.
+    if(reusePrev && reuseUtil < REUSE_MIN_UTIL){
+      const freeOrderings = [
+        eligible.slice().sort((a,b)=> (b.t.w*b.t.h) - (a.t.w*a.t.h)),
+        eligible.slice().sort((a,b)=> Math.max(b.t.w,b.t.h) - Math.max(a.t.w,a.t.h)),
+        eligible.slice().sort((a,b)=> Math.min(b.t.w,b.t.h) - Math.min(a.t.w,a.t.h)),
+        eligible.slice(),
+      ];
+      let bestFree = []; let bestFreeArea = -1;
+      for(const seed of freeOrderings){
+        const placed = maxRectsRun(seed, L, W, shutter);
+        const area = placed.reduce((s,p)=> s + p.layout.pw*p.layout.ph, 0);
+        if(area > bestFreeArea){ bestFreeArea = area; bestFree = placed; }
+      }
+      if(bestFreeArea > reuseArea){
+        const winSetF = new Set(bestFree);
+        for(let i=queue.length-1; i>=0; i--){
+          if(winSetF.has(queue[i])) queue.splice(i,1);
+        }
+        return bestFree;
+      }
+    }
+    // Remove the winning items from the global queue (preserve identity)
+    const winSet = new Set(allPlaced);
+    for(let i=queue.length-1; i>=0; i--){
+      if(winSet.has(queue[i])) queue.splice(i,1);
+    }
+    return allPlaced;
+  }
+  // STRATEGY: "floor" enforces the floor-by-floor erection sequence GLOBALLY.
+  // The "active" floor is the lowest one (GF=0 < FF=1 < RF=2) that still has
+  // ANY panel left in the *global* queue — across all families, all tables.
+  // No table starts on FF until every GF panel everywhere is scheduled.
+  // Within the active floor, MaxRects still tries 4 orderings to fully fill
+  // each table, so utilisation is preserved.
+  else if(strat === "floor"){
+    const FL_ORDER = ["GF","FF","RF"];
+    const flIdx = (fl)=>{ const i = FL_ORDER.indexOf(fl); return i<0 ? 99 : i; };
+    let activeFl = 99;
+    for(const item of queue){
+      const i = flIdx(item.t.fl);
+      if(i < activeFl) activeFl = i;
+      if(activeFl === 0) break;
+    }
+    eligible = eligible.filter(it => flIdx(it.t.fl) === activeFl);
+    if(eligible.length === 0) return [];
+  }
+
+  // Non-batch path (round / floor) — also honours shutter continuity. Primary-
+  // pack panels matching ANY mould from yesterday's lot, then top up with others.
+  // 80% UTILIZATION SAFEGUARD: if reusing the moulds drops table fill below 80%
+  // AND a free pack would do better, fall back to free pack (counted as swap).
+  if(reusePrev){
+    // ANCHOR PASS — place one panel per prev type first to lock yesterday's
+    // arrangement in place even if it isn't the highest-area combination.
+    const seenTypes = new Set();
+    const anchors = [];
+    for(const item of eligible){
+      if(prevSet.has(item.type) && !seenTypes.has(item.type)){
+        seenTypes.add(item.type);
+        anchors.push(item);
+        if(seenTypes.size === prevSet.size) break;
+      }
+    }
+    anchors.sort((a,b)=> (b.t.w*b.t.h)-(a.t.w*a.t.h));
+    const anchorPlaced = maxRectsRun(anchors, L, W, shutter);
+    const anchorFreeRects = anchorPlaced._freeRects;
+    const anchorSet = new Set(anchorPlaced);
+
+    const primary = eligible.filter(it => prevSet.has(it.type) && !anchorSet.has(it));
+    const secondary = eligible.filter(it => !prevSet.has(it.type) && !anchorSet.has(it));
+
+    let bestPrimary = []; let bestPrimArea = -1; let bestFreeRects = null;
+    const primaryOrderings = [
+      primary.slice().sort((a,b)=> (b.t.w*b.t.h)-(a.t.w*a.t.h)),
+      primary.slice().sort((a,b)=> Math.max(b.t.w,b.t.h)-Math.max(a.t.w,a.t.h)),
+      primary.slice().sort((a,b)=> Math.min(b.t.w,b.t.h)-Math.min(a.t.w,a.t.h)),
+      primary.slice(),
+    ];
+    for(const seed of primaryOrderings){
+      const placed = maxRectsRun(seed, L, W, shutter, anchorFreeRects);
+      const area = placed.reduce((s,p)=> s + p.layout.pw*p.layout.ph, 0);
+      if(area > bestPrimArea){ bestPrimArea = area; bestPrimary = placed; bestFreeRects = placed._freeRects; }
+    }
+
+    let topUp = [];
+    if(secondary.length && bestFreeRects && bestFreeRects.length){
+      let bestTopArea = -1; let bestTop = [];
+      const secOrderings = [
+        secondary.slice().sort((a,b)=> (b.t.w*b.t.h)-(a.t.w*a.t.h)),
+        secondary.slice().sort((a,b)=> Math.max(b.t.w,b.t.h)-Math.max(a.t.w,a.t.h)),
+        secondary.slice().sort((a,b)=> Math.min(b.t.w,b.t.h)-Math.min(a.t.w,a.t.h)),
+      ];
+      for(const seed of secOrderings){
+        const placed = maxRectsRun(seed, L, W, shutter, bestFreeRects);
+        const area = placed.reduce((s,p)=> s + p.layout.pw*p.layout.ph, 0);
+        if(area > bestTopArea){ bestTopArea = area; bestTop = placed; }
+      }
+      topUp = bestTop;
+    }
+    const reusePlaced = anchorPlaced.concat(bestPrimary, topUp);
+    const reuseArea = reusePlaced.reduce((s,p)=> s + p.layout.pw*p.layout.ph, 0);
+    const reuseUtil = TABLE_AREA>0 ? reuseArea/TABLE_AREA : 0;
+
+    // Safeguard: only fall back to free pack if reuse drops fill below threshold.
+    if(reuseUtil >= REUSE_MIN_UTIL){
+      const winSetR = new Set(reusePlaced);
+      for(let i=queue.length-1; i>=0; i--){
+        if(winSetR.has(queue[i])) queue.splice(i,1);
+      }
+      return reusePlaced;
+    }
+    // Reuse pack too sparse — try free pack and pick the better of the two.
+    const freeOrderings = [
+      eligible.slice().sort((a,b)=> (b.t.w*b.t.h) - (a.t.w*a.t.h)),
+      eligible.slice().sort((a,b)=> Math.max(b.t.w,b.t.h) - Math.max(a.t.w,a.t.h)),
+      eligible.slice().sort((a,b)=> Math.min(b.t.w,b.t.h) - Math.min(a.t.w,a.t.h)),
+      eligible.slice(),
+    ];
+    let bestFree = []; let bestFreeArea = -1;
+    for(const seed of freeOrderings){
+      const placed = maxRectsRun(seed, L, W, shutter);
+      const area = placed.reduce((s,p)=> s + p.layout.pw*p.layout.ph, 0);
+      if(area > bestFreeArea){ bestFreeArea = area; bestFree = placed; }
+    }
+    const winning = (bestFreeArea > reuseArea) ? bestFree : reusePlaced;
+    const winSetR = new Set(winning);
+    for(let i=queue.length-1; i>=0; i--){
+      if(winSetR.has(queue[i])) queue.splice(i,1);
+    }
+    return winning;
+  }
+
+  // No prev mould to reuse — try several orderings, best one wins by area.
+  const orderings = [
+    eligible.slice().sort((a,b)=> (b.t.w*b.t.h) - (a.t.w*a.t.h)),               // area desc
+    eligible.slice().sort((a,b)=> Math.max(b.t.w,b.t.h) - Math.max(a.t.w,a.t.h)),// long side desc
+    eligible.slice().sort((a,b)=> Math.min(b.t.w,b.t.h) - Math.min(a.t.w,a.t.h)),// short side desc
+    eligible.slice(),                                                             // original (queue/strategy order)
+  ];
+
+  let bestPlaced = [];
+  let bestArea = -1;
+  for(const seed of orderings){
+    const placed = maxRectsRun(seed, L, W, shutter);
+    const area = placed.reduce((s,p)=> s + p.layout.pw*p.layout.ph, 0);
+    if(area > bestArea){ bestArea = area; bestPlaced = placed; }
+  }
+
+  // Remove the winning items from the original queue (preserve identity)
+  const winSet = new Set(bestPlaced);
+  for(let i=queue.length-1; i>=0; i--){
+    if(winSet.has(queue[i])) queue.splice(i,1);
+  }
+  return bestPlaced;
+}
+
+// Inner MaxRects pass: greedy BSSF placement, splits free rectangles, prunes contained ones.
+// Optional `seedRects` lets a second pass resume from a prior pack's leftover free space.
+const TABLE_EDGE_OFFSET = 300; // fixed clearance from all table sides (mm)
+
+function maxRectsRun(items, L, W, shutter, seedRects){
+  const O = TABLE_EDGE_OFFSET;
+  let freeRects = seedRects ? seedRects.map(r=>({...r})) : [{x:O, y:O, w:L-2*O, h:W-2*O}];
+  const placed = [];
+  const remaining = items.slice();
+
+  while(remaining.length){
+    let bestScore = Infinity, bestSecondary = Infinity, best = null;
+    for(let i=0; i<remaining.length; i++){
+      const it = remaining[i];
+      // Fixed orientation: panel Width (t.w) always along L (x / 8 m side),
+      // panel Height (t.h) always along W (y side).
+      const pw = it.t.w + shutter;
+      const ph = it.t.h + shutter;
+      for(const r of freeRects){
+        if(pw<=r.w && ph<=r.h){
+          const lwL = r.w - pw, lwS = r.h - ph;
+          const sScore = Math.min(lwL, lwS);
+          const lScore = Math.max(lwL, lwS);
+          if(sScore < bestScore || (sScore===bestScore && lScore<bestSecondary)){
+            bestScore = sScore; bestSecondary = lScore;
+            best = {idx:i, x:r.x, y:r.y, pw, ph, item:it};
+          }
+        }
+      }
+    }
+    if(!best) break;
+    const {idx, x, y, pw, ph, item} = best;
+    item.layout = {x, y, pw, ph, tableL:L, tableW:W};
+    placed.push(item);
+    remaining.splice(idx, 1);
+    freeRects = splitFreeRects(freeRects, {x, y, w:pw, h:ph});
+  }
+  // Attach final free rects to the placed array so callers can do a top-up pass.
+  placed._freeRects = freeRects;
+  return placed;
+}
+
+function splitFreeRects(rects, used){
+  const out = [];
+  for(const r of rects){
+    // No overlap → keep
+    if(used.x+used.w<=r.x || r.x+r.w<=used.x || used.y+used.h<=r.y || r.y+r.h<=used.y){
+      out.push(r); continue;
+    }
+    // Split into up to 4 strips around the used region
+    if(used.y > r.y)                       out.push({x:r.x, y:r.y, w:r.w, h:used.y - r.y});
+    if(used.y + used.h < r.y + r.h)        out.push({x:r.x, y:used.y+used.h, w:r.w, h:(r.y+r.h)-(used.y+used.h)});
+    if(used.x > r.x)                       out.push({x:r.x, y:r.y, w:used.x - r.x, h:r.h});
+    if(used.x + used.w < r.x + r.w)        out.push({x:used.x+used.w, y:r.y, w:(r.x+r.w)-(used.x+used.w), h:r.h});
+  }
+  // Drop any rect fully contained inside another (avoids state explosion)
+  const pruned = [];
+  for(let i=0; i<out.length; i++){
+    let contained = false;
+    for(let j=0; j<out.length; j++){
+      if(i===j) continue;
+      const a = out[j], b = out[i];
+      if(a.x<=b.x && a.y<=b.y && a.x+a.w>=b.x+b.w && a.y+a.h>=b.y+b.h){ contained = true; break; }
+    }
+    if(!contained) pruned.push(out[i]);
+  }
+  return pruned;
+}
+
+// EDGE-GRAVITY POST-PASS: after a lot is packed, reposition every panel so
+// the count of "touched sides" is maximised. A side is touched when it lies
+// on the real table edge (table-side contact) OR when an adjacent panel
+// butts against it with shutter clearance (panel-side contact). The rule
+// exploits "table side = mould side": a panel face on the table boundary
+// needs no separate shutter, so maximising in-touch sides minimises the
+// open mould perimeter.
+//
+// For each panel, 8 candidate shifts are tried (max-left, max-right,
+// max-up, max-down, plus the 4 diagonal corners). Each candidate is
+// validated against table bounds + collision with other panels, scored by
+// touched-side count, and the best is applied. Iterates until stable.
+//
+// Coordinate space: virtual bin (L, W) = (realL + shutter, realW + shutter).
+// A panel's outer extent is (x, y) → (x+pw, y+ph); its real footprint is
+// (x, y) → (x + pw − shutter, y + ph − shutter). Real table edges are at
+// 0, realL, 0, realW.
+function pushPanelsToEdges(placed, L, W, shutter){
+  if(!placed || placed.length < 2) return;
+  const eps = 0.5;
+  const realL = L - shutter;
+  const realW = W - shutter;
+
+  // Touch count for placing panel `c` at (x, y): count sides that are at a
+  // real table edge OR adjacent (within eps) to another panel's edge with
+  // overlap on the perpendicular panel band.
+  // Returns {edge, total} — `edge` counts ONLY table-edge touches (used as a
+  // strong tiebreaker so panels are pulled to the real table boundary in
+  // preference to merely staying snuggled against another panel).
+  const countTouches = (c, x, y)=>{
+    const {pw, ph} = c.layout;
+    const panelW = pw - shutter;
+    const panelH = ph - shutter;
+    const O = TABLE_EDGE_OFFSET;
+    let edge = 0, t = 0;
+    // LEFT — target boundary is O from table edge
+    if(Math.abs(x - O) < eps){ t++; edge++; }
+    else {
+      for(const o of placed){
+        if(o === c || !o.layout) continue;
+        if(Math.abs((o.layout.x + o.layout.pw) - x) > eps) continue;
+        const yOv = Math.max(y, o.layout.y) < Math.min(y + panelH, o.layout.y + (o.layout.ph - shutter)) - eps;
+        if(yOv){ t++; break; }
+      }
+    }
+    // RIGHT — target boundary is realL - O
+    if(Math.abs((x + panelW) - (realL - O)) < eps){ t++; edge++; }
+    else {
+      for(const o of placed){
+        if(o === c || !o.layout) continue;
+        if(Math.abs(o.layout.x - (x + pw)) > eps) continue;
+        const yOv = Math.max(y, o.layout.y) < Math.min(y + panelH, o.layout.y + (o.layout.ph - shutter)) - eps;
+        if(yOv){ t++; break; }
+      }
+    }
+    // TOP — target boundary is O from table edge
+    if(Math.abs(y - O) < eps){ t++; edge++; }
+    else {
+      for(const o of placed){
+        if(o === c || !o.layout) continue;
+        if(Math.abs((o.layout.y + o.layout.ph) - y) > eps) continue;
+        const xOv = Math.max(x, o.layout.x) < Math.min(x + panelW, o.layout.x + (o.layout.pw - shutter)) - eps;
+        if(xOv){ t++; break; }
+      }
+    }
+    // BOTTOM — target boundary is realW - O
+    if(Math.abs((y + panelH) - (realW - O)) < eps){ t++; edge++; }
+    else {
+      for(const o of placed){
+        if(o === c || !o.layout) continue;
+        if(Math.abs(o.layout.y - (y + ph)) > eps) continue;
+        const xOv = Math.max(x, o.layout.x) < Math.min(x + panelW, o.layout.x + (o.layout.pw - shutter)) - eps;
+        if(xOv){ t++; break; }
+      }
+    }
+    return { edge, total: t };
+  };
+
+  // Max non-colliding shift in each direction from the panel's current pos.
+  const maxShifts = (c)=>{
+    const {x, y, pw, ph} = c.layout;
+    const panelW = pw - shutter;
+    const panelH = ph - shutter;
+    const O = TABLE_EDGE_OFFSET;
+    let shL = x - O;                          // can move left until x_new = O
+    let shR = (realL - O) - panelW - x;       // can move right until right edge = realL - O
+    let shU = y - O;                          // can move up until y_new = O
+    let shD = (realW - O) - panelH - y;       // can move down until bottom edge = realW - O
+    for(const o of placed){
+      if(o === c || !o.layout) continue;
+      const {x:ox, y:oy, pw:opw, ph:oph} = o.layout;
+      const yOv = Math.max(y, oy) < Math.min(y + panelH, oy + (oph - shutter)) - eps;
+      if(yOv){
+        if(ox + opw - shutter <= x + eps){
+          // o is to our left — limit left shift so x_new ≥ ox + opw
+          const lim = x - (ox + opw);
+          if(lim < shL) shL = lim;
+        } else if(ox >= x + panelW - eps){
+          // o is to our right — limit right shift so x_new + pw ≤ ox
+          const lim = (ox - pw) - x;
+          if(lim < shR) shR = lim;
+        }
+      }
+      const xOv = Math.max(x, ox) < Math.min(x + panelW, ox + (opw - shutter)) - eps;
+      if(xOv){
+        if(oy + oph - shutter <= y + eps){
+          const lim = y - (oy + oph);
+          if(lim < shU) shU = lim;
+        } else if(oy >= y + panelH - eps){
+          const lim = (oy - ph) - y;
+          if(lim < shD) shD = lim;
+        }
+      }
+    }
+    return {
+      L: Math.max(0, shL), R: Math.max(0, shR),
+      U: Math.max(0, shU), D: Math.max(0, shD),
+    };
+  };
+
+  // Validate combined shifts (diagonals) with a fresh AABB collision check.
+  const collides = (c, x, y)=>{
+    const cR = x + c.layout.pw, cB = y + c.layout.ph;
+    for(const o of placed){
+      if(o === c || !o.layout) continue;
+      const oR = o.layout.x + o.layout.pw, oB = o.layout.y + o.layout.ph;
+      if(x < oR - eps && o.layout.x < cR - eps && y < oB - eps && o.layout.y < cB - eps) return true;
+    }
+    return false;
+  };
+
+  // Compare two touch results. Primary: more table-edge touches wins.
+  // Secondary: more total touches. This pulls panels TO the real table
+  // boundary in preference to merely abutting another panel — the user's
+  // explicit rule ("shift every panel to the edge for max in-touch sides").
+  const better = (a, b)=>{
+    if(a.edge !== b.edge) return a.edge > b.edge;
+    return a.total > b.total;
+  };
+  const equal = (a, b)=> a.edge === b.edge && a.total === b.total;
+
+  let changed = true, iter = 0;
+  while(changed && iter++ < 30){
+    changed = false;
+    for(const c of placed){
+      if(!c.layout) continue;
+      const cur = countTouches(c, c.layout.x, c.layout.y);
+      const m = maxShifts(c);
+      // 8 candidate moves: 4 axial + 4 diagonal corners of the valid range.
+      const cands = [
+        {dx:-m.L, dy:0}, {dx: m.R, dy:0},
+        {dx: 0, dy:-m.U}, {dx: 0, dy: m.D},
+        {dx:-m.L, dy:-m.U}, {dx: m.R, dy:-m.U},
+        {dx:-m.L, dy: m.D}, {dx: m.R, dy: m.D},
+      ];
+      let bestT = cur, bestDx = 0, bestDy = 0, bestMag = 0;
+      for(const k of cands){
+        if(k.dx === 0 && k.dy === 0) continue;
+        const nx = c.layout.x + k.dx, ny = c.layout.y + k.dy;
+        if(collides(c, nx, ny)) continue;
+        const t = countTouches(c, nx, ny);
+        const mag = Math.abs(k.dx) + Math.abs(k.dy);
+        // 1) Strictly better (more edge or, on edge tie, more total) → take.
+        // 2) Equal score → prefer the bigger move so we converge on corners.
+        if(better(t, bestT) || (equal(t, bestT) && mag > bestMag)){
+          bestT = t; bestDx = k.dx; bestDy = k.dy; bestMag = mag;
+        }
+      }
+      if(bestDx !== 0 || bestDy !== 0){
+        c.layout.x += bestDx;
+        c.layout.y += bestDy;
+        changed = true;
+      }
+    }
+  }
+}
+
+// Row-alignment pass: snap panels with similar heights to the same y-baseline.
+// Runs after pushPanelsToEdges so panels are already compacted; this final pass
+// cleans up small y-offsets between same-height panels so they form neat rows.
+function normalizeRows(placed, shutter){
+  if(!placed || placed.length < 2) return;
+  const eps = 0.5;
+  const HEIGHT_TOL = 200; // mm — panels whose heights differ by ≤ this may share a row
+  const O = TABLE_EDGE_OFFSET;
+
+  let changed = true, iter = 0;
+  while(changed && iter++ < 20){
+    changed = false;
+    // Process top-to-bottom so upper panels anchor rows first
+    const sorted = placed.filter(p => p.layout).sort((a,b)=> a.layout.y - b.layout.y);
+    for(const c of sorted){
+      const {x, y, pw, ph} = c.layout;
+      const panelH = ph - shutter;
+      const tableW = c.layout.tableW;
+
+      // Collect snap-target y values from panels with similar height
+      const yCands = [];
+      for(const o of placed){
+        if(o === c || !o.layout) continue;
+        if(Math.abs((o.layout.ph - shutter) - panelH) > HEIGHT_TOL) continue;
+        if(Math.abs(o.layout.y - y) < eps) continue;
+        yCands.push(o.layout.y);
+      }
+      // Prefer targets closest to current y (minimise movement)
+      yCands.sort((a,b)=> Math.abs(a-y) - Math.abs(b-y));
+
+      for(const ny of yCands){
+        if(ny < O - eps) continue;
+        if(ny + panelH > tableW - shutter - O + eps) continue;
+        // Collision check at new position
+        let ok = true;
+        for(const p of placed){
+          if(p === c || !p.layout) continue;
+          if(x < p.layout.x + p.layout.pw - eps &&
+             x + pw > p.layout.x + eps &&
+             ny < p.layout.y + p.layout.ph - eps &&
+             ny + ph > p.layout.y + eps){ ok = false; break; }
+        }
+        if(ok){ c.layout.y = ny; changed = true; break; }
+      }
+    }
+  }
+}
+
+// --- SVG sketch of one table layout for a single casting day ---
+function renderTableSketch(tab, cells, shutter){
+  const L = Math.max(tab.L, tab.W);
+  const W = Math.min(tab.L, tab.W);
+  // Margins reserved for dimension lines (top = L label, right = W label, bottom = legend)
+  const MARGIN_T = 18, MARGIN_R = 30, MARGIN_B = 18, MARGIN_L = 4;
+  const DRAW_W = 360;
+  const sc = DRAW_W / L;
+  const DRAW_H = Math.round(W * sc);
+  const PX_W = DRAW_W + MARGIN_L + MARGIN_R;
+  const PX_H = DRAW_H + MARGIN_T + MARGIN_B;
+  const OX = MARGIN_L, OY = MARGIN_T; // origin of table draw region
+  const FAM_FILL = {IP:"#1e3a5f", WL:"#059669", WN:"#7c3aed", PB:"#dc2626"};
+
+  // Hatch pattern for shuttering border + clip to actual table extent so
+  // boundary panels' shutter (which "spills" into the virtual bin) is
+  // trimmed at the table edge — the table side IS the panel side.
+  const defs = `<defs>
+    <pattern id="hatch-${tab.id}" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#dc2626" stroke-width="1" opacity=".5"/>
+    </pattern>
+    <clipPath id="tabclip-${tab.id}">
+      <rect x="${OX}" y="${OY}" width="${DRAW_W}" height="${DRAW_H}"/>
+    </clipPath>
+  </defs>`;
+
+  // Adjacency probe: a panel's right shutter strip is real only if another
+  // panel actually butts against it. Same for the bottom strip. When a side
+  // has no neighbour (table edge OR open table space), that face is treated
+  // as "the table side" — no shutter strip is drawn there.
+  const EPS = 0.5; // mm tolerance for layout coord matching
+  const hasNeighbour = (c)=>{
+    let right = false, bottom = false;
+    if(!c.layout) return {right, bottom};
+    const {x, y, pw, ph} = c.layout;
+    const panelRight  = x + pw - shutter; // actual panel right edge
+    const panelBot    = y + ph - shutter;
+    for(const o of cells){
+      if(o === c || !o.layout) continue;
+      const {x:ox, y:oy, pw:opw, ph:oph} = o.layout;
+      const oPanelRight = ox + opw - shutter;
+      const oPanelBot   = oy + oph - shutter;
+      // Right neighbour: o.x lands at c's outer right edge AND vertical overlap with c's panel
+      if(!right && Math.abs(ox - (x + pw)) < EPS){
+        if(Math.max(y, oy) < Math.min(panelBot, oPanelBot) - EPS) right = true;
+      }
+      // Bottom neighbour: o.y lands at c's outer bottom edge AND horizontal overlap with c's panel
+      if(!bottom && Math.abs(oy - (y + ph)) < EPS){
+        if(Math.max(x, ox) < Math.min(panelRight, oPanelRight) - EPS) bottom = true;
+      }
+      if(right && bottom) break;
+    }
+    return {right, bottom};
+  };
+
+  const panels = cells.map(c=>{
+    if(!c.layout) return "";
+    const {x,y,pw,ph} = c.layout;
+    // Inner = actual panel rect (top-left of the outer footprint).
+    const innerX = OX + x*sc, innerY = OY + y*sc;
+    const innerW = (pw - shutter)*sc, innerH = (ph - shutter)*sc;
+    const stripW = shutter*sc;
+    const fill = FAM_FILL[c.fam] || "#475569";
+    const fullName = c.type;
+    const bldg = `B${c.b}`;
+    const cx = innerX + innerW/2;
+    const cy = innerY + innerH/2;
+    const showFull = innerW > 56 && innerH > 22;
+    const showShort = innerW > 28 && innerH > 12;
+    const fontSize = innerW > 90 ? 11 : 9;
+
+    const adj = hasNeighbour(c);
+    // Shutter strips drawn ONLY where another panel butts up.
+    let strips = "";
+    if(adj.right){
+      strips += `<rect x="${(innerX+innerW).toFixed(1)}" y="${innerY.toFixed(1)}"
+            width="${stripW.toFixed(1)}" height="${innerH.toFixed(1)}"
+            fill="url(#hatch-${tab.id})" stroke="#dc2626" stroke-width=".5" opacity=".95"
+            clip-path="url(#tabclip-${tab.id})"/>`;
+    }
+    if(adj.bottom){
+      strips += `<rect x="${innerX.toFixed(1)}" y="${(innerY+innerH).toFixed(1)}"
+            width="${innerW.toFixed(1)}" height="${stripW.toFixed(1)}"
+            fill="url(#hatch-${tab.id})" stroke="#dc2626" stroke-width=".5" opacity=".95"
+            clip-path="url(#tabclip-${tab.id})"/>`;
+    }
+    if(adj.right && adj.bottom){
+      // Corner of the L only when both sides have neighbours (i.e. truly
+      // sandwiched between three other panels).
+      strips += `<rect x="${(innerX+innerW).toFixed(1)}" y="${(innerY+innerH).toFixed(1)}"
+            width="${stripW.toFixed(1)}" height="${stripW.toFixed(1)}"
+            fill="url(#hatch-${tab.id})" stroke="#dc2626" stroke-width=".5" opacity=".95"
+            clip-path="url(#tabclip-${tab.id})"/>`;
+    }
+    return `
+      ${strips}
+      <rect x="${innerX.toFixed(1)}" y="${innerY.toFixed(1)}" width="${innerW.toFixed(1)}" height="${innerH.toFixed(1)}"
+            fill="${fill}" stroke="#fff" stroke-width=".8" opacity=".95">
+        <title>${esc(c.type)} · B${c.b} · ${c.w}×${c.h} mm · ${fmt(c.kg)} kg</title>
+      </rect>
+      ${showFull ? `
+        <text x="${cx.toFixed(1)}" y="${(cy-2).toFixed(1)}"
+          fill="#fff" font-size="${fontSize}" font-family="Arial" text-anchor="middle" font-weight="700"
+          style="pointer-events:none">${esc(fullName)}</text>
+        <text x="${cx.toFixed(1)}" y="${(cy+fontSize+1).toFixed(1)}"
+          fill="#fff" font-size="${fontSize-1}" font-family="Arial" text-anchor="middle" font-weight="600"
+          style="pointer-events:none;opacity:.92">${esc(bldg)}</text>
+      ` : showShort ? `
+        <text x="${cx.toFixed(1)}" y="${(cy+3).toFixed(1)}"
+          fill="#fff" font-size="9" font-family="Arial" text-anchor="middle" font-weight="700"
+          style="pointer-events:none">${esc(fullName)}·${esc(bldg)}</text>
+      ` : ""}
+    `;
+  }).join("");
+
+  // Dimension geometry
+  const tableLeft   = OX;
+  const tableRight  = OX + DRAW_W;
+  const tableTop    = OY;
+  const tableBottom = OY + DRAW_H;
+  const dimColor    = "#1e3a5f";
+  // Top dim (length L): horizontal line above the table with end ticks + centered "8.00 m"
+  const dimTopY     = OY - 8;
+  const tickH       = 4;
+  // Right dim (width W): vertical line right of the table with end ticks + centered "6.00 m"
+  const dimRightX   = tableRight + 12;
+  const tickW       = 4;
+  const Lm = (L/1000).toFixed(2);
+  const Wm = (W/1000).toFixed(2);
+
+  const dims = `
+    <!-- Top dimension: length -->
+    <line x1="${tableLeft}"  y1="${tableTop-2}"   x2="${tableLeft}"  y2="${dimTopY-tickH}" stroke="${dimColor}" stroke-width=".6"/>
+    <line x1="${tableRight}" y1="${tableTop-2}"   x2="${tableRight}" y2="${dimTopY-tickH}" stroke="${dimColor}" stroke-width=".6"/>
+    <line x1="${tableLeft}"  y1="${dimTopY}"      x2="${tableRight}" y2="${dimTopY}"       stroke="${dimColor}" stroke-width=".7"/>
+    <polygon points="${tableLeft},${dimTopY} ${tableLeft+5},${dimTopY-2.5} ${tableLeft+5},${dimTopY+2.5}" fill="${dimColor}"/>
+    <polygon points="${tableRight},${dimTopY} ${tableRight-5},${dimTopY-2.5} ${tableRight-5},${dimTopY+2.5}" fill="${dimColor}"/>
+    <rect x="${(tableLeft+tableRight)/2-22}" y="${dimTopY-7}" width="44" height="11" fill="#fff"/>
+    <text x="${(tableLeft+tableRight)/2}" y="${dimTopY+2}" fill="${dimColor}" font-size="10" font-weight="700" text-anchor="middle" font-family="Arial">${Lm} m</text>
+
+    <!-- Right dimension: width -->
+    <line x1="${tableRight+2}"   y1="${tableTop}"     x2="${dimRightX+tickW}" y2="${tableTop}"    stroke="${dimColor}" stroke-width=".6"/>
+    <line x1="${tableRight+2}"   y1="${tableBottom}"  x2="${dimRightX+tickW}" y2="${tableBottom}" stroke="${dimColor}" stroke-width=".6"/>
+    <line x1="${dimRightX}"      y1="${tableTop}"     x2="${dimRightX}"       y2="${tableBottom}" stroke="${dimColor}" stroke-width=".7"/>
+    <polygon points="${dimRightX},${tableTop} ${dimRightX-2.5},${tableTop+5} ${dimRightX+2.5},${tableTop+5}" fill="${dimColor}"/>
+    <polygon points="${dimRightX},${tableBottom} ${dimRightX-2.5},${tableBottom-5} ${dimRightX+2.5},${tableBottom-5}" fill="${dimColor}"/>
+    <g transform="translate(${dimRightX+5},${(tableTop+tableBottom)/2}) rotate(-90)">
+      <rect x="-22" y="-7" width="44" height="11" fill="#fff"/>
+      <text x="0" y="2" fill="${dimColor}" font-size="10" font-weight="700" text-anchor="middle" font-family="Arial">${Wm} m</text>
+    </g>
+  `;
+
+  return `<svg class="tsketch" viewBox="0 0 ${PX_W} ${PX_H}" width="${PX_W}" height="${PX_H}" xmlns="http://www.w3.org/2000/svg">
+    ${defs}
+    <!-- Table background (fill only) -->
+    <rect x="${OX}" y="${OY}" width="${DRAW_W}" height="${DRAW_H}" fill="#f9fafb" stroke="none"/>
+    ${panels}
+    <!-- Table outline drawn AFTER panels so the border stays crisp on top of
+         any panel/shutter strokes that land on the table edge. -->
+    <rect x="${OX}" y="${OY}" width="${DRAW_W}" height="${DRAW_H}" fill="none" stroke="#1e3a5f" stroke-width="1.2"/>
+    ${dims}
+  </svg>`;
+}
+
+// --- Table Plan (per-table, per-day patch breakdown) ---
+function bindTablePlan(){
+  const btn = $("#tplanPrint");
+  if(!btn) return;
+  btn.onclick = ()=>{
+    const orig = btn.textContent;
+    btn.textContent = "Preparing…";
+    btn.disabled = true;
+    // Give the browser two animation frames so any pending layout completes,
+    // then trigger print. Some browsers silently drop print() if called during heavy render.
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      try { window.print(); }
+      catch(e){ console.error("Print failed:", e); }
+      finally {
+        btn.textContent = orig;
+        btn.disabled = false;
+      }
+    }));
+  };
+}
+function viewTablePlan(){
+  const s = schedule;
+  const activeTables = TABLES.filter(t=>t.active!==false);
+  // Build slot-by-table lookup; idle tables = no slot assigned
+  const slotsByTable = {};
+  s.slotAssignments.forEach(slot=>{
+    if(slot.tableId) slotsByTable[slot.tableId] = slot;
+  });
+
+  // TOC
+  const toc = activeTables.map(tab=>{
+    const slot = slotsByTable[tab.id];
+    const fam = slot? slot.fam : "idle";
+    return `<a href="#tplan-${esc(tab.id)}" class="${fam}">${esc(tab.id)} · ${fam==="idle"?"idle":fam}</a>`;
+  }).join("");
+
+  // Per-table cards
+  const cards = activeTables.map(tab=>{
+    const slot = slotsByTable[tab.id];
+    if(!slot){
+      return `<div class="tplan-card" id="tplan-${esc(tab.id)}">
+        <div class="tplan-head idle">
+          <h3>${esc(tab.id)} · ${esc(tab.name)}</h3>
+          <span class="meta">${tab.L}×${tab.W} mm</span>
+          <span class="stat" style="margin-left:auto">⏸ Idle this run</span>
+        </div>
+        <div class="tplan-body" style="padding:18px;color:#94a3b8;font-size:12px;font-style:italic">
+          No panels were allocated to this table by the optimizer (family allocation, fit, or capacity).
+        </div>
+      </div>`;
+    }
+    const tl = s.slotTimeline[slot.slotId] || [];
+    if(tl.length===0) return "";
+
+    // Group cells by date (one entry per casting day, possibly multiple panels)
+    const byDay = {};
+    tl.forEach(cell=>{ (byDay[cell.dateIso] = byDay[cell.dateIso]||[]).push(cell); });
+    const days = Object.keys(byDay).sort();
+
+    const totalKg = tl.reduce((sum,c)=>sum+c.kg,0);
+    const totalCasts = tl.length;
+    const totalDays = days.length;
+    const avgPerDay = totalDays ? (totalCasts/totalDays) : 0;
+    const first = days[0], last = days[days.length-1];
+    // Shutter is between-panel only — the full table is usable for panels.
+    const usableL = tab.L;
+    const usableW = tab.W;
+
+    const dayRows = days.map((d,i)=>{
+      const cells = byDay[d];
+      const dt = new Date(d);
+      // Area-based utilization: actual panel footprint vs. actual table area.
+      const tabArea = tab.L * tab.W;
+      const usedArea = cells.reduce((sum,c)=> sum + c.w*c.h, 0);
+      const usedPct = Math.min(100, Math.round(usedArea / tabArea * 100));
+      const dayKg = cells.reduce((sum,c)=>sum+c.kg,0);
+      const chips = cells.map(c=>{
+        const t = TYPES.find(x=>x.code===c.type)||{};
+        return `<div class="dlot ${c.fam}" title="${esc(c.type)} · B${c.b} · ${c.w}×${c.h} mm · ${fmt(c.kg)} kg · floor ${esc(t.fl||"?")}">
+          <div class="dlot-h"><b>${esc(c.type)}</b> · B${c.b}</div>
+          <div class="dlot-d">${c.w}×${c.h} mm · ${fmt(c.kg)} kg</div>
+        </div>`;
+      }).join("");
+      const sketch = renderTableSketch(tab, cells, s.params.shutter);
+      return `<div class="dayrow">
+        <div class="dayrow-h">
+          <div class="dayrow-num">Day ${i+1}</div>
+          <div class="dayrow-date">${dayLabel(dt)} <span style="opacity:.6">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt.getDay()]}</span></div>
+          <div class="dayrow-meta">${cells.length} panel${cells.length>1?"s":""} · ${fmt(dayKg)} kg · table use ${usedPct}%</div>
+          <div class="dayrow-bar"><div style="width:${usedPct}%;background:${cells[0].fam==='IP'?'#1e3a5f':cells[0].fam==='WL'?'#059669':cells[0].fam==='WN'?'#7c3aed':'#dc2626'}"></div></div>
+        </div>
+        <div class="dayrow-content">
+          ${sketch}
+          <div class="dlots">${chips}</div>
+        </div>
+      </div>`;
+    }).join("");
+
+    return `<div class="tplan-card" id="tplan-${esc(tab.id)}">
+      <div class="tplan-head ${slot.fam}">
+        <h3>${esc(tab.id)} · ${esc(tab.name)}</h3>
+        <span class="pill ${slot.fam}">${slot.fam}</span>
+        <span class="meta">${tab.L}×${tab.W} mm · panels flush at edge · +${s.params.shutter}mm shutter between panels</span>
+        <span class="stat">${totalDays} days</span>
+        <span class="stat">${totalCasts} casts</span>
+        <span class="stat">avg ${fmt(avgPerDay,2)} panels/day</span>
+        <span class="stat">${fmt(totalKg/1000,1)} t</span>
+        <span class="stat" style="margin-left:auto">${esc(first)} → ${esc(last)}</span>
+      </div>
+      <div class="tplan-body">${dayRows}</div>
+    </div>`;
+  }).join("");
+
+  // Aggregate stats
+  const used = activeTables.filter(t=>slotsByTable[t.id]).length;
+  const idle = activeTables.length - used;
+  const totalCastingDays = s.slotAssignments.reduce((sum,sl)=>{
+    const tl = s.slotTimeline[sl.slotId]||[];
+    return sum + new Set(tl.map(c=>c.dateIso)).size;
+  },0);
+  const multiPanelDays = s.slotAssignments.reduce((sum,sl)=>{
+    const tl = s.slotTimeline[sl.slotId]||[];
+    const byDay = {}; tl.forEach(c=>{(byDay[c.dateIso]=byDay[c.dateIso]||[]).push(c);});
+    return sum + Object.values(byDay).filter(arr=>arr.length>1).length;
+  },0);
+
+  return `
+    <div class="panel">
+      <h2>Per-Table Day-by-Day Plan</h2>
+      <div class="toolbar">
+        <span style="font-size:12px;color:#6b7280">
+          <b>${used}</b> tables active · <b>${idle}</b> idle ·
+          <b>${totalCastingDays}</b> total casting-days
+          (<b>${multiPanelDays}</b> multi-panel days) ·
+          shuttering <b>+${s.params.shutter} mm</b> ·
+          <b>${fmt(s.totalPieces)}</b> pieces over <b>${s.totalDays}</b> days
+        </span>
+        <button class="btn" style="margin-left:auto" id="tplanPrint">🖨 Print</button>
+      </div>
+      <div class="tplan-toc">${toc}</div>
+      <p style="margin:0;font-size:11px;color:#475569;line-height:1.6">
+        Each card shows one casting table's <b>patches</b> (one type cast 16 times, once per building).
+        Colored cells = single-day casts; <b>B#</b> = building number, date below. Hover any cell for details.
+      </p>
+    </div>
+    ${cards}
+  `;
+}
+
+// --- Casting Tables ---
+function getShutterMm(){ return parseInt($("#pShutter")?.value)||300; }
+function fitsTable(typ, tab, shutter){
+  // Shutter only counts BETWEEN adjacent panels. A single panel sits flush
+  // against the table edge, so the perimeter shutter cancels — fit is just
+  // panel size vs. table size.
+  // Fixed orientation: typ.w along L, typ.h along W; both must fit within the 300 mm edge offset.
+  const L=Math.max(tab.L,tab.W), W=Math.min(tab.L,tab.W);
+  const O=TABLE_EDGE_OFFSET;
+  return typ.w<=(L-2*O) && typ.h<=(W-2*O);
+}
+function viewTables(){
+  // Per-table: types that fit, total weight if they were each cast once
+  const rows = TABLES.map((t,i)=>{
+    const fitTypes = TYPES.filter(x=>fitsTable(x,t) && (t.allows||[]).includes(x.fam));
+    const famCounts = {};
+    fitTypes.forEach(x=>{ famCounts[x.fam]=(famCounts[x.fam]||0)+1; });
+    const famPills = Object.keys(famCounts).map(f=>`<span class="pill ${f}">${f}:${famCounts[f]}</span>`).join(" ");
+    return `<tr>
+      <td>${i+1}</td>
+      <td><b>${esc(t.id)}</b></td>
+      <td><input data-i="${i}" data-k="name" value="${esc(t.name)}" style="width:120px"></td>
+      <td class="num"><input data-i="${i}" data-k="L" value="${t.L}" type="number" style="width:80px;text-align:right"></td>
+      <td class="num"><input data-i="${i}" data-k="W" value="${t.W}" type="number" style="width:80px;text-align:right"></td>
+      <td>${["IP","WL","WN","PB"].map(f=>`<label style="margin-right:6px;font-size:11px"><input type="checkbox" data-i="${i}" data-fam="${f}" ${(t.allows||[]).includes(f)?"checked":""}> ${f}</label>`).join("")}</td>
+      <td class="ctr"><input type="checkbox" data-i="${i}" data-k="active" ${t.active!==false?"checked":""}></td>
+      <td class="num">${fitTypes.length}/${TYPES.length}</td>
+      <td>${famPills}</td>
+      <td><button class="btn sm" data-del="${i}">✕</button></td>
+    </tr>`;
+  }).join("");
+
+  const active = TABLES.filter(t=>t.active!==false);
+  const oversize = TYPES.filter(typ => !TABLES.some(t=>t.active!==false && fitsTable(typ,t) && (t.allows||[]).includes(typ.fam)));
+
+  return `
+    <div class="panel">
+      <h2>Physical Casting Tables</h2>
+      <div class="toolbar">
+        <button class="btn primary" id="addTbl">+ Add Table</button>
+        <button class="btn" id="resetTbl">↺ Reset to default (10 × 6m×8m)</button>
+        <button class="btn" id="applyTbl">✓ Apply (sync to engine)</button>
+        <span style="margin-left:auto;font-size:12px;color:#6b7280">
+          <b>${active.length}</b> active tables · area: <b>${fmt(active.reduce((s,t)=>s+(t.L*t.W)/1e6,0),1)} m²</b>
+          · shuttering allowance: <b>+${getShutterMm()} mm</b>
+        </span>
+      </div>
+      <table class="tbl">
+        <thead><tr>
+          <th>#</th><th>ID</th><th>Name</th>
+          <th class="num">Length (mm)</th><th class="num">Width (mm)</th>
+          <th>Allowed Families</th>
+          <th class="ctr">Active</th>
+          <th class="num">Types Fit</th>
+          <th>By Family</th>
+          <th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+
+    ${oversize.length ? `
+    <div class="panel" style="border-left:4px solid #dc2626">
+      <h2 style="color:#991b1b;border-bottom-color:#dc2626">⚠ Oversize Panels (won't fit on any active table)</h2>
+      <table class="tbl">
+        <thead><tr><th>Code</th><th>Family</th><th class="num">W (mm)</th><th class="num">H (mm)</th><th class="num">Weight</th></tr></thead>
+        <tbody>${oversize.map(t=>`<tr>
+          <td><b>${esc(t.code)}</b></td>
+          <td><span class="pill ${t.fam}">${t.fam}</span></td>
+          <td class="num">${t.w}</td>
+          <td class="num">${t.h}</td>
+          <td class="num">${fmt(t.kg)} kg</td>
+        </tr>`).join("")}</tbody>
+      </table>
+    </div>` : `
+    <div class="panel" style="border-left:4px solid #059669">
+      <h2 style="color:#065f46;border-bottom-color:#059669">✓ All ${TYPES.length} panel types fit on at least one active table</h2>
+    </div>`}
+
+    <div class="panel">
+      <h2>How tables are used</h2>
+      <p style="margin:0;font-size:12px;color:#475569;line-height:1.7">
+        Each <b>active</b> table provides one parallel casting position. The engine assigns panel types to tables that
+        physically fit (length × width) and have the family enabled. The total active table count automatically caps
+        <b>Max parallel</b> in the engine. Click <b>✓ Apply</b> to sync changes into the run, then re-run optimization.
+      </p>
+    </div>
+  `;
+}
+function bindTables(){
+  $$("#view input[data-k]").forEach(inp=>{
+    inp.onchange = ()=>{
+      const i = parseInt(inp.dataset.i), k = inp.dataset.k;
+      if(k==="active") TABLES[i].active = inp.checked;
+      else if(k==="L"||k==="W") TABLES[i][k] = parseInt(inp.value)||0;
+      else TABLES[i][k] = inp.value;
+      saveTables();
+    };
+  });
+  $$("#view input[data-fam]").forEach(inp=>{
+    inp.onchange = ()=>{
+      const i = parseInt(inp.dataset.i), f = inp.dataset.fam;
+      const a = TABLES[i].allows || (TABLES[i].allows=[]);
+      if(inp.checked && !a.includes(f)) a.push(f);
+      else if(!inp.checked) TABLES[i].allows = a.filter(x=>x!==f);
+      saveTables();
+    };
+  });
+  $$("#view button[data-del]").forEach(btn=>{
+    btn.onclick = ()=>{
+      const i = parseInt(btn.dataset.del);
+      TABLES.splice(i,1);
+      saveTables(); render();
+    };
+  });
+  $("#addTbl").onclick = ()=>{
+    const n = TABLES.length+1;
+    TABLES.push({id:`T${String(n).padStart(2,"0")}`, name:`Table ${n}`, L:8000, W:6000, allows:["IP","WL","WN","PB"], active:true});
+    saveTables(); render();
+  };
+  $("#resetTbl").onclick = ()=>{
+    TABLES = JSON.parse(JSON.stringify(DEFAULT_TABLES));
+    saveTables(); render(); syncTablesToEngine();
+  };
+  $("#applyTbl").onclick = ()=>{
+    syncTablesToEngine();
+    $("#applyTbl").textContent = "✓ Applied — re-run engine";
+    setTimeout(()=>{ $("#applyTbl").textContent = "✓ Apply (sync to engine)"; }, 1800);
+  };
+}
+function syncTablesToEngine(){
+  const active = TABLES.filter(t=>t.active!==false);
+  $("#pParallel").value = active.length;
+  // Adjust per-family slots so they don't exceed table allowance per family
+}
+
+// --- Overview ---
+function viewOverview(){
+  const s = schedule;
+  return `
+    <div class="kpis">
+      <div class="kpi gold"><div class="l">In-House Pieces</div><div class="v">${fmt(s.totalPieces)}</div><div class="s">scheduled across ${s.params.buildings||BUILDINGS} buildings</div></div>
+      <div class="kpi"><div class="l">Mould Slots</div><div class="v">${s.slotAssignments.length}</div><div class="s">parallel positions</div></div>
+      <div class="kpi green"><div class="l">Working Days</div><div class="v">${s.totalDays}</div><div class="s">${s.calendarDays} calendar days</div></div>
+      <div class="kpi"><div class="l">Start</div><div class="v" style="font-size:18px">${esc(s.firstDate)}</div><div class="s">${dayLabel(new Date(s.firstDate))}</div></div>
+      <div class="kpi red"><div class="l">Completion</div><div class="v" style="font-size:18px">${esc(s.lastDate)}</div><div class="s">${dayLabel(new Date(s.lastDate))}</div></div>
+      <div class="kpi"><div class="l">Total Concrete</div><div class="v">${fmt(s.totalM3||0,1)}</div><div class="s">m³</div></div>
+      <div class="kpi green"><div class="l">Utilization</div><div class="v">${fmt(s.utilization,0)}%</div><div class="s">avg slot use</div></div>
+      <div class="kpi"><div class="l">Mould Swaps</div><div class="v">${fmt(s.shutterChanges||0)}</div><div class="s">slot-days where mould dim changed</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Concrete Required per Day</h2>
+      <table class="tbl">
+        <thead><tr><th>Day</th><th>Date</th><th>Weekday</th><th class="num">Pieces</th><th class="num">Concrete (m³)</th></tr></thead>
+        <tbody>
+          ${s.allDates.map((d,i)=>{
+            const dt = new Date(d);
+            const buckets = s.cellsByDate[d] || {};
+            let pieces = 0;
+            for(const sid of Object.keys(buckets)) pieces += buckets[sid].length;
+            const m3 = s.m3ByDate?.[d] || 0;
+            const isPeak = Math.abs(m3 - (s.peakM3PerDay||0)) < 0.05 && m3 > 0;
+            return `<tr${isPeak?' style="background:#fef3c7"':''}>
+              <td><b>Day ${i+1}</b></td>
+              <td>${esc(d)}</td>
+              <td>${dayLabel(dt)}</td>
+              <td class="num">${fmt(pieces)}</td>
+              <td class="num"><b>${fmt(m3,2)}</b></td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+        <tfoot>
+          <tr style="font-weight:700;background:#f9fafb">
+            <td colspan="3">Total · avg ${fmt(s.avgM3PerDay||0,2)} m³/day · peak ${fmt(s.peakM3PerDay||0,2)} m³</td>
+            <td class="num">${fmt(s.totalPieces)}</td>
+            <td class="num">${fmt(s.totalM3||0,2)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Family Breakdown</h2>
+      <table class="tbl">
+        <thead><tr><th>Family</th><th>Description</th><th class="num">Types</th><th class="num">Pieces</th><th class="num">Tonnage</th><th class="num">Slots</th><th class="num">% of Project</th></tr></thead>
+        <tbody>
+          ${FAMILIES.map(f=>{
+            const fs = s.famStats[f]; const pct = (fs.pieces/s.totalPieces*100);
+            return `<tr>
+              <td><span class="pill ${f}">${f}</span></td>
+              <td>${esc(FAM_NAMES[f])}</td>
+              <td class="num">${fs.types}</td>
+              <td class="num"><b>${fmt(fs.pieces)}</b></td>
+              <td class="num">${fmt(fs.kg/1000,1)} t</td>
+              <td class="num">${fs.slots}</td>
+              <td class="num">${fmt(pct,1)}%</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+
+
+    <div class="panel">
+      <h2>Engine Configuration Used</h2>
+      <table class="tbl">
+        <tbody>
+          <tr><td>Strategy</td><td><b>${esc({batch:"Batch by type (min changeovers)",round:"Round-robin",floor:"By Floor (GF → FF → RF)"}[s.params.strat])}</b></td>
+              <td>Buildings</td><td>${s.params.buildings||BUILDINGS}</td></tr>
+          <tr><td>Weekends</td><td>${s.params.weekend?"Working":"Off"}</td>
+              <td>Max parallel</td><td>${s.params.parallel}</td></tr>
+          <tr><td>Slots used</td><td>${s.slotAssignments.length} (across ${s.activeTables?.length||0} tables)</td>
+              <td>Shuttering allowance</td><td>+${s.params.shutter} mm</td></tr>
+          <tr><td>Unfit panels</td><td>${s.unfit?.length||0}</td>
+              <td></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// --- Gantt ---
+function viewGantt(){
+  const s = schedule;
+  const dates = s.allDates;
+  // Sort by table ID (T01, T02, …) so the Gantt reads naturally top-to-bottom
+  const slots = s.slotAssignments.slice().sort((a,b)=> (a.tableId||"").localeCompare(b.tableId||"", undefined, {numeric:true}));
+  // Build grid CSS columns: first column = mould label, then one per date
+  const cols = `200px ${dates.map(()=>"56px").join(" ")}`;
+  const today = isoDate(new Date());
+
+  let html = `
+    <div class="legend">
+      ${FAMILIES.map(f=>`<div class="lg-item"><div class="lg-sw c-${f}"></div><span><b>${f}</b> · ${FAM_NAMES[f]}</span></div>`).join("")}
+      <div class="lg-item"><div class="lg-sw" style="background:repeating-linear-gradient(45deg,#f9fafb,#f9fafb 4px,#e5e7eb 4px,#e5e7eb 8px)"></div><span>Weekend</span></div>
+      <div class="lg-item"><div class="lg-sw" style="background:#f59e0b"></div><span>Last building (16) of a type</span></div>
+    </div>
+    <div class="panel" style="padding:0">
+      <div class="gantt-wrap">
+        <div class="gantt" style="grid-template-columns:${cols}">
+          <div class="gantt-mould h">Mould Slot</div>
+          ${dates.map(d=>{
+            const dt = new Date(d);
+            const cls = isWeekend(dt)?"weekend":(d===today?"today":"");
+            return `<div class="gantt-h ${cls}">${dayLabel(dt)}<br><span style="opacity:.7">${["S","M","T","W","T","F","S"][dt.getDay()]}</span></div>`;
+          }).join("")}
+          ${slots.map(slot=>{
+            return `
+              <div class="gantt-mould">${esc(slot.tableId||"")}</div>
+              ${dates.map(d=>{
+                const cells = (s.cellsByDate[d]||{})[slot.slotId];
+                if(!cells || cells.length===0){
+                  const dt = new Date(d);
+                  return `<div class="gantt-cell ${isWeekend(dt)?"weekend":"empty"}"></div>`;
+                }
+                const isLast = cells.some(c=>c.isLast);
+                const fam = cells[0].fam;
+                const labels = cells.map(c=>`B${c.b}`).join(",");
+                const types = [...new Set(cells.map(c=>c.type))].join(", ");
+                const totalKg = cells.reduce((sum,c)=>sum+c.kg,0);
+                const tip = `${types}|${labels}|${totalKg}|×${cells.length}|${d}`;
+                return `<div class="gantt-cell c-${fam} ${isLast?"last":""}"
+                  data-tip="${esc(tip)}">
+                  <span>${cells.length>1?`<b>×${cells.length}</b><br>`:""}${esc(types.split(",")[0].replace(/.*-/,""))}${cells.length>1?"…":"<br>B"+cells[0].b}</span>
+                </div>`;
+              }).join("")}
+            `;
+          }).join("")}
+          <!-- Totals row: panels per day across all slots -->
+          <div class="gantt-mould totals">Σ Panels / day</div>
+          ${dates.map(d=>{
+            const dt = new Date(d);
+            let count = 0;
+            slots.forEach(slot=>{
+              const cs = (s.cellsByDate[d]||{})[slot.slotId];
+              if(cs) count += cs.length;
+            });
+            const cls = isWeekend(dt) ? "gantt-cell totals weekend" : "gantt-cell totals";
+            return `<div class="${cls}"${count>0?` title="${count} panel${count>1?'s':''} cast on ${d}"`:""}>${count>0?`<b>${count}</b>`:""}</div>`;
+          }).join("")}
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Reading the Gantt</h2>
+      <p style="margin:0;font-size:12px;color:#475569;line-height:1.7">
+        Each row = one mould slot. Each cell = one casting on a specific working day.
+        The cell label is the panel type and building number (e.g. <code>IP-11 / B7</code> = panel GF-IP-11, building 7).
+        The <b>gold edge</b> on a cell marks the last (16th) building of a type — meaning that mould is then freed for the next type.
+        Hover any cell for the full details.
+      </p>
+    </div>
+  `;
+  return html;
+}
+function bindGantt(){
+  if(!tipEl) tipEl = $("#tip");
+  $$(".gantt-cell[data-tip]").forEach(c=>{
+    c.onmouseenter = (e)=>{
+      const [types,bldgs,kg,count,d] = c.dataset.tip.split("|");
+      tipEl.innerHTML = `<b>${esc(types)}</b><br>Buildings: ${esc(bldgs)} ${esc(count)}<br>🏋 ${fmt(kg)} kg total<br>📅 ${esc(d)}`;
+      tipEl.classList.add("show");
+    };
+    c.onmousemove = (e)=>{
+      tipEl.style.left = (e.clientX+14)+"px";
+      tipEl.style.top  = (e.clientY+14)+"px";
+    };
+    c.onmouseleave = ()=> tipEl.classList.remove("show");
+  });
+}
+
+// --- Mould assignments ---
+function viewMoulds(){
+  const s = schedule;
+  return `
+    <div class="panel">
+      <h2>Mould Slot Assignments</h2>
+      <p style="font-size:12px;color:#6b7280;margin:0 0 12px">${s.slotAssignments.length} slots running in parallel · each casts 1 panel per working day</p>
+      <table class="tbl">
+        <thead><tr>
+          <th>#</th>
+          <th>Casting Table</th><th class="num">Table (mm)</th>
+          <th class="num">Types</th><th>Type Sequence (16 buildings each)</th>
+          <th>First Cast</th><th>Last Cast</th><th class="num">Pieces</th><th class="num">Tonnage</th>
+        </tr></thead>
+        <tbody>
+        ${s.slotAssignments.slice().sort((a,b)=> (b.tableId||"").localeCompare(a.tableId||"", undefined, {numeric:true})).map((slot,i)=>{
+          const tl = s.slotTimeline[slot.slotId];
+          const first = tl[0]?.dateIso||"—";
+          const last = tl[tl.length-1]?.dateIso||"—";
+          const kg = tl.reduce((sum,c)=>sum+c.kg,0);
+          return `<tr>
+            <td>${i+1}</td>
+            <td>${esc(slot.tableId||"—")} ${slot.tableName?"· "+esc(slot.tableName):""}</td>
+            <td class="num">${slot.tableL?slot.tableL+"×"+slot.tableW:"—"}</td>
+            <td class="num">${slot.types.length}</td>
+            <td style="font-size:11px">${slot.types.map(t=>esc(t.code)).join(" → ")}</td>
+            <td>${esc(first)}</td>
+            <td>${esc(last)}</td>
+            <td class="num">${tl.length}</td>
+            <td class="num">${fmt(kg/1000,1)} t</td>
+          </tr>`;
+        }).join("")}
+        </tbody>
+      </table>
+      ${s.unfit && s.unfit.length ? `
+      <div style="margin-top:14px;padding:10px;background:#fef2f2;border-left:4px solid #dc2626;border-radius:4px;font-size:12px">
+        <b style="color:#991b1b">⚠ ${s.unfit.length} panel type${s.unfit.length>1?"s":""} could not be assigned</b>
+        (no active table fits with the +${s.params.shutter} mm shuttering allowance):
+        ${s.unfit.map(t=>`<span class="pill ${t.fam}" style="margin:2px 4px">${esc(t.code)} (${t.w}×${t.h})</span>`).join("")}
+      </div>` : ""}
+    </div>
+  `;
+}
+
+// --- Orders ---
+// Re-pack one slot's cells on a given day so layouts stay consistent after move/remove.
+function repackSlotDay(iso, slotId){
+  const cells = (schedule.cellsByDate[iso]||{})[slotId] || [];
+  if(cells.length===0) return;
+  const slot = schedule.slotAssignments.find(s=>s.slotId===slotId);
+  const tab  = schedule.activeTables.find(x=>x.id===slot.tableId);
+  if(!tab) return;
+  const tabAllows = (TABLES.find(t=>t.id===tab.id)||{}).allows || FAMILIES;
+  // Build a queue from existing cells preserving identity, then re-run packLot.
+  const queue = cells.map(c=>({ type:c.type, b:c.b, t:TYPES.find(x=>x.code===c.type), fam:c.fam, _cell:c }));
+  cells.forEach(c=> c.layout = null);
+  const lot = packLot(queue, {L:tab.L, W:tab.W}, schedule.params.shutter, tabAllows, schedule.params.strat);
+  lot.forEach(item=>{ if(item._cell) item._cell.layout = item.layout; });
+}
+
+// Move a single cell to the next working day on its slot. Returns true on success.
+function rescheduleCell(c){
+  if(!schedule) return false;
+  const oldIso = c.dateIso;
+  const slot = schedule.slotAssignments.find(s=>s.slotId===c.slotId);
+  if(!slot) return false;
+  const weekend = schedule.params.weekend;
+
+  // Find next working day
+  const nextDt = new Date(oldIso+"T00:00:00");
+  do { nextDt.setDate(nextDt.getDate()+1); }
+  while(!weekend && (nextDt.getDay()===0 || nextDt.getDay()===6));
+  const niso = isoDate(nextDt);
+
+  // Remove from old day's slot bucket
+  const oldBucket = (schedule.cellsByDate[oldIso]||{})[c.slotId] || [];
+  const oldRest = oldBucket.filter(x=>x!==c);
+  if(oldRest.length){
+    schedule.cellsByDate[oldIso][c.slotId] = oldRest;
+  } else {
+    delete schedule.cellsByDate[oldIso][c.slotId];
+    if(Object.keys(schedule.cellsByDate[oldIso]||{}).length===0) delete schedule.cellsByDate[oldIso];
+  }
+
+  // Update cell
+  c.dateIso = niso;
+  c.dt = new Date(nextDt);
+
+  // Add to new day
+  if(!schedule.cellsByDate[niso]) schedule.cellsByDate[niso] = {};
+  if(!schedule.cellsByDate[niso][c.slotId]) schedule.cellsByDate[niso][c.slotId] = [];
+  schedule.cellsByDate[niso][c.slotId].push(c);
+
+  // Re-pack layouts on both days (so the SVG sketches stay accurate)
+  if(schedule.cellsByDate[oldIso]) repackSlotDay(oldIso, c.slotId);
+  repackSlotDay(niso, c.slotId);
+
+  // Update slotTimeline ordering
+  const tl = schedule.slotTimeline[c.slotId] || [];
+  schedule.slotTimeline[c.slotId] = tl
+    .filter(x=>x!==c).concat([c])
+    .sort((a,b)=>a.dateIso.localeCompare(b.dateIso));
+
+  // Refresh allDates / totalDays
+  schedule.allDates = Object.keys(schedule.cellsByDate).sort();
+  schedule.totalDays = schedule.allDates.length;
+  if(schedule.allDates.length){
+    schedule.firstDate = schedule.allDates[0];
+    schedule.lastDate  = schedule.allDates[schedule.allDates.length-1];
+  }
+  return true;
+}
+
+function viewOrders(){
+  const s = schedule;
+  // Group cells by date
+  const byDate = {};
+  s.allCells.forEach(c=>{
+    if(!byDate[c.dateIso]) byDate[c.dateIso] = [];
+    byDate[c.dateIso].push(c);
+  });
+  // ARRANGEMENT REUSE MAP: per (slotId|dateIso) compute how many of yesterday's
+  // types were kept vs how many new types were installed. Each panel inherits
+  // its own reuse/swap flag based on whether its type was in yesterday's set.
+  const cellReuse = {}; // key: dateIso|slotId|type|b → 'reuse' | 'swap' | 'first'
+  const lotStats = {};  // key: slotId|dateIso → {kept, added, total}
+  let avoidedSwaps = 0;
+  if(s.slotTimeline){
+    Object.keys(s.slotTimeline).forEach(slotId=>{
+      const cells = s.slotTimeline[slotId].slice().sort((a,b)=> a.dayIdx - b.dayIdx);
+      // Group cells by date in chronological order.
+      const byDay = {};
+      const dayOrder = [];
+      cells.forEach(c=>{
+        if(!byDay[c.dateIso]){ byDay[c.dateIso]=[]; dayOrder.push(c.dateIso); }
+        byDay[c.dateIso].push(c);
+      });
+      let prevTypes = null;
+      dayOrder.forEach(d=>{
+        const lot = byDay[d];
+        const todayTypes = new Set();
+        lot.forEach(c=>{ todayTypes.add(c.type); });
+        let kept=0, added=0;
+        lot.forEach(c=>{
+          const k = `${c.dateIso}|${c.slotId}|${c.type}|${c.b}`;
+          if(prevTypes === null) cellReuse[k] = 'first';
+          else if(prevTypes.has(c.type)){ cellReuse[k] = 'reuse'; }
+          else { cellReuse[k] = 'swap'; }
+        });
+        if(prevTypes){
+          for(const t of todayTypes){
+            if(prevTypes.has(t)) kept++;
+            else added++;
+          }
+          avoidedSwaps += kept;
+        }
+        lotStats[`${slotId}|${d}`] = {kept, added, total: todayTypes.size};
+        prevTypes = todayTypes;
+      });
+    });
+  }
+  let rows = "";
+  s.allDates.forEach(d=>{
+    const cells = byDate[d];
+    if(!cells) return;
+    rows += `<tr style="background:#f8fafc"><td colspan="8"><b>${esc(d)}</b> · ${dayLabel(new Date(d))} <span style="float:right;color:#6b7280">${cells.length} pieces</span></td></tr>`;
+    cells.forEach((c,idx)=>{
+      const st = getStatus(c);
+      const rowBg = st==="cast" ? 'background:#f0fdf4' : '';
+      const ckey = `${c.dateIso}|${c.slotId}|${c.type}|${c.b}`;
+      const f = cellReuse[ckey];
+      let mouldCell = "";
+      if(f === 'reuse') mouldCell = `<span title="Mould kept from yesterday — no shutter swap" style="color:#065f46;font-weight:600">♻ reuse</span>`;
+      else if(f === 'swap') mouldCell = `<span title="New mould installed today — shutter swap" style="color:#b45309;font-weight:600">🔄 swap</span>`;
+      else mouldCell = `<span title="First use of this slot" style="color:#6b7280">— new</span>`;
+      rows += `<tr style="${rowBg}" data-ckey="${esc(ckey)}">
+        <td></td>
+        <td>${esc(c.slotId ? (schedule.slotAssignments.find(s=>s.slotId===c.slotId)?.tableId||"") : "")}</td>
+        <td><b>${esc(c.type)}</b></td>
+        <td>Building ${c.b}</td>
+        <td class="num">${c.w}×${c.h} mm</td>
+        <td class="num">${fmt(c.kg)} kg</td>
+        <td class="ctr">${mouldCell}</td>
+        <td class="ctr" style="white-space:nowrap">
+          <select class="inp xs status-sel" data-ckey="${esc(ckey)}" style="width:96px;margin-right:4px">
+            <option value="pending"${st==="pending"?" selected":""}>Pending</option>
+            <option value="cast"${st==="cast"?" selected":""}>✓ Cast</option>
+          </select>
+          <button class="btn xs reschedule-btn" data-ckey="${esc(ckey)}" title="Push to next working day">↻</button>
+        </td>
+      </tr>`;
+    });
+  });
+  // Status counts for header
+  let castCount=0, pendCount=0;
+  s.allCells.forEach(c=>{ if(getStatus(c)==="cast") castCount++; else pendCount++; });
+  return `
+    <div class="panel">
+      <h2>Daily Production Schedule</h2>
+      <div class="toolbar">
+        <span style="font-size:12px;color:#6b7280">${fmt(s.totalPieces)} pieces across ${s.totalDays} days · ${fmt(s.totalPieces/s.totalDays,1)} pieces/day average</span>
+        <span style="margin-left:auto;font-size:12px">
+          <b style="color:#065f46">${castCount}</b> cast ·
+          <b style="color:#92400e">${pendCount}</b> pending
+        </span>
+        <button class="btn sm" id="resetStatusBtn" title="Clear all cast/pending statuses">Reset Status</button>
+      </div>
+      <p style="margin:0 0 8px;font-size:11px;color:#475569">
+        Mark each panel as <b>✓ Cast</b> when production is complete. Click <b>↻</b> to push a panel to the next working day on the same table — useful when site delays force a reshuffle.
+        <span style="margin-left:8px;color:#065f46"><b>♻ reuse</b></span> = same mould as yesterday (no shutter swap, ${fmt(avoidedSwaps)} avoided) ·
+        <span style="color:#b45309"><b>🔄 swap</b></span> = mould dim changed.
+      </p>
+      <table class="tbl">
+        <thead><tr><th>Date</th><th>Table</th><th>Type</th><th>Building</th><th class="num">Dimensions</th><th class="num">Weight</th><th class="ctr">Mould</th><th class="ctr">Status</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+}
+function bindOrders(){
+  $$("#view .status-sel").forEach(sel=>{
+    sel.onchange = ()=>{
+      const ck = sel.dataset.ckey;
+      const c = schedule.allCells.find(x=>`${x.dateIso}|${x.slotId}|${x.type}|${x.b}`===ck);
+      if(!c) return;
+      setStatus(c, sel.value);
+      // Tint the row immediately, no full re-render needed
+      const tr = sel.closest("tr");
+      if(tr) tr.style.background = sel.value==="cast" ? "#f0fdf4" : "";
+    };
+  });
+  $$("#view .reschedule-btn").forEach(btn=>{
+    btn.onclick = ()=>{
+      const ck = btn.dataset.ckey;
+      const c = schedule.allCells.find(x=>`${x.dateIso}|${x.slotId}|${x.type}|${x.b}`===ck);
+      if(!c) return;
+      if(getStatus(c)==="cast"){
+        // Already cast — silently ignore (status takes precedence)
+        return;
+      }
+      rescheduleCell(c);
+      render(); // full re-render; date sections changed
+    };
+  });
+  const reset = $("#resetStatusBtn");
+  if(reset) reset.onclick = ()=>{
+    CAST_STATUS = {}; saveCastStatus(); render();
+  };
+}
+
+// --- Data ---
+function viewData(){
+  const exportBlock = schedule ? `
+    <div class="panel">
+      <h2>Export</h2>
+      <div class="toolbar">
+        <button class="btn primary" id="dlJson">⬇ Schedule JSON</button>
+        <button class="btn primary" id="dlCsv">⬇ Schedule CSV</button>
+        <button class="btn" id="prn">🖨 Print Gantt</button>
+      </div>
+      <p style="font-size:12px;color:#6b7280;margin-top:8px">Use these exports to feed the schedule into the Mold Manager bookings, share with site, or import into MS Project.</p>
+    </div>` : `
+    <div class="panel">
+      <h2>Export</h2>
+      <p style="font-size:12px;color:#6b7280;margin:0">Run the optimization to enable schedule exports.</p>
+    </div>`;
+  return `
+    ${exportBlock}
+    <div class="panel">
+      <h2>Master Panel List</h2>
+      <div class="toolbar">
+        <span style="font-size:12px;color:#6b7280">
+          <b style="color:#065f46">${TYPES.filter(isInHouse).length}</b> In-House ·
+          <b style="color:#991b1b">${TYPES.filter(isByOthers).length}</b> By Others
+          (auto-rule: weight > ${fmt(HEAVY_KG_LIMIT/1000,0)} t → By Others)
+        </span>
+        <span style="margin-left:auto"></span>
+        <button class="btn sm primary" id="addPanelBtn">＋ Add Panel</button>
+        <button class="btn sm" id="srcAllIn">All In-House</button>
+        <button class="btn sm" id="srcReset">Reset to default</button>
+      </div>
+      <div id="addPanelForm" style="display:none;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px;margin:8px 0">
+        <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;align-items:end">
+          <label style="font-size:11px;color:#6b7280">Code<input id="np_code" class="inp sm" placeholder="e.g. GF-WL-99" style="width:100%"></label>
+          <label style="font-size:11px;color:#6b7280">Family
+            <select id="np_fam" class="inp sm" style="width:100%">
+              <option value="IP">IP</option><option value="WL">WL</option>
+              <option value="WN">WN</option><option value="PB">PB</option>
+            </select>
+          </label>
+          <label style="font-size:11px;color:#6b7280">Floor
+            <select id="np_fl" class="inp sm" style="width:100%">
+              <option value="GF">GF</option><option value="FF">FF</option><option value="RF">RF</option>
+            </select>
+          </label>
+          <label style="font-size:11px;color:#6b7280">Width (mm)<input id="np_w" type="number" class="inp sm" value="3000" style="width:100%"></label>
+          <label style="font-size:11px;color:#6b7280">Height (mm)<input id="np_h" type="number" class="inp sm" value="3000" style="width:100%"></label>
+          <label style="font-size:11px;color:#6b7280">Thickness (mm)<input id="np_t" type="number" class="inp sm" value="200" style="width:100%"></label>
+          <label style="font-size:11px;color:#6b7280">Weight (kg)<input id="np_kg" type="number" class="inp sm" value="3000" style="width:100%"></label>
+          <label style="font-size:11px;color:#6b7280">Opening W (mm)<input id="np_opnW" type="number" class="inp sm" value="0" min="0" style="width:100%"></label>
+          <label style="font-size:11px;color:#6b7280">Opening L (mm)<input id="np_opnL" type="number" class="inp sm" value="0" min="0" style="width:100%"></label>
+          <label style="font-size:11px;color:#6b7280">Door Opening W (mm)<input id="np_doorsW" type="number" class="inp sm" value="0" min="0" style="width:100%"></label>
+          <label style="font-size:11px;color:#6b7280">Door Opening L (mm)<input id="np_doorsL" type="number" class="inp sm" value="0" min="0" style="width:100%"></label>
+          <label style="font-size:11px;color:#6b7280">MEP<input id="np_mep" type="number" class="inp sm" value="0" min="0" style="width:100%"></label>
+          <div style="grid-column:span 3;display:flex;gap:6px;justify-content:flex-end;align-items:center">
+            <span id="np_err" style="font-size:11px;color:#991b1b;margin-right:auto"></span>
+            <button class="btn sm" id="np_cancel">Cancel</button>
+            <button class="btn sm primary" id="np_save">Save Panel</button>
+          </div>
+        </div>
+      </div>
+      <table class="tbl">
+        <thead><tr>
+          <th>#</th><th>Code</th><th>Family</th><th>Floor</th>
+          <th class="num">Width (mm)</th><th class="num">Height (mm)</th><th class="num">Thick</th>
+          <th class="num">m³</th><th class="num">kg</th>
+          <th class="num">Total Pieces</th>
+          <th class="num" title="Window/general opening width (mm)">Opening W</th>
+          <th class="num" title="Window/general opening length (mm)">Opening L</th>
+          <th class="num" title="Door opening width (mm)">Door W</th>
+          <th class="num" title="Door opening length (mm)">Door L</th>
+          <th class="num" title="MEP embeds / conduits">MEP</th>
+          <th class="ctr">In-House</th>
+          <th>Source</th>
+          <th></th>
+        </tr></thead>
+        <tbody>
+          ${TYPES.map((t,i)=>{
+            const inh = isInHouse(t);
+            const heavy = t.kg > HEAVY_KG_LIMIT;
+            const m = getMeta(t.code);
+            return `<tr${inh?"":' style="background:#fef2f2"'}>
+              <td>${i+1}</td>
+              <td><b>${esc(t.code)}</b>${t._user?' <span style="font-size:10px;color:#0369a1">●custom</span>':""}</td>
+              <td><span class="pill ${t.fam}">${t.fam}</span></td>
+              <td>${esc(t.fl||"")}</td>
+              <td class="num">${t.w}</td>
+              <td class="num">${t.h}</td>
+              <td class="num">${t.t}</td>
+              <td class="num">${fmt(t.m3,2)}</td>
+              <td class="num"${heavy?' style="color:#991b1b;font-weight:700"':''}>${fmt(t.kg)}${heavy?" ⚠":""}</td>
+              <td class="num">${BUILDINGS}</td>
+              <td class="num"><input type="number" min="0" class="inp xs" data-meta="opnW"   data-code="${esc(t.code)}" value="${m.opnW}"   style="width:60px;text-align:right" placeholder="W"></td>
+              <td class="num"><input type="number" min="0" class="inp xs" data-meta="opnL"   data-code="${esc(t.code)}" value="${m.opnL}"   style="width:60px;text-align:right" placeholder="L"></td>
+              <td class="num"><input type="number" min="0" class="inp xs" data-meta="doorsW" data-code="${esc(t.code)}" value="${m.doorsW}" style="width:60px;text-align:right" placeholder="W"></td>
+              <td class="num"><input type="number" min="0" class="inp xs" data-meta="doorsL" data-code="${esc(t.code)}" value="${m.doorsL}" style="width:60px;text-align:right" placeholder="L"></td>
+              <td class="num"><input type="number" min="0" class="inp xs" data-meta="mep"    data-code="${esc(t.code)}" value="${m.mep}"    style="width:48px;text-align:right"></td>
+              <td class="ctr"><input type="checkbox" data-src="${esc(t.code)}" ${inh?"checked":""}></td>
+              <td>${inh
+                ? `<span class="src-pill in">In-House</span>`
+                : `<span class="src-pill out">By Others</span>`}</td>
+              <td>${t._user?`<button class="btn xs" data-del="${esc(t.code)}" title="Delete custom panel">✕</button>`:""}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+function bindData(){
+  $$('#view input[data-src]').forEach(inp=>{
+    inp.onchange = ()=>{
+      const code = inp.dataset.src;
+      const t = TYPES.find(x=>x.code===code);
+      if(!t) return;
+      const wantInHouse = inp.checked;
+      const def = !defaultByOthers(t); // default in-house?
+      if(wantInHouse === def) delete SRC_OVR[code];
+      else SRC_OVR[code] = !wantInHouse; // store byOthers flag
+      saveSrcOverrides();
+      refreshSidebarCounts();
+      render();
+    };
+  });
+  // Inline meta editing (Opening / Door Opening / MEP)
+  $$('#view input[data-meta]').forEach(inp=>{
+    inp.onchange = ()=>{
+      setMeta(inp.dataset.code, inp.dataset.meta, inp.value);
+    };
+  });
+  // Add Panel form toggle
+  const addBtn = $("#addPanelBtn"), addForm = $("#addPanelForm");
+  if(addBtn) addBtn.onclick = ()=>{
+    addForm.style.display = addForm.style.display==="none" ? "block" : "none";
+    if(addForm.style.display==="block"){ const c=$("#np_code"); if(c) c.focus(); }
+  };
+  if($("#np_cancel")) $("#np_cancel").onclick = ()=>{ addForm.style.display="none"; };
+  if($("#np_save")) $("#np_save").onclick = ()=>{
+    const errEl = $("#np_err");
+    const showErr = (msg)=>{ if(errEl){ errEl.textContent = msg; setTimeout(()=>{ if(errEl) errEl.textContent=""; }, 4000); } };
+    const code = ($("#np_code").value||"").trim().toUpperCase();
+    if(!code){ showErr("Code required"); $("#np_code").focus(); return; }
+    if(TYPES.find(x=>x.code===code)){ showErr("Code already exists: "+code); return; }
+    const fam = $("#np_fam").value;
+    const fl = $("#np_fl").value;
+    const w = +$("#np_w").value||0;
+    const h = +$("#np_h").value||0;
+    const tt = +$("#np_t").value||200;
+    const kg = +$("#np_kg").value||0;
+    if(w<=0 || h<=0){ showErr("Width and Height must be positive."); return; }
+    const m3 = +((w*h*tt)/1e9).toFixed(2);
+    const newType = {code, fam, fl, w, h, t:tt, m3, kg, _user:true};
+    TYPES.push(newType);
+    setMeta(code,"opnW",   $("#np_opnW").value);
+    setMeta(code,"opnL",   $("#np_opnL").value);
+    setMeta(code,"doorsW", $("#np_doorsW").value);
+    setMeta(code,"doorsL", $("#np_doorsL").value);
+    setMeta(code,"mep",    $("#np_mep").value);
+    saveUserTypes();
+    refreshSidebarCounts();
+    refreshFloorSelectors();
+    render();
+  };
+  // Delete custom panel
+  $$('#view button[data-del]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const code = btn.dataset.del;
+      // Two-click confirm: first click flips text to "Confirm?" then deletes on second
+      if(btn.dataset.confirming==="1"){
+        TYPES = TYPES.filter(x=>x.code!==code);
+        delete TYPE_META[code];
+        delete SRC_OVR[code];
+        saveUserTypes(); saveTypeMeta(); saveSrcOverrides();
+        refreshSidebarCounts(); refreshFloorSelectors(); render();
+        return;
+      }
+      btn.dataset.confirming = "1";
+      const orig = btn.textContent;
+      btn.textContent = "Confirm?";
+      btn.style.background = "#dc2626";
+      btn.style.color = "#fff";
+      setTimeout(()=>{ btn.dataset.confirming=""; btn.textContent=orig; btn.style.background=""; btn.style.color=""; }, 2500);
+    };
+  });
+  // Inline editor: per-row Floor cell. Edits propagate to the Floor mode
+  // dropdown / single / custom checkboxes immediately so the engine sees
+  // the same set of floors that the Data tab shows.
+  $$('#view input[data-fl-edit]').forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      const code = inp.dataset.flEdit;
+      const t = TYPES.find(x=>x.code===code);
+      if(!t) return;
+      const newFl = (inp.value||"").trim().toUpperCase();
+      if(t.fl === newFl) return;
+      t.fl = newFl;
+      saveUserTypes();           // persists for user-added panels; safe no-op for stock
+      refreshFloorSelectors();   // rebuilds sidebar selectors with the new floor set
+      render();
+    });
+  });
+  $("#srcAllIn") && ($("#srcAllIn").onclick = ()=>{
+    SRC_OVR = {};
+    TYPES.forEach(t=>{ if(defaultByOthers(t)) SRC_OVR[t.code]=false; });
+    saveSrcOverrides(); refreshSidebarCounts(); render();
+  });
+  $("#srcReset") && ($("#srcReset").onclick = ()=>{
+    SRC_OVR = {}; saveSrcOverrides(); refreshSidebarCounts(); render();
+  });
+  if($("#dlJson")) $("#dlJson").onclick = ()=>{
+    const blob = new Blob([JSON.stringify(schedule, (k,v)=>k==="dt"?undefined:v, 2)],{type:"application/json"});
+    dl(blob, `naheel-schedule-${isoDate(new Date())}.json`);
+  };
+  if($("#dlCsv")) $("#dlCsv").onclick = ()=>{
+    const lines = ["Date,Slot,Family,Type,Building,Width,Height,Weight_kg,Floor,Supplier,Source"];
+    schedule.allCells.forEach(c=>{
+      const t = TYPES.find(x=>x.code===c.type)||{};
+      lines.push([c.dateIso,c.slotLabel,c.fam,c.type,c.b,c.w,c.h,c.kg,t.fl||"",t.supplier||"in-house",isInHouse(t)?"In-House":"By Others"].join(","));
+    });
+    const blob = new Blob([lines.join("\n")],{type:"text/csv"});
+    dl(blob, `naheel-schedule-${isoDate(new Date())}.csv`);
+  };
+  if($("#prn")) $("#prn").onclick = ()=>{ activeTab="gantt"; renderTabs(); render(); setTimeout(()=>window.print(),300); };
+}
+function dl(blob,name){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+// ============================================================
+// Home / App screen switching
+// ============================================================
+function pfShowHome(){
+  const home = $("#pfHomeScreen"), app = $("#pfAppScreen");
+  if(home) home.style.display = "flex";
+  if(app)  app.style.display  = "none";
+  _pfRefreshHome();
+}
+function pfShowApp(){
+  const home = $("#pfHomeScreen"), app = $("#pfAppScreen");
+  if(home) home.style.display = "none";
+  if(app){ app.style.display = "flex"; }
+  renderTabs(); render();
+}
+function pfHomeLoadFile(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const snap = JSON.parse(ev.target.result);
+      if(!snap.version||snap.version<2){ alert("Not a valid project file."); return; }
+      if(!confirm(`Load project "${snap.name||file.name}"?\nThis will replace all current data.`)) return;
+      if(restoreProjectSnapshot(snap)){ _pfToast("✓ Project loaded","ok"); pfShowApp(); }
+    } catch(err){ alert("Failed to read file: "+err.message); }
+  };
+  reader.readAsText(file);
+}
+window.pfShowHome = pfShowHome;
+window.pfShowApp  = pfShowApp;
+window.pfHomeLoadFile = pfHomeLoadFile;
+
+// Populate the home screen cloud project grid (mirrors sidebar list but as cards)
+function _pfRefreshHome(){
+  _pfLoad();
+  const cfg = window._pfConfig;
+  const statEl = $("#pfHomeCloudStatus"), listEl = $("#pfHomeCloudList");
+  if(!statEl||!listEl) return;
+  if(!cfg.ocUser||!cfg.ocPass){
+    statEl.innerHTML = `Not signed in — <span onclick="_pfOpenSettings()" style="cursor:pointer;color:#1e3a5f;font-weight:700;text-decoration:underline">🔐 Sign In</span> to connect to your cloud projects`;
+    listEl.innerHTML = "";
+    return;
+  }
+  statEl.textContent = "⏳ Loading projects…";
+  listEl.innerHTML = "";
+  _pfWebDavList(cfg).then(arr=>{
+    if(!arr.length){
+      statEl.textContent = `✓ Connected — no projects yet in ${cfg.ocFolder}`;
+      listEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:24px 0">No .pfproj files found.</div>`;
+      return;
+    }
+    arr.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:"base"}));
+    statEl.innerHTML = `✓ <strong>${arr.length}</strong> project${arr.length>1?"s":""}`;
+    listEl.innerHTML = arr.map(p=>{
+      const title = p.name.replace(/\.pfproj$/i,"");
+      const date  = p.modified ? new Date(p.modified).toLocaleDateString() : "";
+      return `<div onclick="_pfHomeOpenProject('${encodeURIComponent(p.url)}','${encodeURIComponent(p.name)}')"
+                   style="cursor:pointer;padding:16px;border-radius:10px;background:#fff;border:1.5px solid #e2e8f0;transition:all .15s"
+                   onmouseover="this.style.borderColor='#3b82f6';this.style.boxShadow='0 6px 18px rgba(59,130,246,.15)';this.style.transform='translateY(-2px)'"
+                   onmouseout="this.style.borderColor='#e2e8f0';this.style.boxShadow='';this.style.transform=''">
+        <div style="font-size:22px;margin-bottom:6px">📁</div>
+        <div style="font-size:13px;font-weight:700;color:#1e3a5f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title)}</div>
+        ${date?`<div style="font-size:10px;color:#94a3b8;margin-top:4px">${date}</div>`:""}
+      </div>`;
+    }).join("");
+  }).catch(e=>{
+    statEl.innerHTML = `<span style="color:#dc2626">✗ ${esc(e.message)}</span>`;
+    listEl.innerHTML = "";
+  });
+}
+window._pfHomeOpenProject = function(encUrl, encName){
+  const url = decodeURIComponent(encUrl), name = decodeURIComponent(encName);
+  _pfLoadFromCloud(url, name);
+  pfShowApp();
+};
+
+// ============================================================
+// Init
+// ============================================================
+// Wire tabs only within the app screen
+$$(".tab[data-tab]").forEach(b=>{
+  b.onclick = ()=>{ activeTab = b.dataset.tab; renderTabs(); render(); };
+});
+$("#runBtn").onclick = runEngine;
+// Hydrate buildings input from localStorage and keep BUILDINGS + counts in sync as user edits it
+if($("#pBuildings")){
+  $("#pBuildings").value = BUILDINGS;
+  $("#pBuildings").oninput = ()=>{
+    const n = parseInt($("#pBuildings").value);
+    if(n>=1 && n<=MAX_BUILDINGS){ BUILDINGS = n; saveBuildingsCount(); refreshSidebarCounts(); }
+  };
+}
+syncTablesToEngine();
+// Floor selectors are driven by the actual `fl` field on TYPES — they must
+// rebuild whenever TYPES changes (add panel / delete panel / edit floor) so
+// the optimiser's floor selector stays in lock-step with the Data tab.
+function refreshFloorSelectors(){
+  const floors = [...new Set(TYPES.map(t=>t.fl).filter(Boolean))].sort();
+  // 1) Floor dropdown: kept STATIC at All / Only GF / Only FF / Custom in the
+  // HTML — no runtime injection of additional fl:* options. Just preserve the
+  // current selection here.
+  const mode = $("#pFloorMode");
+  // 2) Custom-selection checkbox group (preserves prior check state)
+  const host = $("#pFloors");
+  if(host){
+    const wasChecked = new Set(
+      [...host.querySelectorAll('input[type=checkbox]')].filter(c=>c.checked).map(c=>c.dataset.fl)
+    );
+    const everPopulated = host.dataset.populated === "1";
+    host.innerHTML = floors.map(f=>{
+      const id = "pFlo_"+f;
+      const cnt = TYPES.filter(t=>t.fl===f && isInHouse(t)).length;
+      const checked = !everPopulated ? true : wasChecked.has(f);
+      return `<label for="${id}" title="${cnt} in-house types on ${f}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;font-size:12px;background:#fff;color:#111">
+        <input type="checkbox" id="${id}" data-fl="${f}" ${checked?"checked":""} style="margin:0"> ${f}
+      </label>`;
+    }).join("");
+    host.dataset.populated = "1";
+  }
+  // 3) Add-Panel form floor dropdown — also data-driven
+  const np = $("#np_fl");
+  if(np){
+    const prev = np.value;
+    np.innerHTML = floors.map(f=>`<option value="${f}">${f}</option>`).join("");
+    if(floors.includes(prev)) np.value = prev;
+  }
+  // 4) Mode-switcher row visibility + active-floor readout
+  const customRow = $("#pFloorCustomRow");
+  const active = $("#pFloorActive");
+  const updateUI = ()=>{
+    if(!mode) return;
+    if(customRow) customRow.style.display = mode.value==="custom" ? "" : "none";
+    if(active){
+      let label;
+      if(mode.value === "all"){ label = `Will run on all floors: ${floors.join(", ") || "—"}`; }
+      else if(mode.value.startsWith("fl:")){ label = `Will run on floor: <b style="color:#f59e0b">${mode.value.slice(3)}</b> only`; }
+      else { // custom
+        const sel = [...host.querySelectorAll('input[type=checkbox]')].filter(c=>c.checked).map(c=>c.dataset.fl);
+        label = sel.length ? `Will run on floors: <b style="color:#f59e0b">${sel.join(", ")}</b>` : `No floors selected — will run on all`;
+      }
+      active.innerHTML = "▸ " + label;
+    }
+  };
+  if(mode && !mode._wired){ mode.onchange = updateUI; mode._wired = true; }
+  if(host && !host._wired){
+    host.addEventListener("change", e=>{ if(e.target.matches('input[type=checkbox]')) updateUI(); });
+    host._wired = true;
+  }
+  updateUI();
+}
+refreshFloorSelectors();
+render();
+
+// ============================================================
+// PROJECTS — ownCloud cloud save/load (mirrors Cost Builder)
+// ============================================================
+const PF_CC_KEY     = "pf_cloud_config_v1";
+const PF_CC_SRC_KEY = "pf_cloud_source_v1";
+const PF_PROXY      = "https://capriole-proxy.abdelhamid-j28.workers.dev";
+const PF_OC_SERVER  = "https://cloud.capriolegroup.org";
+const PF_OC_FOLDER  = "/Precast Factory/Precast Building";
+const PF_EXT        = ".pfproj";
+
+window._pfConfig = null;
+window._pfProjectSource = null;
+
+function _pfDefaultCfg(){ return { ocServer: PF_OC_SERVER, ocUser:"", ocPass:"", ocFolder: PF_OC_FOLDER, proxy: PF_PROXY }; }
+function _pfLoad(){ try{ const s=localStorage.getItem(PF_CC_KEY); const d=_pfDefaultCfg(); if(s){ const p=JSON.parse(s); for(const k in d) if(!(k in p)) p[k]=d[k]; window._pfConfig=p; } else window._pfConfig=d; } catch(e){ window._pfConfig=_pfDefaultCfg(); } }
+function _pfWrap(url){ const p=(window._pfConfig&&window._pfConfig.proxy||"").trim(); if(!p) return url; return p.replace(/\/$/,"")+"?url="+encodeURIComponent(url); }
+function _pfAuth(cfg){ return "Basic "+btoa((cfg.ocUser||"")+":"+(cfg.ocPass||"")); }
+function _pfBase(cfg){ const s=(cfg.ocServer||"").replace(/\/$/,""); return s+"/remote.php/dav/files/"+encodeURIComponent(cfg.ocUser||""); }
+function _pfFolderUrl(cfg){ const base=_pfBase(cfg); const f=(cfg.ocFolder||"/"); const enc=f.split("/").map(p=>p?encodeURIComponent(p):p).join("/"); return base+(enc.endsWith("/")?enc:enc+"/"); }
+
+function _pfToast(msg,kind){
+  const bg=kind==="ok"?"#052e16":kind==="err"?"#450a0a":"#1e3a5f";
+  const fg=kind==="ok"?"#4ade80":kind==="err"?"#fca5a5":"#dbeafe";
+  const t=document.createElement("div");
+  t.textContent=msg;
+  t.style.cssText=`position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:${bg};color:${fg};padding:10px 24px;border-radius:8px;font-size:13px;font-weight:600;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.2);font-family:inherit`;
+  document.body.appendChild(t); setTimeout(()=>t.remove(),2800);
+}
+
+function _pfOpenSettings(){
+  _pfLoad();
+  const cfg=window._pfConfig;
+  const s=(id,v)=>{ const e=document.getElementById(id); if(e) e.value=v||""; };
+  s("pfOcUser",cfg.ocUser); s("pfOcPass",cfg.ocPass);
+  document.getElementById("pfSettingsModal").style.display="flex";
+}
+function _pfCloseSettings(){ document.getElementById("pfSettingsModal").style.display="none"; }
+function _pfSaveSettings(){
+  const g=(id)=>{ const e=document.getElementById(id); return e?(e.value||"").trim():""; };
+  const cfg={ ocServer:PF_OC_SERVER, ocUser:g("pfOcUser"), ocPass:g("pfOcPass"), ocFolder:PF_OC_FOLDER, proxy:PF_PROXY };
+  try{ localStorage.setItem(PF_CC_KEY,JSON.stringify(cfg)); } catch(e){}
+  window._pfConfig=cfg;
+  _pfCloseSettings();
+  _pfToast("✓ Cloud settings saved","ok");
+  _pfRefresh();
+}
+function _pfTest(){
+  _pfLoad();
+  const cfg=window._pfConfig;
+  if(!cfg.ocUser||!cfg.ocPass){ _pfToast("Enter username and password first","err"); return; }
+  _pfWebDavList(cfg).then(arr=>_pfToast(`✓ Connected — ${arr.length} project(s) found`,"ok")).catch(e=>_pfToast("✗ "+e.message,"err"));
+}
+window._pfOpenSettings=_pfOpenSettings;
+window._pfCloseSettings=_pfCloseSettings;
+window._pfSaveSettings=_pfSaveSettings;
+window._pfTest=_pfTest;
+
+function _pfWebDavList(cfg){
+  const folderUrl=_pfFolderUrl(cfg);
+  const body=`<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/><d:getcontentlength/><d:getlastmodified/></d:prop></d:propfind>`;
+  return fetch(_pfWrap(folderUrl),{method:"PROPFIND",headers:{"Authorization":_pfAuth(cfg),"Depth":"1","Content-Type":"application/xml"},body})
+    .then(r=>{ if(r.status===401) throw new Error("Auth failed — check username / app password"); if(r.status===404) throw new Error("Folder not found: "+cfg.ocFolder); if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); })
+    .then(xml=>{
+      const doc=new DOMParser().parseFromString(xml,"application/xml");
+      const NS="DAV:";
+      const get=(el,tag)=>(el.getElementsByTagNameNS(NS,tag)[0]||el.getElementsByTagName("d:"+tag)[0]);
+      const responses=doc.getElementsByTagNameNS(NS,"response").length?doc.getElementsByTagNameNS(NS,"response"):doc.getElementsByTagName("d:response");
+      const origin=(cfg.ocServer||"").replace(/\/$/,"");
+      const out=[];
+      for(let i=0;i<responses.length;i++){
+        const resp=responses[i];
+        const href=(get(resp,"href")||{}).textContent||"";
+        if(!href.endsWith(PF_EXT)) continue;
+        const name=decodeURIComponent(href.split("/").filter(Boolean).pop()||"");
+        const size=+(get(resp,"getcontentlength")||{}).textContent||0;
+        const mod=(get(resp,"getlastmodified")||{}).textContent||"";
+        const fullUrl=/^https?:\/\//i.test(href)?href:origin+href;
+        out.push({name,url:fullUrl,size,modified:mod});
+      }
+      return out;
+    });
+}
+
+function _pfRefresh(){
+  _pfLoad();
+  const cfg=window._pfConfig;
+  const listEl=$("#cfgList"), statEl=$("#pfCloudStatus"), badge=$("#pfCloudBadge"), signBtn=$("#pfSignInBtn");
+  if(!listEl||!statEl) return;
+  if(!cfg.ocUser||!cfg.ocPass){
+    statEl.textContent="Not connected to cloud";
+    if(badge) badge.style.display="none";
+    listEl.innerHTML=`<div style="font-size:11px;color:#6b7280">Sign in to browse cloud projects.</div>`;
+    return;
+  }
+  statEl.textContent="⏳ Loading from cloud…";
+  listEl.innerHTML=`<div style="font-size:11px;color:#6b7280;padding:4px 0">Loading…</div>`;
+  _pfWebDavList(cfg).then(arr=>{
+    if(badge){ badge.style.display=""; badge.textContent="✓ Connected"; }
+    if(signBtn){ signBtn.textContent="⚙ Settings"; }
+    if(!arr.length){
+      statEl.textContent=`✓ Connected — no projects yet`;
+      listEl.innerHTML=`<div style="font-size:11px;color:#6b7280">No .pfproj files in ${cfg.ocFolder} yet.</div>`;
+      return;
+    }
+    arr.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:"base"}));
+    statEl.innerHTML=`✓ <strong>${arr.length}</strong> project${arr.length>1?"s":""}`;
+    listEl.innerHTML=arr.map((p,i)=>`
+      <div style="display:flex;align-items:center;gap:4px;padding:5px 7px;background:#1f2937;border:1px solid #374151;border-radius:5px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;color:#f9fafb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.name.replace(PF_EXT,""))}</div>
+          <div style="font-size:10px;color:#9ca3af">${p.modified?new Date(p.modified).toLocaleDateString():""}</div>
+        </div>
+        <button data-pf-load="${esc(p.url)}" data-pf-name="${esc(p.name)}"
+                style="padding:3px 8px;background:#1e3a5f;color:#93c5fd;border:none;border-radius:4px;cursor:pointer;font-size:11px">☁ Open</button>
+        <button data-pf-del-url="${esc(p.url)}" data-pf-del-name="${esc(p.name)}"
+                style="padding:3px 7px;background:#7f1d1d;color:#fca5a5;border:none;border-radius:4px;cursor:pointer;font-size:11px">✕</button>
+      </div>`).join("");
+    listEl.querySelectorAll("[data-pf-load]").forEach(btn=>{
+      btn.onclick=()=>_pfLoadFromCloud(btn.dataset.pfLoad, btn.dataset.pfName);
+    });
+    listEl.querySelectorAll("[data-pf-del-url]").forEach(btn=>{
+      btn.onclick=()=>_pfDeleteFromCloud(btn.dataset.pfDelUrl, btn.dataset.pfDelName);
+    });
+  }).catch(e=>{
+    statEl.innerHTML=`<span style="color:#dc2626">✗ ${esc(e.message)}</span>`;
+    listEl.innerHTML=`<div style="font-size:11px;color:#dc2626">${esc(e.message)}</div>`;
+  });
+}
+window._pfRefresh=_pfRefresh;
+
+// ---- Snapshot helpers ----
+function captureRunParamsSnap(){
+  const floors=[];
+  document.querySelectorAll("#pFloors input[type=checkbox]").forEach(c=>{ if(c.checked) floors.push(c.dataset.fl); });
+  return { start:$("#pStart")?.value||"", buildings:$("#pBuildings")?.value||"", weekend:$("#pWeekend")?.value||"0",
+           shutter:$("#pShutter")?.value||"300", floorMode:$("#pFloorMode")?.value||"all", floors, strat:$("#pStrat")?.value||"batch" };
+}
+function applyRunParamsSnap(p){
+  if(!p) return;
+  if($("#pStart")&&p.start)     $("#pStart").value=p.start;
+  if($("#pBuildings")&&p.buildings){ $("#pBuildings").value=p.buildings; $("#pBuildings").dispatchEvent(new Event("input")); }
+  if($("#pWeekend")&&p.weekend!==undefined) $("#pWeekend").value=p.weekend;
+  if($("#pShutter")&&p.shutter!==undefined) $("#pShutter").value=p.shutter;
+  if($("#pFloorMode")&&p.floorMode){ $("#pFloorMode").value=p.floorMode; $("#pFloorMode").dispatchEvent(new Event("change")); }
+  if(p.floors&&p.floors.length) document.querySelectorAll("#pFloors input[type=checkbox]").forEach(c=>{ c.checked=p.floors.includes(c.dataset.fl); });
+  if($("#pStrat")&&p.strat) $("#pStrat").value=p.strat;
+}
+function buildProjectSnapshot(name){
+  return { version:3, name, savedAt:new Date().toISOString(), BUILDINGS,
+           TYPES:TYPES.map(t=>({...t})), TABLES:TABLES.map(t=>({...t})),
+           SRC_OVR:{...SRC_OVR}, TYPE_META:{...TYPE_META}, CAST_STATUS:{...CAST_STATUS},
+           runParams:captureRunParamsSnap(),
+           schedule: schedule ? JSON.parse(JSON.stringify(schedule)) : null };
+}
+function restoreProjectSnapshot(snap){
+  if(!snap||snap.version<2){ alert("Incompatible project file."); return false; }
+  TYPES.length=0; (snap.TYPES||[]).forEach(t=>TYPES.push(t));
+  TABLES.length=0; (snap.TABLES||[]).forEach(t=>TABLES.push(t)); saveTables();
+  Object.keys(SRC_OVR).forEach(k=>delete SRC_OVR[k]); Object.assign(SRC_OVR,snap.SRC_OVR||{}); saveSrcOverrides();
+  Object.keys(TYPE_META).forEach(k=>delete TYPE_META[k]); Object.assign(TYPE_META,snap.TYPE_META||{}); saveTypeMeta();
+  Object.keys(CAST_STATUS).forEach(k=>delete CAST_STATUS[k]); Object.assign(CAST_STATUS,snap.CAST_STATUS||{}); saveCastStatus();
+  if(snap.BUILDINGS){ BUILDINGS=snap.BUILDINGS; saveBuildingsCount(); }
+  applyRunParamsSnap(snap.runParams);
+  refreshFloorSelectors();
+  schedule=snap.schedule||null;
+  renderTabs(); render(); refreshSidebarCounts();
+  return true;
+}
+
+// ---- Cloud save ----
+function _pfSaveToCloud(name){
+  _pfLoad(); const cfg=window._pfConfig;
+  if(!cfg.ocUser||!cfg.ocPass){ _pfToast("Not connected — sign in first","err"); return; }
+  const snap=buildProjectSnapshot(name);
+  const fileName=name.replace(/[^a-z0-9_\-\s]/gi,"_")+PF_EXT;
+  const saveUrl=_pfFolderUrl(cfg)+encodeURIComponent(fileName);
+  _pfToast("⏳ Saving to cloud…","info");
+  fetch(_pfWrap(saveUrl),{method:"PUT",headers:{"Authorization":_pfAuth(cfg),"Content-Type":"application/json"},body:JSON.stringify(snap)})
+    .then(r=>{ if(r.ok||r.status===201||r.status===204) return r; throw new Error("HTTP "+r.status); })
+    .then(()=>{ _pfToast("✓ Saved to cloud: "+fileName,"ok"); window._pfProjectSource={type:"cloud",url:saveUrl,name:fileName}; _pfRefresh(); })
+    .catch(e=>{ _pfToast("✗ Save failed: "+e.message,"err"); _pfDownloadLocal(name,snap); });
+}
+
+// ---- Cloud load ----
+function _pfLoadFromCloud(url, name){
+  _pfLoad(); const cfg=window._pfConfig;
+  _pfToast("⏳ Loading "+name+"…","info");
+  fetch(_pfWrap(url),{headers:{"Authorization":_pfAuth(cfg)}})
+    .then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+    .then(snap=>{
+      if(!confirm(`Load project "${snap.name||name}"?\nThis will replace all current data.`)) return;
+      if(restoreProjectSnapshot(snap)){
+        window._pfProjectSource={type:"cloud",url,name};
+        _pfToast("✓ Loaded: "+name,"ok");
+      }
+    }).catch(e=>_pfToast("✗ "+e.message,"err"));
+}
+window._pfLoadFromCloud=_pfLoadFromCloud;
+
+// ---- Cloud delete ----
+function _pfDeleteFromCloud(url, name){
+  if(!confirm(`Delete "${name}" from cloud?\nThis cannot be undone.`)) return;
+  _pfLoad(); const cfg=window._pfConfig;
+  fetch(_pfWrap(url),{method:"DELETE",headers:{"Authorization":_pfAuth(cfg)}})
+    .then(r=>{ if(r.ok||r.status===204||r.status===404) return; throw new Error("HTTP "+r.status); })
+    .then(()=>{ _pfToast("✓ Deleted: "+name,"ok"); _pfRefresh(); })
+    .catch(e=>_pfToast("✗ "+e.message,"err"));
+}
+
+// ---- Local file download (fallback) ----
+function _pfDownloadLocal(name, snap){
+  snap = snap || buildProjectSnapshot(name);
+  const blob=new Blob([JSON.stringify(snap,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=name.replace(/[^a-z0-9_\-\s]/gi,"_")+PF_EXT; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// ---- Wire Save button ----
+if($("#cfgSaveBtn")){
+  $("#cfgSaveBtn").onclick=()=>{
+    const name=($("#cfgName")?.value||"").trim();
+    if(!name){ alert("Please enter a project name."); return; }
+    _pfLoad();
+    const cfg=window._pfConfig;
+    if(cfg.ocUser&&cfg.ocPass){ _pfSaveToCloud(name); }
+    else { _pfDownloadLocal(name); _pfToast("Saved as local file (sign in to save to cloud)","ok"); }
+    if($("#cfgName")) $("#cfgName").value="";
+  };
+}
+
+// ---- Wire Load file input ----
+if($("#cfgFileInput")){
+  $("#cfgFileInput").onchange=(e)=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=(ev)=>{
+      try{
+        const snap=JSON.parse(ev.target.result);
+        if(!snap.version||snap.version<2){ alert("Not a valid project file."); return; }
+        if(!confirm(`Load project "${snap.name||file.name}"?\nThis will replace all current data.`)) return;
+        if(restoreProjectSnapshot(snap)) _pfToast("✓ Project loaded","ok");
+      } catch(err){ alert("Failed to read file: "+err.message); }
+    };
+    reader.readAsText(file);
+    e.target.value="";
+  };
+}
+
+// ---- Init ----
+(function _pfInit(){
+  _pfLoad();
+  try{ const s=localStorage.getItem(PF_CC_SRC_KEY); if(s) window._pfProjectSource=JSON.parse(s); } catch(e){}
+  _pfRefresh();
+})();
+
+function refreshSidebarCounts(){
+  const inH = TYPES.filter(isInHouse).length;
+  const byO = TYPES.filter(isByOthers).length;
+  if($("#totalPieces")) $("#totalPieces").textContent = fmt(inH * BUILDINGS);
+  if($("#byOthersPieces")) $("#byOthersPieces").textContent = fmt(byO * BUILDINGS) + " By Others";
+}
+refreshSidebarCounts();
+</script>
+
+</body>
+</html>
