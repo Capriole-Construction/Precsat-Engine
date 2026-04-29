@@ -3434,53 +3434,29 @@ window._pfCloseSettings=_pfCloseSettings;
 window._pfSaveSettings=_pfSaveSettings;
 window._pfTest=_pfTest;
 
-function _pfMkCol(cfg, path){
-  const base=(cfg.ocServer||"").replace(/\/$/,"")+"/remote.php/webdav";
-  const enc=path.split("/").map(p=>p?encodeURIComponent(p):p).join("/");
-  const url=base+enc;
-  return fetch(_pfWrap(url),{method:"MKCOL",headers:{"Authorization":_pfAuth(cfg)}})
-    .then(r=>r.status)
-    .catch(()=>0); // network error → treat as non-fatal, proceed
+// ---- Index-file approach (no PROPFIND needed — only GET/PUT/DELETE) ----
+function _pfIndexUrl(cfg){
+  return _pfFolderUrl(cfg)+"_pf_index.json";
 }
-function _pfEnsureFolder(cfg){
-  // Create each level; ignore 201/405/501 (created/exists/not-impl); only fail on 401
-  const parts=(cfg.ocFolder||"/").split("/").filter(Boolean);
-  const tasks=parts.map((_,i)=>"/"+parts.slice(0,i+1).join("/"));
-  return tasks.reduce((p,path)=>p.then(()=>_pfMkCol(cfg,path).then(s=>{
-    if(s===401) throw new Error("Auth failed — check username / app password");
-  })),Promise.resolve());
+function _pfGetIndex(cfg){
+  return fetch(_pfWrap(_pfIndexUrl(cfg)),{headers:{"Authorization":_pfAuth(cfg)}})
+    .then(r=>{
+      if(r.status===401) throw new Error("Auth failed — check username / app password");
+      if(r.status===404) return [];          // no index yet → empty list
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      return r.json().then(d=>Array.isArray(d)?d:(d.projects||[]));
+    })
+    .catch(e=>{ if(e.message.startsWith("Auth")) throw e; return []; });
+}
+function _pfPutIndex(cfg, list){
+  return fetch(_pfWrap(_pfIndexUrl(cfg)),{
+    method:"PUT",
+    headers:{"Authorization":_pfAuth(cfg),"Content-Type":"application/json"},
+    body:JSON.stringify(list)
+  }).then(r=>{ if(!r.ok&&r.status!==201&&r.status!==204) throw new Error("Index save failed HTTP "+r.status); });
 }
 function _pfWebDavList(cfg){
-  const folderUrl=_pfFolderUrl(cfg);
-  const body=`<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:displayname/><d:getcontentlength/><d:getlastmodified/></d:prop></d:propfind>`;
-  const doList=()=>fetch(_pfWrap(folderUrl),{method:"PROPFIND",headers:{"Authorization":_pfAuth(cfg),"Depth":"1","Content-Type":"application/xml"},body})
-    .then(r=>{ if(r.status===401) throw new Error("Auth failed — check username / app password"); if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); });
-  return doList().catch(e=>{
-    // Folder may not exist — auto-create and retry once
-    if(/HTTP (404|405|501|409|423)/.test(e.message)){
-      return _pfEnsureFolder(cfg).then(doList);
-    }
-    throw e;
-  })
-    .then(xml=>{
-      const doc=new DOMParser().parseFromString(xml,"application/xml");
-      const NS="DAV:";
-      const get=(el,tag)=>(el.getElementsByTagNameNS(NS,tag)[0]||el.getElementsByTagName("d:"+tag)[0]);
-      const responses=doc.getElementsByTagNameNS(NS,"response").length?doc.getElementsByTagNameNS(NS,"response"):doc.getElementsByTagName("d:response");
-      const origin=(cfg.ocServer||"").replace(/\/$/,"");
-      const out=[];
-      for(let i=0;i<responses.length;i++){
-        const resp=responses[i];
-        const href=(get(resp,"href")||{}).textContent||"";
-        if(!href.endsWith(PF_EXT)) continue;
-        const name=decodeURIComponent(href.split("/").filter(Boolean).pop()||"");
-        const size=+(get(resp,"getcontentlength")||{}).textContent||0;
-        const mod=(get(resp,"getlastmodified")||{}).textContent||"";
-        const fullUrl=/^https?:\/\//i.test(href)?href:origin+href;
-        out.push({name,url:fullUrl,size,modified:mod});
-      }
-      return out;
-    });
+  return _pfGetIndex(cfg);
 }
 
 function _pfRefresh(){
@@ -3579,7 +3555,18 @@ function _pfSaveToCloud(name){
   _pfToast("⏳ Saving to cloud…","info");
   fetch(_pfWrap(saveUrl),{method:"PUT",headers:{"Authorization":_pfAuth(cfg),"Content-Type":"application/json"},body:JSON.stringify(snap)})
     .then(r=>{ if(r.ok||r.status===201||r.status===204) return r; throw new Error("HTTP "+r.status); })
-    .then(()=>{ _pfToast("✓ Saved to cloud: "+fileName,"ok"); window._pfProjectSource={type:"cloud",url:saveUrl,name:fileName}; _pfRefresh(); })
+    .then(()=>{
+      window._pfProjectSource={type:"cloud",url:saveUrl,name:fileName};
+      // Update index file
+      return _pfGetIndex(cfg).then(list=>{
+        const now=new Date().toISOString();
+        const idx=list.findIndex(p=>p.url===saveUrl);
+        if(idx>=0) list[idx]={name:fileName,url:saveUrl,modified:now};
+        else list.push({name:fileName,url:saveUrl,modified:now});
+        return _pfPutIndex(cfg,list);
+      });
+    })
+    .then(()=>{ _pfToast("✓ Saved to cloud: "+fileName,"ok"); _pfRefresh(); })
     .catch(e=>{ _pfToast("✗ Save failed: "+e.message,"err"); _pfDownloadLocal(name,snap); });
 }
 
@@ -3605,6 +3592,12 @@ function _pfDeleteFromCloud(url, name){
   _pfLoad(); const cfg=window._pfConfig;
   fetch(_pfWrap(url),{method:"DELETE",headers:{"Authorization":_pfAuth(cfg)}})
     .then(r=>{ if(r.ok||r.status===204||r.status===404) return; throw new Error("HTTP "+r.status); })
+    .then(()=>{
+      // Remove entry from index file
+      return _pfGetIndex(cfg).then(list=>{
+        return _pfPutIndex(cfg, list.filter(p=>p.url!==url));
+      }).catch(()=>{}); // index update failure is non-fatal
+    })
     .then(()=>{ _pfToast("✓ Deleted: "+name,"ok"); _pfRefresh(); })
     .catch(e=>_pfToast("✗ "+e.message,"err"));
 }
