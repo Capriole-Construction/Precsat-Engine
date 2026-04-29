@@ -3247,8 +3247,12 @@ function bindData(){
         render();
       };
     });
+    // Stop clicks inside any popover from reaching the document close handler
+    $$('#view .opn-edit-panel').forEach(p=>{
+      p.addEventListener('click', e=>e.stopPropagation());
+    });
     // Close when clicking outside
-    document.addEventListener('click', ()=>closeAll(), {capture:false, once:false});
+    document.addEventListener('click', ()=>closeAll());
   })();
   // ── Panel table filters ─────────────────────────────────────
   (function wirePanelFilters(){
