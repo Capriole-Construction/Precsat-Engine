@@ -292,12 +292,12 @@
     <!-- PROJECT SAVE / LOAD (Cloud + Local) -->
     <div class="sb-section" id="runConfigSection">
       <div class="sb-h" style="display:flex;align-items:center;justify-content:space-between">
-        <span>☁ Projects</span>
+        <span>☁ Running Patches</span>
         <span id="pfCloudBadge" style="font-size:9px;padding:2px 7px;border-radius:10px;background:#1e3a5f;color:#93c5fd;display:none">Connected</span>
       </div>
       <!-- Project name + save -->
       <div class="sb-row" style="gap:6px">
-        <input id="cfgName" type="text" placeholder="Project name…"
+        <input id="cfgName" type="text" placeholder="Patch name…"
                style="flex:1;padding:4px 6px;border:1px solid #374151;border-radius:5px;background:#1f2937;color:#f9fafb;font-size:12px">
         <button id="cfgSaveBtn" title="Save project to cloud (or download locally if not connected)"
                 style="padding:4px 10px;background:#2563eb;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px;white-space:nowrap">💾 Save</button>
@@ -359,14 +359,14 @@
         <!-- LEFT: Cloud projects -->
         <div style="padding:28px 32px;overflow-y:auto;border-right:1px solid #e2e8f0;display:flex;flex-direction:column">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0">
-            <div style="font-size:13px;font-weight:700;color:#1e3a5f">☁ Cloud Projects</div>
+            <div style="font-size:13px;font-weight:700;color:#1e3a5f">☁ Running Patches</div>
             <div style="display:flex;gap:8px">
               <button onclick="_pfRefresh()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;font-size:11px;font-weight:600;font-family:inherit">🔄 Refresh</button>
               <button onclick="window._pfOpenSettings()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#1e3a5f;color:#fff;border:none;font-size:11px;font-weight:600;font-family:inherit">🔐 Sign In</button>
             </div>
           </div>
           <div id="pfHomeCloudStatus" style="font-size:11px;color:#64748b;margin-bottom:16px">
-            Not signed in — <span onclick="window._pfOpenSettings()" style="cursor:pointer;color:#1e3a5f;font-weight:700;text-decoration:underline">🔐 Sign In</span> to connect to your cloud projects
+            Not signed in — <span onclick="window._pfOpenSettings()" style="cursor:pointer;color:#1e3a5f;font-weight:700;text-decoration:underline">🔐 Sign In</span> to connect to your cloud running patches
           </div>
           <div id="pfHomeCloudList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px"></div>
         </div>
@@ -3263,7 +3263,7 @@ function _pfRefreshHome(){
   const statEl = $("#pfHomeCloudStatus"), listEl = $("#pfHomeCloudList");
   if(!statEl||!listEl) return;
   if(!cfg.ocUser||!cfg.ocPass){
-    statEl.innerHTML = `Not signed in — <span onclick="window._pfOpenSettings()" style="cursor:pointer;color:#1e3a5f;font-weight:700;text-decoration:underline">🔐 Sign In</span> to connect to your cloud projects`;
+    statEl.innerHTML = `Not signed in — <span onclick="window._pfOpenSettings()" style="cursor:pointer;color:#1e3a5f;font-weight:700;text-decoration:underline">🔐 Sign In</span> to connect to your running patches`;
     listEl.innerHTML = "";
     return;
   }
@@ -3271,8 +3271,8 @@ function _pfRefreshHome(){
   listEl.innerHTML = "";
   _pfWebDavList(cfg).then(arr=>{
     if(!arr.length){
-      statEl.textContent = `✓ Connected — no projects yet in ${cfg.ocFolder}`;
-      listEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:24px 0">No .pfproj files found.</div>`;
+      statEl.textContent = `✓ Connected — no running patches yet in ${cfg.ocFolder}`;
+      listEl.innerHTML = `<div style="color:#94a3b8;font-size:12px;padding:24px 0">No running patches found. Save a patch from the sidebar to get started.</div>`;
       return;
     }
     arr.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:"base"}));
@@ -3295,9 +3295,9 @@ function _pfRefreshHome(){
   });
 }
 window._pfHomeOpenProject = function(encUrl, encName){
-  const url = decodeURIComponent(encUrl), name = decodeURIComponent(encName);
-  _pfLoadFromCloud(url, name);
-  pfShowApp();
+  // Open project in a new tab, passing cloud URL as query param
+  const pageUrl = window.location.href.split('?')[0];
+  window.open(pageUrl + '?pf_load=' + encUrl + '&pf_name=' + encName, '_blank');
 };
 
 // ============================================================
@@ -3436,7 +3436,7 @@ function _pfTest(){
   _pfLoad();
   const cfg=window._pfConfig;
   if(!cfg.ocUser||!cfg.ocPass){ _pfToast("Enter username and password first","err"); return; }
-  _pfWebDavList(cfg).then(arr=>_pfToast(`✓ Connected — ${arr.length} project(s) found`,"ok")).catch(e=>_pfToast("✗ "+e.message,"err"));
+  _pfWebDavList(cfg).then(arr=>_pfToast(`✓ Connected — ${arr.length} running patch(es) found`,"ok")).catch(e=>_pfToast("✗ "+e.message,"err"));
 }
 window._pfOpenSettings=_pfOpenSettings;
 window._pfCloseSettings=_pfCloseSettings;
@@ -3476,7 +3476,7 @@ function _pfRefresh(){
   if(!cfg.ocUser||!cfg.ocPass){
     statEl.textContent="Not connected to cloud";
     if(badge) badge.style.display="none";
-    listEl.innerHTML=`<div style="font-size:11px;color:#6b7280">Sign in to browse cloud projects.</div>`;
+    listEl.innerHTML=`<div style="font-size:11px;color:#6b7280">Sign in to browse running patches.</div>`;
     return;
   }
   statEl.textContent="⏳ Loading from cloud…";
@@ -3485,8 +3485,8 @@ function _pfRefresh(){
     if(badge){ badge.style.display=""; badge.textContent="✓ Connected"; }
     if(signBtn){ signBtn.textContent="⚙ Settings"; }
     if(!arr.length){
-      statEl.textContent=`✓ Connected — no projects yet`;
-      listEl.innerHTML=`<div style="font-size:11px;color:#6b7280">No .pfproj files in ${cfg.ocFolder} yet.</div>`;
+      statEl.textContent=`✓ Connected — no running patches yet`;
+      listEl.innerHTML=`<div style="font-size:11px;color:#6b7280">No running patches in ${cfg.ocFolder} yet.</div>`;
       return;
     }
     arr.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:"base"}));
@@ -3678,6 +3678,28 @@ if($("#cfgFileInput")){
   if(testBtn)    testBtn.onclick    = _pfTest;
 
   _pfRefresh();
+
+  // Auto-load project from query param (set when opening from home screen card)
+  const _qp = new URLSearchParams(window.location.search);
+  const _qLoad = _qp.get('pf_load'), _qName = _qp.get('pf_name');
+  if(_qLoad && _qName){
+    const _url = decodeURIComponent(_qLoad), _name = decodeURIComponent(_qName);
+    _pfLoad();
+    const _cfg = window._pfConfig;
+    _pfToast("⏳ Opening "+_name+"…","info");
+    fetch(_pfWrap(_url),{headers:{"Authorization":_pfAuth(_cfg)}})
+      .then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+      .then(snap=>{
+        if(restoreProjectSnapshot(snap)){
+          window._pfProjectSource={type:"cloud",url:_url,name:_name};
+          const cfgNameEl=$("#cfgName"); if(cfgNameEl) cfgNameEl.value=_name.replace(/\.pfproj$/i,"");
+          _pfToast("✓ Opened: "+_name,"ok");
+          if(typeof pfShowApp==="function") pfShowApp();
+          // Remove query params from URL without reloading
+          history.replaceState({},"",window.location.pathname);
+        }
+      }).catch(e=>_pfToast("✗ Could not open patch: "+e.message,"err"));
+  }
 })();
 
 function refreshSidebarCounts(){
