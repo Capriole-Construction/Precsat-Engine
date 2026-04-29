@@ -3382,32 +3382,32 @@ function bindData(){
       let opnHtml = '<span style="color:#9ca3af">—</span>';
       if(m.openings.length){
         const parts=[];
-        wins.forEach(o=>  parts.push(`<span style="display:block;font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 5px;border-radius:4px;margin:1px 0;white-space:nowrap">Win ${o.w}×${o.l}</span>`));
-        doors.forEach(o=> parts.push(`<span style="display:block;font-size:9px;background:#fef9c3;color:#854d0e;padding:1px 5px;border-radius:4px;margin:1px 0;white-space:nowrap">Door ${o.w}×${o.l}</span>`));
-        opnHtml = parts.join('');
+        wins.forEach(o=>  parts.push(`<span style="display:inline-flex;align-items:center;gap:3px;font-size:9.5px;background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:4px;margin:2px 3px 2px 0;white-space:nowrap"><b>Win</b> ${o.w}×${o.l}</span>`));
+        doors.forEach(o=> parts.push(`<span style="display:inline-flex;align-items:center;gap:3px;font-size:9.5px;background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:4px;margin:2px 3px 2px 0;white-space:nowrap"><b>Door</b> ${o.w}×${o.l}</span>`));
+        opnHtml = `<div style="display:flex;flex-wrap:wrap;gap:0">${parts.join('')}</div>`;
       }
       const bgRow = inh ? (rowNum%2===0?'#f8fafc':'#fff') : (rowNum%2===0?'#fff5f5':'#fff8f8');
       tbody += `<tr style="background:${bgRow}">
-        <td style="text-align:center;color:#9ca3af;font-size:9px;padding:5px 4px">${rowNum}</td>
-        <td style="padding:5px 6px"><strong style="font-size:10.5px;color:#111827">${t.code}</strong>${t._user?'<sup style="font-size:8px;color:#0369a1;margin-left:2px">●</sup>':''}</td>
-        <td style="text-align:center;padding:5px 4px"><span style="background:${fc};color:#fff;padding:2px 7px;border-radius:8px;font-size:9px;font-weight:800">${t.fam}</span></td>
-        <td style="text-align:center;padding:5px 4px;font-size:10px;font-weight:600;color:#374151">${t.fl||'—'}</td>
-        <td style="text-align:right;padding:5px 6px;font-size:10px">${t.w}</td>
-        <td style="text-align:right;padding:5px 6px;font-size:10px">${t.h}</td>
-        <td style="text-align:right;padding:5px 6px;font-size:10px">${t.t}</td>
-        <td style="text-align:right;padding:5px 6px;font-size:10px">${fmt(t.m3,2)}</td>
-        <td style="text-align:right;padding:5px 6px;font-size:10px;${heavy?'color:#991b1b;font-weight:700':''}">${fmt(t.kg)}${heavy?' <span style="font-size:9px">⚠</span>':''}</td>
-        <td style="padding:5px 4px;vertical-align:top">${opnHtml}</td>
-        <td style="text-align:center;padding:5px 4px;font-size:12px">${m.mep?'<span style="color:#0369a1;font-weight:700">✓</span>':'<span style="color:#d1d5db">—</span>'}</td>
-        <td style="text-align:center;padding:5px 6px"><span style="padding:2px 8px;border-radius:10px;font-size:9px;font-weight:700;${inh?'background:#d1fae5;color:#065f46':'background:#fde8e8;color:#991b1b'}">${inh?'In-House':'By Others'}</span></td>
+        <td style="text-align:center;color:#9ca3af;font-size:9.5px;padding:6px 5px">${rowNum}</td>
+        <td style="padding:6px 8px"><strong style="font-size:11px;color:#111827">${t.code}</strong>${t._user?'<sup style="font-size:8px;color:#0369a1;margin-left:2px">●</sup>':''}</td>
+        <td style="text-align:center;padding:6px 5px"><span style="background:${fc};color:#fff;padding:2px 8px;border-radius:8px;font-size:9.5px;font-weight:800">${t.fam}</span></td>
+        <td style="text-align:center;padding:6px 5px;font-size:10.5px;font-weight:600;color:#374151">${t.fl||'—'}</td>
+        <td style="text-align:right;padding:6px 8px;font-size:10.5px">${t.w}</td>
+        <td style="text-align:right;padding:6px 8px;font-size:10.5px">${t.h}</td>
+        <td style="text-align:right;padding:6px 8px;font-size:10.5px">${t.t}</td>
+        <td style="text-align:right;padding:6px 8px;font-size:10.5px">${fmt(t.m3,2)}</td>
+        <td style="text-align:right;padding:6px 8px;font-size:10.5px;${heavy?'color:#991b1b;font-weight:700':''}">${fmt(t.kg)}${heavy?' <span style="font-size:9px">⚠</span>':''}</td>
+        <td style="padding:6px 8px;vertical-align:middle">${opnHtml}</td>
+        <td style="text-align:center;padding:6px 5px;font-size:13px">${m.mep?'<span style="color:#0369a1;font-weight:700">✓</span>':'<span style="color:#d1d5db">—</span>'}</td>
+        <td style="text-align:center;padding:6px 8px"><span style="padding:3px 10px;border-radius:10px;font-size:9.5px;font-weight:700;${inh?'background:#d1fae5;color:#065f46':'background:#fde8e8;color:#991b1b'}">${inh?'In-House':'By Others'}</span></td>
       </tr>`;
     });
     // ── Totals footer row ───────────────────────────────────────
     tbody += `<tr style="background:#1e3a5f;color:#fff;font-weight:700">
-      <td colspan="7" style="padding:6px 8px;font-size:10px;letter-spacing:.3px">TOTAL — ${rowNum} panels shown</td>
-      <td style="text-align:right;padding:6px 6px;font-size:10px">${fmt(totalM3/BUILDINGS,1)} m³/unit</td>
-      <td style="text-align:right;padding:6px 6px;font-size:10px">${fmt(totalKg/BUILDINGS)} kg/unit</td>
-      <td colspan="4" style="padding:6px 6px;font-size:10px">${shownIn} In-House · ${shownOut} By Others</td>
+      <td colspan="7" style="padding:7px 10px;font-size:10.5px;letter-spacing:.3px">TOTAL — ${rowNum} panels shown</td>
+      <td style="text-align:right;padding:7px 8px;font-size:10.5px">${fmt(totalM3/BUILDINGS,1)} m³/unit</td>
+      <td style="text-align:right;padding:7px 8px;font-size:10.5px">${fmt(totalKg/BUILDINGS)} kg/unit</td>
+      <td colspan="3" style="padding:7px 10px;font-size:10.5px">${shownIn} In-House · ${shownOut} By Others</td>
     </tr>`;
     // ── Assemble HTML ───────────────────────────────────────────
     const html=`<!doctype html><html><head><meta charset="utf-8">
@@ -3435,17 +3435,17 @@ function bindData(){
   .filter-bar{padding:5px 20px;background:#fffbeb;border-bottom:1px solid #fde68a;font-size:10px;color:#92400e;display:${filterParts.length?'flex':'none'};align-items:center;gap:6px}
   .f-chip{background:#fde68a;color:#78350f;padding:2px 8px;border-radius:8px;font-weight:700;font-size:9.5px}
   /* ─ Table ─ */
-  .wrap{padding:0 0 20px}
-  table{width:100%;border-collapse:collapse;font-size:10px;table-layout:fixed}
+  .wrap{padding:0 0 24px}
+  table{width:100%;border-collapse:collapse;font-size:10.5px;table-layout:fixed}
   thead tr{background:#1e3a5f;color:#fff;page-break-inside:avoid}
-  thead th{padding:7px 6px;font-weight:700;font-size:9px;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;border-right:1px solid rgba(255,255,255,.12);overflow:hidden;text-overflow:ellipsis}
+  thead th{padding:8px 7px;font-weight:700;font-size:9.5px;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap;border-right:1px solid rgba(255,255,255,.12);overflow:hidden;text-overflow:ellipsis}
   thead th:last-child{border-right:none}
-  th.r{text-align:right} th.c{text-align:center}
+  th.r{text-align:right} th.c{text-align:center} th.l{text-align:left}
   tbody tr{border-bottom:1px solid #e5e7eb;page-break-inside:avoid}
-  tbody td{vertical-align:middle;border-right:1px solid #f3f4f6}
+  tbody td{vertical-align:middle;border-right:1px solid #f3f4f6;overflow:hidden}
   tbody td:last-child{border-right:none}
   tfoot tr{background:#1e3a5f;color:#fff}
-  tfoot td{padding:6px 6px;font-size:9.5px;font-weight:700}
+  tfoot td{padding:7px 8px;font-size:10px;font-weight:700}
   /* ─ Footer ─ */
   .page-footer{position:fixed;bottom:0;left:0;right:0;padding:5px 20px;background:#f8fafc;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:9px;color:#9ca3af}
   @page{size:A3 landscape;margin:10mm 10mm 18mm}
@@ -3477,18 +3477,18 @@ ${filterParts.length?`<div class="filter-bar"><strong>Filtered by:</strong>${fil
 <div class="wrap">
 <table>
   <thead><tr>
-    <th class="c" style="width:26px">#</th>
-    <th style="width:130px;text-align:left">Panel Code</th>
-    <th class="c" style="width:46px">Family</th>
-    <th class="c" style="width:38px">Floor</th>
-    <th class="r" style="width:56px">Width<br><span style="font-weight:400;opacity:.7">(mm)</span></th>
-    <th class="r" style="width:56px">Height<br><span style="font-weight:400;opacity:.7">(mm)</span></th>
-    <th class="r" style="width:48px">Thick<br><span style="font-weight:400;opacity:.7">(mm)</span></th>
-    <th class="r" style="width:42px">m³</th>
-    <th class="r" style="width:56px">Weight<br><span style="font-weight:400;opacity:.7">(kg)</span></th>
-    <th style="width:110px">Openings</th>
-    <th class="c" style="width:34px">MEP</th>
-    <th class="c" style="width:72px">Source</th>
+    <th class="c" style="width:2%">#</th>
+    <th class="l" style="width:13%">Panel Code</th>
+    <th class="c" style="width:5%">Family</th>
+    <th class="c" style="width:4%">Floor</th>
+    <th class="r" style="width:7%">Width<br><span style="font-weight:400;opacity:.7">(mm)</span></th>
+    <th class="r" style="width:7%">Height<br><span style="font-weight:400;opacity:.7">(mm)</span></th>
+    <th class="r" style="width:5%">Thick<br><span style="font-weight:400;opacity:.7">(mm)</span></th>
+    <th class="r" style="width:5%">m³</th>
+    <th class="r" style="width:8%">Weight<br><span style="font-weight:400;opacity:.7">(kg)</span></th>
+    <th class="l" style="width:30%">Openings</th>
+    <th class="c" style="width:4%">MEP</th>
+    <th class="c" style="width:10%">Source</th>
   </tr></thead>
   <tbody>${tbody}</tbody>
 </table>
