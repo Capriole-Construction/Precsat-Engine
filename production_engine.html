@@ -246,8 +246,8 @@
        style="height:38px;width:auto;object-fit:contain;filter:brightness(0) invert(1);opacity:.92;flex-shrink:0;z-index:1">
   <div style="width:1px;height:32px;background:rgba(255,255,255,.2);margin:0 4px;z-index:1"></div>
   <div style="z-index:1">
-    <div class="sub">🏗 Production Engine</div>
-    <h1>NAHEEL CAMP G+1 · Precast Mould Plan</h1>
+    <div class="sub" id="hdrSub">🏗 Production Engine</div>
+    <h1 id="hdrTitle">Precast Production Engine</h1>
   </div>
   <div class="spacer"></div>
   <span class="badge">v1.0</span>
@@ -3639,6 +3639,23 @@ function pfShowHome(){
   _pfSetActiveTab("home");
   _pfRefreshHome();
 }
+function _pfUpdateHeader(){
+  const src  = window._pfProjectSource;
+  const name = src ? src.name.replace(/\.pfproj$/i,'') : null;
+  const titleEl = $("#hdrTitle"), subEl = $("#hdrSub");
+  if(!titleEl) return;
+  if(!name){ titleEl.textContent = "Precast Production Engine"; if(subEl) subEl.textContent = "🏗 Production Engine"; return; }
+  // Patch title
+  titleEl.textContent = name;
+  // Sub-line: meta details
+  const m = (window._pfMeta && window._pfMeta[name+".pfproj"]) || (window._pfMeta && window._pfMeta[name]) || {};
+  const parts = [];
+  if(m.projNo)         parts.push("📋 " + m.projNo);
+  if(m.buildingNo)     parts.push("🏢 Bldg " + m.buildingNo);
+  if(m.nosOfBuildings) parts.push(m.nosOfBuildings + " Buildings");
+  if(m.floorNo)        parts.push("⬆ " + m.floorNo);
+  if(subEl) subEl.textContent = parts.length ? parts.join("  ·  ") : "🏗 Precast Production Engine";
+}
 function pfShowApp(){
   const home = $("#pfHomeScreen"), app = $("#pfAppScreen");
   const appWrap = document.querySelector(".app");
@@ -3647,6 +3664,7 @@ function pfShowApp(){
   if(appWrap) appWrap.classList.remove("home-mode");
   document.body.classList.remove("home-screen");
   _pfSetActiveTab("patch");
+  _pfUpdateHeader();
   renderTabs(); render();
 }
 function pfHomeLoadFile(file){
@@ -3861,6 +3879,7 @@ window._pfSaveCardMeta = function(idx, encName){
   _pfPutMeta(cfg, window._pfMeta)
     .then(()=>{
       _pfToast('✓ Details saved','ok');
+      _pfUpdateHeader();
       // Re-render just this card
       const p = window._pfPatches[idx];
       if(p){ const card=document.getElementById('pf-card-'+idx); if(card) card.outerHTML=_pfCardHtml(p,idx); }
@@ -3869,6 +3888,7 @@ window._pfSaveCardMeta = function(idx, encName){
 };
 
 // ---- Home screen refresh — uses PROPFIND, enriches cards from file data ----
+var PF_PATCH_CACHE_KEY = 'pf_patches_cache_v1';
 function _pfRefreshHome(){
   _pfLoad();
   const cfg = window._pfConfig;
@@ -3878,11 +3898,25 @@ function _pfRefreshHome(){
     statEl.innerHTML = `Not signed in — <span onclick="window._pfOpenSettings()" style="cursor:pointer;color:#1e3a5f;font-weight:700;text-decoration:underline">🔐 Sign In</span> to connect to your running patches`;
     listEl.innerHTML = ""; return;
   }
-  statEl.textContent = "⏳ Loading patches…";
-  listEl.innerHTML = `<div style="grid-column:1/-1;padding:28px;text-align:center;color:#64748b;font-size:12px">⏳ Loading…</div>`;
+  // Show cached list immediately while loading
+  try{
+    const cached = JSON.parse(localStorage.getItem(PF_PATCH_CACHE_KEY)||'null');
+    if(cached&&cached.arr&&cached.arr.length){
+      window._pfPatches = cached.arr;
+      window._pfMeta    = cached.meta||{};
+      statEl.innerHTML  = `<span style="color:#64748b">⏳ Refreshing… (showing ${cached.arr.length} cached patch${cached.arr.length>1?'es':''})</span>`;
+      listEl.innerHTML  = cached.arr.map((p,i)=>_pfCardHtml(p,i)).join("");
+    }
+  } catch(e){}
 
-  // Load file list + metadata in parallel
-  Promise.all([_pfPropfindList(cfg), _pfGetMeta(cfg)]).then(([arr, meta])=>{
+  statEl.textContent = statEl.textContent||"⏳ Loading patches…";
+  if(!listEl.children.length) listEl.innerHTML = `<div style="grid-column:1/-1;padding:28px;text-align:center;color:#64748b;font-size:12px">⏳ Loading…</div>`;
+
+  // Load file list + metadata in parallel — use index file (GET, no PROPFIND)
+  Promise.all([_pfGetIndex(cfg), _pfGetMeta(cfg)]).then(([arr, meta])=>{
+    // Persist cache for next load
+    try{ localStorage.setItem(PF_PATCH_CACHE_KEY, JSON.stringify({arr, meta})); } catch(e){}
+
     window._pfMeta = meta||{};
     if(!arr.length){
       statEl.textContent = `✓ Connected — no running patches yet in ${cfg.ocFolder}`;
@@ -3916,8 +3950,19 @@ function _pfRefreshHome(){
         }).catch(()=>{});
     });
   }).catch(e=>{
+    // If we have cached patches, keep showing them with a soft warning
+    try{
+      const cached = JSON.parse(localStorage.getItem(PF_PATCH_CACHE_KEY)||'null');
+      if(cached&&cached.arr&&cached.arr.length){
+        window._pfPatches = cached.arr;
+        window._pfMeta    = cached.meta||{};
+        statEl.innerHTML  = `<span style="color:#b45309">⚠ Offline — showing ${cached.arr.length} cached patch${cached.arr.length>1?'es':''}. <span onclick="window._pfOpenSettings()" style="cursor:pointer;text-decoration:underline;color:#1e3a5f">Re-authenticate</span></span>`;
+        listEl.innerHTML  = cached.arr.map((p,i)=>_pfCardHtml(p,i)).join("");
+        return;
+      }
+    } catch(ex){}
     statEl.innerHTML = `<span style="color:#dc2626">✗ ${esc(e.message)}</span>`;
-    listEl.innerHTML = `<div style="grid-column:1/-1;padding:28px;text-align:center;color:#dc2626;font-size:12px;background:#fef2f2;border:1px dashed #fca5a5;border-radius:10px">Failed to load — ${esc(e.message)}</div>`;
+    listEl.innerHTML = `<div style="grid-column:1/-1;padding:28px;text-align:center;color:#dc2626;font-size:12px;background:#fef2f2;border:1px dashed #fca5a5;border-radius:10px">Failed to load — ${esc(e.message)} · <span onclick="window._pfOpenSettings()" style="cursor:pointer;text-decoration:underline;font-weight:700">Re-authenticate</span></div>`;
   });
 }
 
