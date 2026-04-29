@@ -2334,17 +2334,213 @@ function bindTablePlan(){
     const orig = btn.textContent;
     btn.textContent = "Preparing…";
     btn.disabled = true;
-    // Give the browser two animation frames so any pending layout completes,
-    // then trigger print. Some browsers silently drop print() if called during heavy render.
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      try { window.print(); }
-      catch(e){ console.error("Print failed:", e); }
-      finally {
-        btn.textContent = orig;
-        btn.disabled = false;
-      }
-    }));
+    try { _pfPrintTablePlan(); }
+    catch(e){ console.error("Table Plan print failed:", e); }
+    finally { btn.textContent = orig; btn.disabled = false; }
   };
+}
+
+function _pfPrintTablePlan(){
+  const s = schedule;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+  const timeStr = now.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+  const projName = (window._pfProjectSource && window._pfProjectSource.name
+    ? window._pfProjectSource.name.replace(/\.pfproj$/i,"") : "Precast Project");
+
+  const FAM_COLOR = {IP:"#1e3a5f", WL:"#059669", WN:"#7c3aed", PB:"#dc2626"};
+  const FAM_LIGHT = {IP:"rgba(30,58,95,.08)", WL:"rgba(5,150,105,.08)", WN:"rgba(124,58,237,.08)", PB:"rgba(220,38,38,.08)"};
+
+  const activeTables = TABLES.filter(t=>t.active!==false);
+  const slotsByTable = {};
+  s.slotAssignments.forEach(sl=>{ if(sl.tableId) slotsByTable[sl.tableId]=sl; });
+
+  // ── Stats ──
+  const usedTables  = activeTables.filter(t=>slotsByTable[t.id]).length;
+  const idleTables  = activeTables.length - usedTables;
+  const totalCDays  = s.slotAssignments.reduce((sum,sl)=>{
+    const tl=s.slotTimeline[sl.slotId]||[]; return sum+new Set(tl.map(c=>c.dateIso)).size;
+  },0);
+  const multiDays   = s.slotAssignments.reduce((sum,sl)=>{
+    const tl=s.slotTimeline[sl.slotId]||[];
+    const bd={}; tl.forEach(c=>{(bd[c.dateIso]=bd[c.dateIso]||[]).push(c);});
+    return sum+Object.values(bd).filter(a=>a.length>1).length;
+  },0);
+
+  // ── TOC chips ──
+  const tocHtml = activeTables.map(tab=>{
+    const sl=slotsByTable[tab.id], fam=sl?sl.fam:"idle";
+    const bg = fam==="idle"?"#94a3b8":(FAM_COLOR[fam]||"#1e3a5f");
+    return `<span style="display:inline-block;padding:4px 11px;border-radius:14px;background:${bg};color:#fff;font-size:9.5px;font-weight:700;margin:2px">${esc(tab.id)} · ${fam}</span>`;
+  }).join("");
+
+  // ── Per-table sections ──
+  const sectionsHtml = activeTables.map(tab=>{
+    const sl = slotsByTable[tab.id];
+    if(!sl){
+      return `<div class="tcard idle">
+        <div class="thead">
+          <span class="t-id">${esc(tab.id)}</span>
+          <span class="t-name">${esc(tab.name)}</span>
+          <span class="t-dim">${tab.L}×${tab.W} mm</span>
+          <span class="t-stat idle-lbl">⏸ Idle this run</span>
+        </div>
+        <div class="tbody idle-body">No panels were allocated to this table by the optimiser.</div>
+      </div>`;
+    }
+    const tl = s.slotTimeline[sl.slotId]||[];
+    if(!tl.length) return "";
+
+    const byDay = {};
+    tl.forEach(c=>{ (byDay[c.dateIso]=byDay[c.dateIso]||[]).push(c); });
+    const days = Object.keys(byDay).sort();
+    const totalKg = tl.reduce((sum,c)=>sum+c.kg,0);
+    const totalCasts = tl.length;
+    const totalDays = days.length;
+    const avgPD = totalDays?(totalCasts/totalDays).toFixed(2):"—";
+    const first = days[0], last=days[days.length-1];
+    const fam = sl.fam;
+    const fc = FAM_COLOR[fam]||"#1e3a5f";
+    const fl = FAM_LIGHT[fam]||"rgba(30,58,95,.08)";
+
+    const dayRowsHtml = days.map((d,i)=>{
+      const cells = byDay[d];
+      const dt = new Date(d);
+      const tabArea = tab.L*tab.W;
+      const usedArea = cells.reduce((sum,c)=>sum+c.w*c.h,0);
+      const usedPct = Math.min(100, Math.round(usedArea/tabArea*100));
+      const dayKg = cells.reduce((sum,c)=>sum+c.kg,0);
+      const dayName = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt.getDay()];
+      const dayLbl = dt.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+      const sketch = renderTableSketch(tab, cells, s.params.shutter);
+
+      const chips = cells.map(c=>{
+        const tp=TYPES.find(x=>x.code===c.type)||{};
+        const bg2=FAM_COLOR[c.fam]||"#1e3a5f";
+        return `<div class="dlot" style="background:${bg2}">
+          <div class="dlot-h"><b>${esc(c.type)}</b> · B${c.b}</div>
+          <div class="dlot-d">${c.w}×${c.h} mm · ${fmt(c.kg)} kg · fl.${esc(tp.fl||"?")}</div>
+        </div>`;
+      }).join("");
+
+      return `<div class="drow">
+        <div class="drow-h">
+          <div class="drow-num">Day ${i+1}</div>
+          <div class="drow-date">${dayLbl} <span style="opacity:.55">${dayName}</span></div>
+          <div class="drow-meta">${cells.length} panel${cells.length>1?"s":""} · ${fmt(dayKg)} kg · ${usedPct}% use</div>
+          <div class="drow-bar"><div style="width:${usedPct}%;background:${fc};height:100%"></div></div>
+        </div>
+        <div class="drow-body">
+          ${sketch}
+          <div class="chips">${chips}</div>
+        </div>
+      </div>`;
+    }).join("");
+
+    return `<div class="tcard" style="border-left:5px solid ${fc}">
+      <div class="thead" style="background:${fl}">
+        <span class="t-id" style="color:${fc}">${esc(tab.id)}</span>
+        <span class="pill" style="background:${fc}">${fam}</span>
+        <span class="t-name">${esc(tab.name)}</span>
+        <span class="t-dim">${tab.L}×${tab.W} mm · +${s.params.shutter} mm shutter</span>
+        <span class="t-stat">${totalDays} days</span>
+        <span class="t-stat">${totalCasts} casts</span>
+        <span class="t-stat">avg ${avgPD}/day</span>
+        <span class="t-stat">${fmt(totalKg/1000,1)} t</span>
+        <span class="t-stat" style="margin-left:auto">${esc(first)} → ${esc(last)}</span>
+      </div>
+      <div class="tbody">${dayRowsHtml}</div>
+    </div>`;
+  }).join("");
+
+  const html=`<!doctype html><html><head><meta charset="utf-8">
+<title>Table Plan — ${projName}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Century Gothic","Segoe UI",Arial,sans-serif;font-size:11px;color:#1f2937;background:#fff}
+  /* ── Page header ── */
+  .page-hdr{background:#fff;padding:11px 18px 9px;display:flex;align-items:center;justify-content:space-between;border-top:4px solid #1e3a5f;border-bottom:4px solid #f59e0b}
+  .ph-left{display:flex;align-items:center;gap:12px}
+  .ph-logo{height:40px;width:auto}
+  .ph-div{width:1px;height:32px;background:#d1d5db}
+  .ph-title{font-size:16px;font-weight:800;color:#1e3a5f;letter-spacing:.3px}
+  .ph-sub{font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:.9px;margin-top:2px}
+  .ph-right{text-align:right;font-size:9px;color:#6b7280;line-height:1.7}
+  /* ── Stats bar ── */
+  .stats-bar{display:flex;border-bottom:2px solid #e5e7eb;background:#f0f4ff}
+  .sbl{flex:1;padding:7px 12px;border-right:1px solid #e5e7eb;display:flex;flex-direction:column;gap:1px}
+  .sbl:last-child{border-right:none}
+  .sbl-v{font-size:14px;font-weight:800;color:#1e3a5f}
+  .sbl-l{font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:#6b7280}
+  /* ── TOC ── */
+  .toc{padding:8px 18px;background:#fafbfc;border-bottom:1px solid #e5e7eb;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+  .toc-lbl{font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;margin-right:4px}
+  /* ── Table cards ── */
+  .tcard{background:#fff;border:1px solid #e3e8ef;border-radius:6px;margin:10px 14px;page-break-inside:avoid;overflow:hidden}
+  .tcard.idle{border-left:5px solid #cbd5e1}
+  .thead{padding:8px 12px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .t-id{font-size:13px;font-weight:800}
+  .t-name{font-size:11px;color:#374151;font-weight:600}
+  .t-dim{font-size:10px;color:#6b7280}
+  .t-stat{font-size:10px;color:#374151;background:#f3f4f6;padding:2px 7px;border-radius:8px}
+  .idle-lbl{font-size:10px;color:#94a3b8;margin-left:auto}
+  .pill{display:inline-block;padding:2px 9px;border-radius:8px;font-size:9.5px;font-weight:800;color:#fff}
+  .tbody{padding:8px 10px}
+  .idle-body{padding:14px 16px;color:#94a3b8;font-size:11px;font-style:italic}
+  /* ── Day rows ── */
+  .drow{display:grid;grid-template-columns:150px 1fr;gap:8px;padding:6px 8px;border:1px solid #e5e7eb;border-radius:4px;margin-bottom:5px;page-break-inside:avoid;background:#fff}
+  .drow:nth-child(even){background:#f9fafb}
+  .drow-h{display:flex;flex-direction:column;gap:3px;font-size:10.5px}
+  .drow-num{font-weight:800;font-size:12px;color:#1e3a5f}
+  .drow-date{color:#1e3a5f;font-weight:600;font-size:10px}
+  .drow-meta{font-size:9.5px;color:#6b7280}
+  .drow-bar{height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden;margin-top:4px}
+  .drow-body{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  .chips{display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:220px}
+  .dlot{padding:5px 8px;border-radius:4px;color:#fff;min-width:130px;font-size:10.5px;line-height:1.3}
+  .dlot-h{font-weight:700}
+  .dlot-d{opacity:.85;font-size:9.5px;margin-top:1px}
+  /* ── SVG sketch ── */
+  .tsketch{flex:0 0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:4px;display:block}
+  /* ── Footer ── */
+  .page-footer{position:fixed;bottom:0;left:0;right:0;padding:4px 18px;background:#f8fafc;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:8.5px;color:#9ca3af}
+  @page{size:A3 landscape;margin:8mm 8mm 16mm}
+  @media print{.page-footer{position:fixed;bottom:0}}
+</style></head><body>
+<div class="page-hdr">
+  <div class="ph-left">
+    <img class="ph-logo" src="https://capriole-construction.github.io/KnowledgeBase/Books%20and%20References/capriole-platform/logo.png" onerror="this.style.display='none'">
+    <div class="ph-div"></div>
+    <div>
+      <div class="ph-title">Table Plan</div>
+      <div class="ph-sub">${projName} · Capriole Construction</div>
+    </div>
+  </div>
+  <div class="ph-right">Printed: ${dateStr} at ${timeStr}<br>Precast Production Engine v1.0</div>
+</div>
+<div class="stats-bar">
+  <div class="sbl"><span class="sbl-v">${usedTables}</span><span class="sbl-l">Active Tables</span></div>
+  <div class="sbl"><span class="sbl-v">${idleTables}</span><span class="sbl-l">Idle Tables</span></div>
+  <div class="sbl"><span class="sbl-v">${totalCDays}</span><span class="sbl-l">Total Casting Days</span></div>
+  <div class="sbl"><span class="sbl-v">${multiDays}</span><span class="sbl-l">Multi-Panel Days</span></div>
+  <div class="sbl"><span class="sbl-v">${s.params.shutter} mm</span><span class="sbl-l">Shutter Gap</span></div>
+  <div class="sbl"><span class="sbl-v">${fmt(s.totalPieces)}</span><span class="sbl-l">Total Pieces</span></div>
+  <div class="sbl"><span class="sbl-v">${s.totalDays}</span><span class="sbl-l">Schedule Days</span></div>
+</div>
+<div class="toc"><span class="toc-lbl">Tables:</span>${tocHtml}</div>
+${sectionsHtml}
+<div class="page-footer">
+  <span>Capriole Construction — Precast Production Engine</span>
+  <span>Confidential — Internal Use Only</span>
+  <span>${projName} · ${dateStr}</span>
+</div>
+</body></html>`;
+
+  const w = window.open('','_blank','width=1400,height=900');
+  if(!w){ alert("Pop-up blocked. Please allow pop-ups for this page and try again."); return; }
+  w.document.write(html);
+  w.document.close();
+  w.onload = ()=>{ w.focus(); w.print(); };
 }
 function viewTablePlan(){
   const s = schedule;
@@ -2962,11 +3158,21 @@ function viewOrders(){
       });
     });
   }
+  const hideCompleted = window._ordersHideCompleted !== false; // default ON
+  let hiddenDayCount = 0;
   let rows = "";
   s.allDates.forEach(d=>{
     const cells = byDate[d];
     if(!cells) return;
-    rows += `<tr style="background:#f8fafc"><td colspan="8"><b>${esc(d)}</b> · ${dayLabel(new Date(d))} <span style="float:right;color:#6b7280">${cells.length} pieces</span></td></tr>`;
+    // If "hide completed days" is on, skip days with no pending panels
+    if(hideCompleted){
+      const hasPending = cells.some(c=>getStatus(c)!=='cast');
+      if(!hasPending){ hiddenDayCount++; return; }
+    }
+    const pendHere = cells.filter(c=>getStatus(c)!=='cast').length;
+    const castHere = cells.length - pendHere;
+    const daySuffix = castHere>0 ? ` · <span style="color:#065f46;font-weight:600">${castHere} cast</span>` : '';
+    rows += `<tr style="background:#f8fafc"><td colspan="8"><b>${esc(d)}</b> · ${dayLabel(new Date(d))} <span style="float:right;color:#6b7280">${pendHere} pending${daySuffix}</span></td></tr>`;
     cells.forEach((c,idx)=>{
       const st = getStatus(c);
       const rowBg = st==="cast" ? 'background:#f0fdf4' : '';
@@ -3008,6 +3214,7 @@ function viewOrders(){
         </span>
         ${pendCount>0?`<button class="btn sm primary" id="redistBtn" title="Re-optimise all pending panels starting from the day after the last cast panel">🔄 Redistribute Pending (${pendCount})</button>`:''}
         <button class="btn sm" id="resetStatusBtn" title="Clear all cast/pending statuses">Reset Status</button>
+        <button class="btn sm${hideCompleted?' primary':''}" id="hideCompletedBtn" title="Toggle visibility of fully-cast days">${hideCompleted?'✓ ':''}Hide Completed Days${hiddenDayCount>0?' ('+hiddenDayCount+')':''}</button>
       </div>
       <p style="margin:0 0 8px;font-size:11px;color:#475569">
         Mark each panel as <b>✓ Cast</b> when production is complete. Click <b>↻</b> to push a panel to the next working day on the same table — useful when site delays force a reshuffle.
@@ -3053,6 +3260,11 @@ function bindOrders(){
   };
   const redist = $("#redistBtn");
   if(redist) redist.onclick = ()=> redistributePendingCells();
+  const hideBtn = $("#hideCompletedBtn");
+  if(hideBtn) hideBtn.onclick = ()=>{
+    window._ordersHideCompleted = window._ordersHideCompleted === false ? true : false;
+    render();
+  };
 }
 
 // ── Redistribute Pending Cells ────────────────────────────────
@@ -3769,6 +3981,7 @@ function pfShowApp(){
   _pfSetActiveTab("patch");
   _pfUpdateHeader();
   renderTabs(); render();
+  if(typeof _pfShowReschedSection === "function") _pfShowReschedSection();
 }
 function pfHomeLoadFile(file){
   if(!file) return;
@@ -4695,18 +4908,19 @@ function _pfUpdatePendingPreview(){
     infoEl.innerHTML = 'Select a date above';
     return;
   }
-  const pending = schedule.allCells.filter(c => c.dateIso >= cutoff);
-  const locked  = schedule.allCells.filter(c => c.dateIso <  cutoff);
+  // All pending (any date) will be redistributed from cutoff; only cast cells are locked
+  const pending = schedule.allCells.filter(c => getStatus(c) !== 'cast');
+  const locked  = schedule.allCells.filter(c => getStatus(c) === 'cast');
   if(!pending.length){
-    infoEl.innerHTML = '<span style="color:#94a3b8">No pending panels from this date — all cast already.</span>';
+    infoEl.innerHTML = '<span style="color:#94a3b8">No pending panels — all marked as cast.</span>';
     return;
   }
   const types     = new Set(pending.map(c => c.type)).size;
   const buildings = new Set(pending.map(c => c.b)).size;
   infoEl.innerHTML =
-    `<span style="color:#7dd3fc"><b>${pending.length}</b> panels pending</span>` +
+    `<span style="color:#7dd3fc"><b>${pending.length}</b> panels to reschedule from ${cutoff}</span>` +
     ` · <b>${types}</b> types · <b>${buildings}</b> building${buildings>1?'s':''}` +
-    (locked.length ? `<br><span style="color:#6b7280">${locked.length} panels locked (cast)</span>` : '');
+    (locked.length ? `<br><span style="color:#6b7280">${locked.length} cast panels locked in place</span>` : '');
 }
 
 async function reschedulePending(){
@@ -4714,9 +4928,10 @@ async function reschedulePending(){
   if(!cutoff){ _pfToast('Select a cutoff date','info'); return; }
   if(!schedule){ _pfToast('Run optimization first','info'); return; }
 
-  const lockedCells  = schedule.allCells.filter(c => c.dateIso <  cutoff);
-  const pendingCells = schedule.allCells.filter(c => c.dateIso >= cutoff);
-  if(!pendingCells.length){ _pfToast('No pending panels from '+cutoff,'info'); return; }
+  // Lock only CAST cells (regardless of date); all pending panels get redistributed from cutoff
+  const lockedCells  = schedule.allCells.filter(c => getStatus(c) === 'cast');
+  const pendingCells = schedule.allCells.filter(c => getStatus(c) !== 'cast');
+  if(!pendingCells.length){ _pfToast('No pending panels to reschedule','info'); return; }
 
   const pendingTypeSet     = new Set(pendingCells.map(c => c.type));
   const pendingBuildingSet = new Set(pendingCells.map(c => c.b));
