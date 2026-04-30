@@ -3361,7 +3361,7 @@ async function redistributePendingCells(){
   if($("#pStart"))    $("#pStart").value    = startDate;
   if($("#pBuildings")) $("#pBuildings").value = BUILDINGS;
 
-  const _cast = castCells.slice();   // stash before runEngine overwrites schedule
+  const _cast = castCells.map(c=>({...c}));   // deep-copy so engine/compact cannot mutate original dates
 
   await runEngine();
 
@@ -3388,6 +3388,18 @@ async function redistributePendingCells(){
   // Discarding cells (types with fewer pending buildings) can leave idle days mid-slot;
   // this step shifts subsequent cells forward to fill those gaps immediately.
   _pfCompactSlots(schedule, startDate);
+
+  // Remove any pending cell whose (type, b) key matches a cast cell — safety dedup
+  const castKeySet = new Set(_cast.map(c=>`${c.type}|${c.b}`));
+  schedule.allCells = schedule.allCells.filter(c=>!castKeySet.has(`${c.type}|${c.b}`));
+  schedule.cellsByDate = {};
+  schedule.allCells.forEach(c=>{
+    if(!schedule.cellsByDate[c.dateIso]) schedule.cellsByDate[c.dateIso]={};
+    const sid=c.slotId||'_';
+    if(!schedule.cellsByDate[c.dateIso][sid]) schedule.cellsByDate[c.dateIso][sid]=[];
+    schedule.cellsByDate[c.dateIso][sid].push(c);
+  });
+  schedule.allDates=Object.keys(schedule.cellsByDate).sort();
 
   // Merge cast cells back into the new schedule
   _cast.forEach(c=>{
@@ -5024,7 +5036,7 @@ async function reschedulePending(){
   if($("#pStart"))    $("#pStart").value    = cutoff;
   if($("#pBuildings")) $("#pBuildings").value = BUILDINGS;
 
-  const _locked = lockedCells.slice();   // stash before runEngine overwrites schedule
+  const _locked = lockedCells.map(c=>({...c}));   // deep-copy so engine/compact cannot mutate original dates
 
   await runEngine();   // sets global schedule + renders
 
@@ -5049,6 +5061,18 @@ async function reschedulePending(){
 
   // Compact each slot's timeline from cutoff with no gaps (same as redistributePendingCells)
   _pfCompactSlots(schedule, cutoff);
+
+  // Remove any pending cell whose (type, b) key matches a locked/cast cell — safety dedup
+  const lockedKeySet = new Set(_locked.map(c=>`${c.type}|${c.b}`));
+  schedule.allCells = schedule.allCells.filter(c=>!lockedKeySet.has(`${c.type}|${c.b}`));
+  schedule.cellsByDate = {};
+  schedule.allCells.forEach(c=>{
+    if(!schedule.cellsByDate[c.dateIso]) schedule.cellsByDate[c.dateIso]={};
+    const sid=c.slotId||'_';
+    if(!schedule.cellsByDate[c.dateIso][sid]) schedule.cellsByDate[c.dateIso][sid]=[];
+    schedule.cellsByDate[c.dateIso][sid].push(c);
+  });
+  schedule.allDates=Object.keys(schedule.cellsByDate).sort();
 
   // Merge locked (cast) cells back into the new schedule
   _locked.forEach(c => {
