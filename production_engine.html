@@ -1062,6 +1062,7 @@ async function runEngine(){
   // fresh building has the full type set — we free-pack a new lot and reset
   // the template from that lot's types.
   const slotTemplate = {};      // slotId → {types:Set<typeCode>, usedBuildings:Set<int>}
+  const slotSwapUntil = {};     // slotId → dayIdx: slot is swapping moulds, skip until this day
   let shutterChanges = 0;       // counted on each free-pack reset (new types vs prior template)
 
   // Find a building b in [1..BUILDINGS] not yet used for this template such
@@ -1115,6 +1116,8 @@ async function runEngine(){
 
     for(const slot of orderedSlots){
       if(globalQueue.length===0) break;
+      // Mould swap in progress — this slot is idle today (installers are setting up the new mould)
+      if((slotSwapUntil[slot.slotId] || 0) > dayIdx) continue;
       const tab = activeTables.find(x=>x.id===slot.tableId);
       if(!tab) continue;
 
@@ -1393,6 +1396,24 @@ async function runEngine(){
         lot = bestPlaced;
         const newTypes = new Set(lot.map(c => c.type));
         const prevTypes = tpl ? tpl.types : null;
+
+        // ── Mould-swap day: if any type is NEW vs the prior mould, the slot is idle
+        // today while the mould is changed. Panels go back to queue; casting resumes
+        // the next day with the new mould already installed.
+        const isRealSwap = prevTypes && prevTypes.size > 0 &&
+          [...newTypes].some(t => !prevTypes.has(t));
+        if(isRealSwap){
+          // Count how many mould dimensions changed
+          for(const t of newTypes){ if(!prevTypes.has(t)) shutterChanges++; }
+          // Record new template now so tomorrow runs in template-mode
+          slotTemplate[slot.slotId] = { types: newTypes, usedBuildings: new Set() };
+          slotSwapUntil[slot.slotId] = dayIdx + 1;  // skip this slot today
+          // Return items to globalQueue (they were already removed above)
+          for(let i = lot.length - 1; i >= 0; i--) globalQueue.unshift(lot[i]);
+          lot = [];
+          continue;
+        }
+
         if(prevTypes){
           for(const t of newTypes){ if(!prevTypes.has(t)) shutterChanges++; }
         } else {
