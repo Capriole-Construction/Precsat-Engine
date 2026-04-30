@@ -19,6 +19,7 @@
   .header .spacer{flex:1}
   /* ── Hide main header on home screen ────────────────────── */
   body.home-screen .header, body.home-screen #pfTabBar { display:none }
+  body.home-screen #reschedSection { display:none }
   /* ── Patch tab bar ───────────────────────────────────────── */
   #pfTabBar{background:#0b1a2e;display:flex;align-items:flex-end;padding:0 18px;gap:3px;border-bottom:2px solid #1e3a5f;min-height:36px}
   .pf-tab{display:inline-flex;align-items:center;gap:6px;padding:7px 16px 6px;font-size:11.5px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;background:transparent;color:#64748b;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;transition:background .15s,color .15s;letter-spacing:.3px}
@@ -94,6 +95,7 @@
   .gantt-row{display:contents}
   .gantt-cell{padding:3px 4px;border-right:1px solid #f1f5f9;border-bottom:1px solid #f1f5f9;min-height:28px;position:relative;font-size:10px;color:#fff;text-align:center;display:flex;align-items:center;justify-content:center;line-height:1.1;overflow:hidden}
   .gantt-cell.empty{background:#fafbfc;color:transparent}
+  .gantt-cell.swap{background:#fef3c7;color:#92400e;font-size:9px;font-weight:700;border:1px dashed #f59e0b;line-height:1.2}
   .gantt-cell.weekend{background:repeating-linear-gradient(45deg,#f9fafb,#f9fafb 4px,#e5e7eb 4px,#e5e7eb 8px)}
   .gantt-mould{background:#1e3a5f;color:#fff;font-weight:700;padding:6px 8px;border-right:2px solid #f59e0b;position:sticky;left:0;z-index:1;font-size:11px;display:flex;align-items:center;min-height:28px}
   .gantt-mould.h{background:#1e3a5f;border-bottom:1px solid #2a4f80;position:sticky;top:0;z-index:3}
@@ -229,6 +231,27 @@
   .tplan-toc a.PB{background:#dc2626}
   .tplan-toc a.idle{background:#94a3b8}
 
+  /* Building Tracking */
+  .btrack-wrap{overflow-x:auto}
+  .btrack-tbl{border-collapse:collapse;font-size:11px;min-width:600px;width:100%}
+  .btrack-tbl th,.btrack-tbl td{border:1px solid #e5e7eb;padding:4px 6px;white-space:nowrap}
+  .btrack-tbl thead th{background:#1e3a5f;color:#fff;text-align:center;font-weight:700;position:sticky;top:0;z-index:2}
+  .btrack-tbl thead th.col-label{text-align:left;position:sticky;left:0;z-index:3;min-width:130px}
+  .btrack-tbl tbody tr:nth-child(even){background:#f9fafb}
+  .btrack-tbl tbody tr:hover{background:#eff6ff}
+  .btrack-tbl td.col-label{font-weight:600;color:#1e3a5f;position:sticky;left:0;background:inherit;z-index:1;min-width:130px}
+  .btrack-tbl td.col-fac{color:#6b7280;font-size:10px}
+  .btrack-tbl td.col-cast{text-align:center;background:#d1fae5;color:#065f46;font-weight:700;cursor:default}
+  .btrack-tbl td.col-empty{text-align:center;color:#d1d5db;cursor:default}
+  .btrack-tbl tr.btrack-section th{background:#374151;color:#f9fafb;text-align:left;font-size:11px;padding:5px 6px}
+  .btrack-tbl tr.btrack-total td{background:#fef3c7;font-weight:700;color:#92400e;text-align:center}
+  .btrack-tbl tr.btrack-total td.col-label{text-align:left;color:#78350f}
+  .btrack-tbl tr.btrack-pct td{background:#fffbeb;font-size:10px;color:#b45309;text-align:center}
+  .btrack-tbl tr.btrack-pct td.col-label{text-align:left;font-weight:600}
+  .btrack-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .btrack-tab{padding:5px 14px;border-radius:14px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:12px;font-weight:600;cursor:pointer;color:#374151}
+  .btrack-tab.active{background:#1e3a5f;color:#fff;border-color:#1e3a5f}
+
   @media print{
     body{background:#fff}
     .sidebar,.run-btn,.tabs,.toolbar,.runner{display:none!important}
@@ -250,7 +273,7 @@
     <h1 id="hdrTitle">Precast Production Engine</h1>
   </div>
   <div class="spacer"></div>
-  <span class="badge">v1.0</span>
+  <span class="badge">v1.1</span>
 </div>
 
 <div id="pfTabBar">
@@ -268,6 +291,7 @@
         <select id="pWeekend"><option value="0">No</option><option value="1">Yes</option></select>
       </div>
       <div class="sb-row"><label>Shuttering (mm)</label><input type="number" id="pShutter" value="300" min="0" max="1000" step="50"></div>
+      <div class="sb-row"><label>Max table load (t)</label><input type="number" id="pMaxKg" value="7" min="1" max="100" step="0.5" title="Maximum total panel weight per table per day (tonnes)"></div>
       <div class="sb-row"><label>Floor</label>
         <select id="pFloorMode" title="Pick a single floor to run optimisation on, or 'All floors', or open Custom for multi-select">
           <option value="all">All floors</option>
@@ -298,7 +322,7 @@
     </div>
 
     <!-- RESCHEDULE PENDING -->
-    <div class="sb-section" id="reschedSection" style="display:none">
+    <div class="sb-section" id="reschedSection">
       <div class="sb-h">🔄 Reschedule Pending</div>
       <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;line-height:1.4">Mark panels as cast up to a date, then re-optimise the remaining panels.</div>
       <div class="sb-row">
@@ -346,7 +370,7 @@
                  alt="Capriole" onerror="this.style.display='none'"
                  style="height:72px;width:auto;object-fit:contain;filter:brightness(0) invert(1);opacity:.92;flex-shrink:0">
             <div>
-              <div style="font-size:10px;font-weight:700;letter-spacing:3px;color:#7dd3fc;margin-bottom:8px">CAPRIOLE PRECAST ENGINE · v1.0</div>
+              <div style="font-size:10px;font-weight:700;letter-spacing:3px;color:#7dd3fc;margin-bottom:8px">CAPRIOLE PRECAST ENGINE · v1.1</div>
               <div style="font-size:26px;font-weight:700;letter-spacing:.2px;line-height:1.2">Precast Production Engine</div>
               <div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:8px;line-height:1.6">Schedule panels · Optimise casting tables · Track mould cycles · Export reports</div>
             </div>
@@ -435,6 +459,7 @@
         <button class="tab" data-tab="orders">📋 Order Schedule</button>
         <button class="tab" data-tab="plan">📐 Table Plan</button>
         <button class="tab" data-tab="tables">🪵 Casting Tables</button>
+        <button class="tab" data-tab="tracking">📊 Building Tracking</button>
         <button class="tab" data-tab="data">💾 Data</button>
         <span style="flex:1"></span>
         <button id="engineSaveBtn" title="Save patch to cloud" style="margin:4px 8px 4px 0;padding:5px 14px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:5px">💾 Save Patch</button>
@@ -777,6 +802,7 @@ function readParams(){
     weekend: $("#pWeekend").value==="1",
     parallel: 64, // safety cap on slot count; effective limit is active table count
     shutter: parseInt($("#pShutter").value)||0,
+    maxKg: (parseFloat($("#pMaxKg").value)||7) * 1000,  // convert tonnes → kg
     strat: $("#pStrat").value,
     floors,
   };
@@ -1059,6 +1085,7 @@ async function runEngine(){
   // fresh building has the full type set — we free-pack a new lot and reset
   // the template from that lot's types.
   const slotTemplate = {};      // slotId → {types:Set<typeCode>, usedBuildings:Set<int>}
+  const slotSwapUntil = {};     // slotId → dayIdx: slot is swapping moulds, skip until this day
   let shutterChanges = 0;       // counted on each free-pack reset (new types vs prior template)
 
   // Find a building b in [1..BUILDINGS] not yet used for this template such
@@ -1112,6 +1139,8 @@ async function runEngine(){
 
     for(const slot of orderedSlots){
       if(globalQueue.length===0) break;
+      // Mould swap in progress — this slot is idle today (installers are setting up the new mould)
+      if((slotSwapUntil[slot.slotId] || 0) > dayIdx) continue;
       const tab = activeTables.find(x=>x.id===slot.tableId);
       if(!tab) continue;
 
@@ -1390,6 +1419,34 @@ async function runEngine(){
         lot = bestPlaced;
         const newTypes = new Set(lot.map(c => c.type));
         const prevTypes = tpl ? tpl.types : null;
+
+        // ── Mould-swap day: if any type is NEW vs the prior mould, the slot is idle
+        // today while the mould is changed. Panels go back to queue; casting resumes
+        // the next day with the new mould already installed.
+        const isRealSwap = prevTypes && prevTypes.size > 0 &&
+          [...newTypes].some(t => !prevTypes.has(t));
+        if(isRealSwap){
+          // Count how many mould dimensions changed
+          for(const t of newTypes){ if(!prevTypes.has(t)) shutterChanges++; }
+          // Record new template now so tomorrow runs in template-mode
+          slotTemplate[slot.slotId] = { types: newTypes, usedBuildings: new Set() };
+          slotSwapUntil[slot.slotId] = dayIdx + 1;  // skip this slot today
+          // Return items to globalQueue (they were already removed above)
+          for(let i = lot.length - 1; i >= 0; i--) globalQueue.unshift(lot[i]);
+          // Store a visible swap-day marker cell (not a panel — excluded from totals)
+          const swapCell = {
+            slotId: slot.slotId, slotLabel: slot.label,
+            type: '__SWAP__', fam: null, b: null, kg: 0,
+            dayIdx, dateIso: iso, dt: new Date(dt),
+            isSwap: true, lotIdx: 0, lotSize: 0, layout: null, isLast: false,
+          };
+          if(!cellsByDate[iso]) cellsByDate[iso] = {};
+          if(!cellsByDate[iso][slot.slotId]) cellsByDate[iso][slot.slotId] = [];
+          cellsByDate[iso][slot.slotId].push(swapCell);
+          allCells.push(swapCell);
+          continue;
+        }
+
         if(prevTypes){
           for(const t of newTypes){ if(!prevTypes.has(t)) shutterChanges++; }
         } else {
@@ -1398,6 +1455,29 @@ async function runEngine(){
         // usedBuildings starts EMPTY — a building only counts as "used" once
         // the FULL template is cast on it (which happens in template-mode).
         slotTemplate[slot.slotId] = { types: newTypes, usedBuildings: new Set() };
+      }
+
+      // ── Weight limit: trim lot so total panel weight ≤ params.maxKg per table ──
+      // Sort lightest-first to maximise piece count within the budget.
+      // Edge-case safety: always keep at least 1 panel even if it alone exceeds the limit
+      // (prevents a heavy panel being permanently stuck in the queue).
+      // Dropped panels are returned to globalQueue to be scheduled the next day.
+      if(lot.length > 0 && params.maxKg > 0){
+        const sorted = lot.slice().sort((a,b)=> a.t.kg - b.t.kg);
+        let budgetKg = 0;
+        const kept = [], dropped = [];
+        for(const item of sorted){
+          if(kept.length === 0 || budgetKg + item.t.kg <= params.maxKg){
+            kept.push(item); budgetKg += item.t.kg;
+          } else {
+            dropped.push(item);
+          }
+        }
+        if(dropped.length > 0){
+          // Re-insert dropped items at the front of the queue (they were already removed)
+          for(let i = dropped.length - 1; i >= 0; i--) globalQueue.unshift(dropped[i]);
+          lot = kept;
+        }
       }
 
       lot.forEach((item, idx)=>{
@@ -1454,6 +1534,16 @@ async function runEngine(){
           const cells = dayCells[slotId];
           if(!newCellsByDate[outIso][slotId]) newCellsByDate[outIso][slotId] = [];
           for(const c of cells){
+            if(c.isSwap){
+              // Swap cells must not be replicated per building — keep exactly one per slot-day
+              if(b === 1){
+                const nc = { ...c, dayIdx: outDayIdx, dateIso: outIso, dt: new Date(dt) };
+                newCellsByDate[outIso][slotId].push(nc);
+                (newSlotTimeline[slotId] = newSlotTimeline[slotId] || []).push(nc);
+                newAllCells.push(nc);
+              }
+              continue;
+            }
             const nc = { ...c, b, dayIdx: outDayIdx, dateIso: outIso, dt: new Date(dt), isLast: false };
             newCellsByDate[outIso][slotId].push(nc);
             (newSlotTimeline[slotId] = newSlotTimeline[slotId] || []).push(nc);
@@ -1508,14 +1598,15 @@ async function runEngine(){
   const avgM3PerDay = totalDays>0 ? totalM3/totalDays : 0;
   const peakM3PerDay = dailyM3Values.length ? Math.max(...dailyM3Values) : 0;
   const peakM3Date   = allDates.find(d=>m3ByDate[d]===peakM3PerDay) || "";
+  const panelCells = allCells.filter(c=>!c.isSwap);
   // Utilization = panels actually cast vs working days × slots (1 cycle/day)
   const utilization = slotAssignments.length>0 && totalDays>0
-    ? (allCells.length/(slotAssignments.length*totalDays))*100 : 0;
+    ? (panelCells.length/(slotAssignments.length*totalDays))*100 : 0;
 
   // Per-family stats
   const famStats = {};
   FAMILIES.forEach(f=>{
-    const fc = allCells.filter(c=>c.fam===f);
+    const fc = panelCells.filter(c=>c.fam===f);
     const famSlots = slotAssignments.filter(s=>s.fam===f).length;
     famStats[f] = {pieces:fc.length, kg:fc.reduce((s,c)=>s+c.kg,0), slots:famSlots, types:typesByFam[f].length};
   });
@@ -1524,7 +1615,7 @@ async function runEngine(){
     params, slotAssignments, slotTimeline, cellsByDate, allCells, allDates,
     firstDate, lastDate, totalDays, calendarDays, totalKg, totalM3, utilization, famStats,
     m3ByDate, avgM3PerDay, peakM3PerDay, peakM3Date,
-    totalPieces: allCells.length,
+    totalPieces: panelCells.length,
     shutterChanges,
     unfit: [...new Set(unfit.map(t=>t.code))].map(c=>TYPES.find(t=>t.code===c)),
     activeTables: activeTables.map(t=>({id:t.id,name:t.name,L:t.L,W:t.W})),
@@ -1562,6 +1653,11 @@ function render(){
     bindTables();
     return;
   }
+  if(activeTab==="tracking"){
+    $("#view").innerHTML = viewBuildingTracking();
+    bindBuildingTracking();
+    return;
+  }
   if(activeTab==="data"){
     $("#view").innerHTML = viewData();
     bindData();
@@ -1589,8 +1685,9 @@ function render(){
   else if(activeTab==="moulds")   v.innerHTML = viewMoulds();
   else if(activeTab==="orders")  { v.innerHTML = viewOrders(); bindOrders(); }
   else if(activeTab==="plan")    { v.innerHTML = viewTablePlan(); bindTablePlan(); }
-  else if(activeTab==="tables")  { v.innerHTML = viewTables(); bindTables(); }
-  else if(activeTab==="data")    { v.innerHTML = viewData(); bindData(); }
+  else if(activeTab==="tables")   { v.innerHTML = viewTables(); bindTables(); }
+  else if(activeTab==="tracking") { v.innerHTML = viewBuildingTracking(); bindBuildingTracking(); }
+  else if(activeTab==="data")     { v.innerHTML = viewData(); bindData(); }
 }
 
 // --- 2D bin-packing: how many panels (with shuttering) fit on a table simultaneously ---
@@ -2334,17 +2431,213 @@ function bindTablePlan(){
     const orig = btn.textContent;
     btn.textContent = "Preparing…";
     btn.disabled = true;
-    // Give the browser two animation frames so any pending layout completes,
-    // then trigger print. Some browsers silently drop print() if called during heavy render.
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      try { window.print(); }
-      catch(e){ console.error("Print failed:", e); }
-      finally {
-        btn.textContent = orig;
-        btn.disabled = false;
-      }
-    }));
+    try { _pfPrintTablePlan(); }
+    catch(e){ console.error("Table Plan print failed:", e); }
+    finally { btn.textContent = orig; btn.disabled = false; }
   };
+}
+
+function _pfPrintTablePlan(){
+  const s = schedule;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+  const timeStr = now.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+  const projName = (window._pfProjectSource && window._pfProjectSource.name
+    ? window._pfProjectSource.name.replace(/\.pfproj$/i,"") : "Precast Project");
+
+  const FAM_COLOR = {IP:"#1e3a5f", WL:"#059669", WN:"#7c3aed", PB:"#dc2626"};
+  const FAM_LIGHT = {IP:"rgba(30,58,95,.08)", WL:"rgba(5,150,105,.08)", WN:"rgba(124,58,237,.08)", PB:"rgba(220,38,38,.08)"};
+
+  const activeTables = TABLES.filter(t=>t.active!==false);
+  const slotsByTable = {};
+  s.slotAssignments.forEach(sl=>{ if(sl.tableId) slotsByTable[sl.tableId]=sl; });
+
+  // ── Stats ──
+  const usedTables  = activeTables.filter(t=>slotsByTable[t.id]).length;
+  const idleTables  = activeTables.length - usedTables;
+  const totalCDays  = s.slotAssignments.reduce((sum,sl)=>{
+    const tl=s.slotTimeline[sl.slotId]||[]; return sum+new Set(tl.map(c=>c.dateIso)).size;
+  },0);
+  const multiDays   = s.slotAssignments.reduce((sum,sl)=>{
+    const tl=s.slotTimeline[sl.slotId]||[];
+    const bd={}; tl.forEach(c=>{(bd[c.dateIso]=bd[c.dateIso]||[]).push(c);});
+    return sum+Object.values(bd).filter(a=>a.length>1).length;
+  },0);
+
+  // ── TOC chips ──
+  const tocHtml = activeTables.map(tab=>{
+    const sl=slotsByTable[tab.id], fam=sl?sl.fam:"idle";
+    const bg = fam==="idle"?"#94a3b8":(FAM_COLOR[fam]||"#1e3a5f");
+    return `<span style="display:inline-block;padding:4px 11px;border-radius:14px;background:${bg};color:#fff;font-size:9.5px;font-weight:700;margin:2px">${esc(tab.id)} · ${fam}</span>`;
+  }).join("");
+
+  // ── Per-table sections ──
+  const sectionsHtml = activeTables.map(tab=>{
+    const sl = slotsByTable[tab.id];
+    if(!sl){
+      return `<div class="tcard idle">
+        <div class="thead">
+          <span class="t-id">${esc(tab.id)}</span>
+          <span class="t-name">${esc(tab.name)}</span>
+          <span class="t-dim">${tab.L}×${tab.W} mm</span>
+          <span class="t-stat idle-lbl">⏸ Idle this run</span>
+        </div>
+        <div class="tbody idle-body">No panels were allocated to this table by the optimiser.</div>
+      </div>`;
+    }
+    const tl = s.slotTimeline[sl.slotId]||[];
+    if(!tl.length) return "";
+
+    const byDay = {};
+    tl.forEach(c=>{ (byDay[c.dateIso]=byDay[c.dateIso]||[]).push(c); });
+    const days = Object.keys(byDay).sort();
+    const totalKg = tl.reduce((sum,c)=>sum+c.kg,0);
+    const totalCasts = tl.length;
+    const totalDays = days.length;
+    const avgPD = totalDays?(totalCasts/totalDays).toFixed(2):"—";
+    const first = days[0], last=days[days.length-1];
+    const fam = sl.fam;
+    const fc = FAM_COLOR[fam]||"#1e3a5f";
+    const fl = FAM_LIGHT[fam]||"rgba(30,58,95,.08)";
+
+    const dayRowsHtml = days.map((d,i)=>{
+      const cells = byDay[d];
+      const dt = new Date(d);
+      const tabArea = tab.L*tab.W;
+      const usedArea = cells.reduce((sum,c)=>sum+c.w*c.h,0);
+      const usedPct = Math.min(100, Math.round(usedArea/tabArea*100));
+      const dayKg = cells.reduce((sum,c)=>sum+c.kg,0);
+      const dayName = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt.getDay()];
+      const dayLbl = dt.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
+      const sketch = renderTableSketch(tab, cells, s.params.shutter);
+
+      const chips = cells.map(c=>{
+        const tp=TYPES.find(x=>x.code===c.type)||{};
+        const bg2=FAM_COLOR[c.fam]||"#1e3a5f";
+        return `<div class="dlot" style="background:${bg2}">
+          <div class="dlot-h"><b>${esc(c.type)}</b> · B${c.b}</div>
+          <div class="dlot-d">${c.w}×${c.h} mm · ${fmt(c.kg)} kg · fl.${esc(tp.fl||"?")}</div>
+        </div>`;
+      }).join("");
+
+      return `<div class="drow">
+        <div class="drow-h">
+          <div class="drow-num">Day ${i+1}</div>
+          <div class="drow-date">${dayLbl} <span style="opacity:.55">${dayName}</span></div>
+          <div class="drow-meta">${cells.length} panel${cells.length>1?"s":""} · ${fmt(dayKg)} kg · ${usedPct}% use</div>
+          <div class="drow-bar"><div style="width:${usedPct}%;background:${fc};height:100%"></div></div>
+        </div>
+        <div class="drow-body">
+          ${sketch}
+          <div class="chips">${chips}</div>
+        </div>
+      </div>`;
+    }).join("");
+
+    return `<div class="tcard" style="border-left:5px solid ${fc}">
+      <div class="thead" style="background:${fl}">
+        <span class="t-id" style="color:${fc}">${esc(tab.id)}</span>
+        <span class="pill" style="background:${fc}">${fam}</span>
+        <span class="t-name">${esc(tab.name)}</span>
+        <span class="t-dim">${tab.L}×${tab.W} mm · +${s.params.shutter} mm shutter</span>
+        <span class="t-stat">${totalDays} days</span>
+        <span class="t-stat">${totalCasts} casts</span>
+        <span class="t-stat">avg ${avgPD}/day</span>
+        <span class="t-stat">${fmt(totalKg/1000,1)} t</span>
+        <span class="t-stat" style="margin-left:auto">${esc(first)} → ${esc(last)}</span>
+      </div>
+      <div class="tbody">${dayRowsHtml}</div>
+    </div>`;
+  }).join("");
+
+  const html=`<!doctype html><html><head><meta charset="utf-8">
+<title>Table Plan — ${projName}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Century Gothic","Segoe UI",Arial,sans-serif;font-size:11px;color:#1f2937;background:#fff}
+  /* ── Page header ── */
+  .page-hdr{background:#fff;padding:11px 18px 9px;display:flex;align-items:center;justify-content:space-between;border-top:4px solid #1e3a5f;border-bottom:4px solid #f59e0b}
+  .ph-left{display:flex;align-items:center;gap:12px}
+  .ph-logo{height:40px;width:auto}
+  .ph-div{width:1px;height:32px;background:#d1d5db}
+  .ph-title{font-size:16px;font-weight:800;color:#1e3a5f;letter-spacing:.3px}
+  .ph-sub{font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:.9px;margin-top:2px}
+  .ph-right{text-align:right;font-size:9px;color:#6b7280;line-height:1.7}
+  /* ── Stats bar ── */
+  .stats-bar{display:flex;border-bottom:2px solid #e5e7eb;background:#f0f4ff}
+  .sbl{flex:1;padding:7px 12px;border-right:1px solid #e5e7eb;display:flex;flex-direction:column;gap:1px}
+  .sbl:last-child{border-right:none}
+  .sbl-v{font-size:14px;font-weight:800;color:#1e3a5f}
+  .sbl-l{font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:#6b7280}
+  /* ── TOC ── */
+  .toc{padding:8px 18px;background:#fafbfc;border-bottom:1px solid #e5e7eb;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+  .toc-lbl{font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;margin-right:4px}
+  /* ── Table cards ── */
+  .tcard{background:#fff;border:1px solid #e3e8ef;border-radius:6px;margin:10px 14px;page-break-inside:avoid;overflow:hidden}
+  .tcard.idle{border-left:5px solid #cbd5e1}
+  .thead{padding:8px 12px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .t-id{font-size:13px;font-weight:800}
+  .t-name{font-size:11px;color:#374151;font-weight:600}
+  .t-dim{font-size:10px;color:#6b7280}
+  .t-stat{font-size:10px;color:#374151;background:#f3f4f6;padding:2px 7px;border-radius:8px}
+  .idle-lbl{font-size:10px;color:#94a3b8;margin-left:auto}
+  .pill{display:inline-block;padding:2px 9px;border-radius:8px;font-size:9.5px;font-weight:800;color:#fff}
+  .tbody{padding:8px 10px}
+  .idle-body{padding:14px 16px;color:#94a3b8;font-size:11px;font-style:italic}
+  /* ── Day rows ── */
+  .drow{display:grid;grid-template-columns:150px 1fr;gap:8px;padding:6px 8px;border:1px solid #e5e7eb;border-radius:4px;margin-bottom:5px;page-break-inside:avoid;background:#fff}
+  .drow:nth-child(even){background:#f9fafb}
+  .drow-h{display:flex;flex-direction:column;gap:3px;font-size:10.5px}
+  .drow-num{font-weight:800;font-size:12px;color:#1e3a5f}
+  .drow-date{color:#1e3a5f;font-weight:600;font-size:10px}
+  .drow-meta{font-size:9.5px;color:#6b7280}
+  .drow-bar{height:5px;background:#e5e7eb;border-radius:3px;overflow:hidden;margin-top:4px}
+  .drow-body{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  .chips{display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:220px}
+  .dlot{padding:5px 8px;border-radius:4px;color:#fff;min-width:130px;font-size:10.5px;line-height:1.3}
+  .dlot-h{font-weight:700}
+  .dlot-d{opacity:.85;font-size:9.5px;margin-top:1px}
+  /* ── SVG sketch ── */
+  .tsketch{flex:0 0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:4px;display:block}
+  /* ── Footer ── */
+  .page-footer{position:fixed;bottom:0;left:0;right:0;padding:4px 18px;background:#f8fafc;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:8.5px;color:#9ca3af}
+  @page{size:A3 landscape;margin:8mm 8mm 16mm}
+  @media print{.page-footer{position:fixed;bottom:0}}
+</style></head><body>
+<div class="page-hdr">
+  <div class="ph-left">
+    <img class="ph-logo" src="https://capriole-construction.github.io/KnowledgeBase/Books%20and%20References/capriole-platform/logo.png" onerror="this.style.display='none'">
+    <div class="ph-div"></div>
+    <div>
+      <div class="ph-title">Table Plan</div>
+      <div class="ph-sub">${projName} · Capriole Construction</div>
+    </div>
+  </div>
+  <div class="ph-right">Printed: ${dateStr} at ${timeStr}<br>Precast Production Engine v1.1</div>
+</div>
+<div class="stats-bar">
+  <div class="sbl"><span class="sbl-v">${usedTables}</span><span class="sbl-l">Active Tables</span></div>
+  <div class="sbl"><span class="sbl-v">${idleTables}</span><span class="sbl-l">Idle Tables</span></div>
+  <div class="sbl"><span class="sbl-v">${totalCDays}</span><span class="sbl-l">Total Casting Days</span></div>
+  <div class="sbl"><span class="sbl-v">${multiDays}</span><span class="sbl-l">Multi-Panel Days</span></div>
+  <div class="sbl"><span class="sbl-v">${s.params.shutter} mm</span><span class="sbl-l">Shutter Gap</span></div>
+  <div class="sbl"><span class="sbl-v">${fmt(s.totalPieces)}</span><span class="sbl-l">Total Pieces</span></div>
+  <div class="sbl"><span class="sbl-v">${s.totalDays}</span><span class="sbl-l">Schedule Days</span></div>
+</div>
+<div class="toc"><span class="toc-lbl">Tables:</span>${tocHtml}</div>
+${sectionsHtml}
+<div class="page-footer">
+  <span>Capriole Construction — Precast Production Engine</span>
+  <span>Confidential — Internal Use Only</span>
+  <span>${projName} · ${dateStr}</span>
+</div>
+</body></html>`;
+
+  const w = window.open('','_blank','width=1400,height=900');
+  if(!w){ alert("Pop-up blocked. Please allow pop-ups for this page and try again."); return; }
+  w.document.write(html);
+  w.document.close();
+  w.onload = ()=>{ w.focus(); w.print(); };
 }
 function viewTablePlan(){
   const s = schedule;
@@ -2377,12 +2670,18 @@ function viewTablePlan(){
         </div>
       </div>`;
     }
-    const tl = s.slotTimeline[slot.slotId] || [];
+    const tl = (s.slotTimeline[slot.slotId] || []).filter(c=>!c.isSwap);
     if(tl.length===0) return "";
 
     // Group cells by date (one entry per casting day, possibly multiple panels)
     const byDay = {};
     tl.forEach(cell=>{ (byDay[cell.dateIso] = byDay[cell.dateIso]||[]).push(cell); });
+
+    // Also collect swap days for this slot so we can show them in the timeline
+    const swapDays = new Set(
+      (s.slotTimeline[slot.slotId] || []).filter(c=>c.isSwap).map(c=>c.dateIso)
+    );
+
     const days = Object.keys(byDay).sort();
 
     const totalKg = tl.reduce((sum,c)=>sum+c.kg,0);
@@ -2394,14 +2693,34 @@ function viewTablePlan(){
     const usableL = tab.L;
     const usableW = tab.W;
 
-    const dayRows = days.map((d,i)=>{
-      const cells = byDay[d];
+    // Merge casting days + swap days into a unified sorted list
+    const allDaysList = [...new Set([...days, ...swapDays])].sort();
+    let castDayNum = 0;
+    const dayRows = allDaysList.map(d=>{
       const dt = new Date(d);
+      const dayLabel3 = `${dayLabel(dt)} <span style="opacity:.6">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt.getDay()]}</span>`;
+      // Swap day
+      if(swapDays.has(d) && !byDay[d]){
+        return `<div class="dayrow" style="background:#fffbeb;border-color:#fde68a">
+          <div class="dayrow-h">
+            <div class="dayrow-num" style="color:#92400e">🔄 Swap</div>
+            <div class="dayrow-date">${dayLabel3}</div>
+            <div class="dayrow-meta" style="color:#b45309">Mould change — no casting</div>
+            <div class="dayrow-bar"><div style="width:0%;background:#f59e0b"></div></div>
+          </div>
+          <div class="dayrow-content" style="align-items:center;color:#b45309;font-size:12px;padding:8px">
+            New mould being installed. Casting resumes the next working day.
+          </div>
+        </div>`;
+      }
+      castDayNum++;
+      const cells = byDay[d];
       // Area-based utilization: actual panel footprint vs. actual table area.
       const tabArea = tab.L * tab.W;
       const usedArea = cells.reduce((sum,c)=> sum + c.w*c.h, 0);
       const usedPct = Math.min(100, Math.round(usedArea / tabArea * 100));
       const dayKg = cells.reduce((sum,c)=>sum+c.kg,0);
+      const barColor = cells[0].fam==='IP'?'#1e3a5f':cells[0].fam==='WL'?'#059669':cells[0].fam==='WN'?'#7c3aed':'#dc2626';
       const chips = cells.map(c=>{
         const t = TYPES.find(x=>x.code===c.type)||{};
         return `<div class="dlot ${c.fam}" title="${esc(c.type)} · B${c.b} · ${c.w}×${c.h} mm · ${fmt(c.kg)} kg · floor ${esc(t.fl||"?")}">
@@ -2412,10 +2731,10 @@ function viewTablePlan(){
       const sketch = renderTableSketch(tab, cells, s.params.shutter);
       return `<div class="dayrow">
         <div class="dayrow-h">
-          <div class="dayrow-num">Day ${i+1}</div>
-          <div class="dayrow-date">${dayLabel(dt)} <span style="opacity:.6">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt.getDay()]}</span></div>
+          <div class="dayrow-num">Day ${castDayNum}</div>
+          <div class="dayrow-date">${dayLabel3}</div>
           <div class="dayrow-meta">${cells.length} panel${cells.length>1?"s":""} · ${fmt(dayKg)} kg · table use ${usedPct}%</div>
-          <div class="dayrow-bar"><div style="width:${usedPct}%;background:${cells[0].fam==='IP'?'#1e3a5f':cells[0].fam==='WL'?'#059669':cells[0].fam==='WN'?'#7c3aed':'#dc2626'}"></div></div>
+          <div class="dayrow-bar"><div style="width:${usedPct}%;background:${barColor}"></div></div>
         </div>
         <div class="dayrow-content">
           ${sketch}
@@ -2745,15 +3064,20 @@ function viewGantt(){
                   const dt = new Date(d);
                   return `<div class="gantt-cell ${isWeekend(dt)?"weekend":"empty"}"></div>`;
                 }
-                const isLast = cells.some(c=>c.isLast);
-                const fam = cells[0].fam;
-                const labels = cells.map(c=>`B${c.b}`).join(",");
-                const types = [...new Set(cells.map(c=>c.type))].join(", ");
-                const totalKg = cells.reduce((sum,c)=>sum+c.kg,0);
-                const tip = `${types}|${labels}|${totalKg}|×${cells.length}|${d}`;
+                // Swap-day marker
+                if(cells[0].isSwap){
+                  return `<div class="gantt-cell swap" title="Mould swap — no casting today">🔄<br>SWAP</div>`;
+                }
+                const panelCells = cells.filter(c=>!c.isSwap);
+                const isLast = panelCells.some(c=>c.isLast);
+                const fam = panelCells[0].fam;
+                const labels = panelCells.map(c=>`B${c.b}`).join(",");
+                const types = [...new Set(panelCells.map(c=>c.type))].join(", ");
+                const totalKg = panelCells.reduce((sum,c)=>sum+c.kg,0);
+                const tip = `${types}|${labels}|${totalKg}|×${panelCells.length}|${d}`;
                 return `<div class="gantt-cell c-${fam} ${isLast?"last":""}"
                   data-tip="${esc(tip)}">
-                  <span>${cells.length>1?`<b>×${cells.length}</b><br>`:""}${esc(types.split(",")[0].replace(/.*-/,""))}${cells.length>1?"…":"<br>B"+cells[0].b}</span>
+                  <span>${panelCells.length>1?`<b>×${panelCells.length}</b><br>`:""}${esc(types.split(",")[0].replace(/.*-/,""))}${panelCells.length>1?"…":"<br>B"+panelCells[0].b}</span>
                 </div>`;
               }).join("")}
             `;
@@ -2765,7 +3089,7 @@ function viewGantt(){
             let count = 0;
             slots.forEach(slot=>{
               const cs = (s.cellsByDate[d]||{})[slot.slotId];
-              if(cs) count += cs.length;
+              if(cs) count += cs.filter(c=>!c.isSwap).length;
             });
             const cls = isWeekend(dt) ? "gantt-cell totals weekend" : "gantt-cell totals";
             return `<div class="${cls}"${count>0?` title="${count} panel${count>1?'s':''} cast on ${d}"`:""}>${count>0?`<b>${count}</b>`:""}</div>`;
@@ -2962,11 +3286,21 @@ function viewOrders(){
       });
     });
   }
+  const hideCompleted = window._ordersHideCompleted !== false; // default ON
+  let hiddenDayCount = 0;
   let rows = "";
   s.allDates.forEach(d=>{
     const cells = byDate[d];
     if(!cells) return;
-    rows += `<tr style="background:#f8fafc"><td colspan="8"><b>${esc(d)}</b> · ${dayLabel(new Date(d))} <span style="float:right;color:#6b7280">${cells.length} pieces</span></td></tr>`;
+    // If "hide completed days" is on, skip days with no pending panels
+    if(hideCompleted){
+      const hasPending = cells.some(c=>getStatus(c)!=='cast');
+      if(!hasPending){ hiddenDayCount++; return; }
+    }
+    const pendHere = cells.filter(c=>getStatus(c)!=='cast').length;
+    const castHere = cells.length - pendHere;
+    const daySuffix = castHere>0 ? ` · <span style="color:#065f46;font-weight:600">${castHere} cast</span>` : '';
+    rows += `<tr style="background:#f8fafc"><td colspan="8"><b>${esc(d)}</b> · ${dayLabel(new Date(d))} <span style="float:right;color:#6b7280">${pendHere} pending${daySuffix}</span></td></tr>`;
     cells.forEach((c,idx)=>{
       const st = getStatus(c);
       const rowBg = st==="cast" ? 'background:#f0fdf4' : '';
@@ -3008,6 +3342,7 @@ function viewOrders(){
         </span>
         ${pendCount>0?`<button class="btn sm primary" id="redistBtn" title="Re-optimise all pending panels starting from the day after the last cast panel">🔄 Redistribute Pending (${pendCount})</button>`:''}
         <button class="btn sm" id="resetStatusBtn" title="Clear all cast/pending statuses">Reset Status</button>
+        <button class="btn sm${hideCompleted?' primary':''}" id="hideCompletedBtn" title="Toggle visibility of fully-cast days">${hideCompleted?'✓ ':''}Hide Completed Days${hiddenDayCount>0?' ('+hiddenDayCount+')':''}</button>
       </div>
       <p style="margin:0 0 8px;font-size:11px;color:#475569">
         Mark each panel as <b>✓ Cast</b> when production is complete. Click <b>↻</b> to push a panel to the next working day on the same table — useful when site delays force a reshuffle.
@@ -3053,9 +3388,58 @@ function bindOrders(){
   };
   const redist = $("#redistBtn");
   if(redist) redist.onclick = ()=> redistributePendingCells();
+  const hideBtn = $("#hideCompletedBtn");
+  if(hideBtn) hideBtn.onclick = ()=>{
+    window._ordersHideCompleted = window._ordersHideCompleted === false ? true : false;
+    render();
+  };
 }
 
 // ── Redistribute Pending Cells ────────────────────────────────
+
+// Compact each slot's cell timeline starting from startIso with no idle gaps.
+// Preserves the engine's cells-per-day grouping but eliminates blank days left
+// after discarding excess cells during the building-number remap step.
+function _pfCompactSlots(sched, startIso){
+  const weekend = sched.params && sched.params.weekend;
+  sched.slotAssignments.forEach(sl=>{
+    const cells = sched.allCells
+      .filter(c=>c.slotId===sl.slotId)
+      .sort((a,b)=>a.dateIso.localeCompare(b.dateIso)||a.b-b.b);
+    if(!cells.length) return;
+
+    // Extract the per-day cell count as the engine left it (after remap + discard)
+    const groups=[];
+    let prevD=null, cnt=0;
+    cells.forEach(c=>{
+      if(c.dateIso!==prevD){ if(prevD!==null) groups.push(cnt); prevD=c.dateIso; cnt=1; }
+      else cnt++;
+    });
+    if(prevD!==null) groups.push(cnt);
+
+    // Re-date cells consecutively from startIso, no gaps
+    const d = new Date(startIso+'T00:00:00');
+    if(!weekend) while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()+1);
+    let ci=0;
+    groups.forEach(count=>{
+      const iso = d.toISOString().split('T')[0];
+      for(let i=0;i<count;i++){ cells[ci].dateIso=iso; ci++; }
+      d.setDate(d.getDate()+1);
+      if(!weekend) while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()+1);
+    });
+  });
+
+  // Rebuild cellsByDate from the updated dateIso values
+  sched.cellsByDate={};
+  sched.allCells.forEach(c=>{
+    if(!sched.cellsByDate[c.dateIso]) sched.cellsByDate[c.dateIso]={};
+    const sid=c.slotId||'_';
+    if(!sched.cellsByDate[c.dateIso][sid]) sched.cellsByDate[c.dateIso][sid]=[];
+    sched.cellsByDate[c.dateIso][sid].push(c);
+  });
+  sched.allDates=Object.keys(sched.cellsByDate).sort();
+}
+
 function _nextWorkDay(dateStr){
   const weekend = schedule && schedule.params && schedule.params.weekend;
   const d = new Date(dateStr+'T00:00:00');
@@ -3072,8 +3456,18 @@ async function redistributePendingCells(){
 
   if(!pendingCells.length){ _pfToast('All panels are already marked ✓ Cast','info'); return; }
 
-  const pendingTypeSet     = new Set(pendingCells.map(c=>c.type));
-  const pendingBuildingSet = new Set(pendingCells.map(c=>c.b));
+  const pendingTypeSet = new Set(pendingCells.map(c=>c.type));
+
+  // Per-type sorted list of pending building numbers (excludes cast buildings)
+  const pendingByType = {};
+  pendingCells.forEach(c=>{
+    if(!pendingByType[c.type]) pendingByType[c.type]=new Set();
+    pendingByType[c.type].add(c.b);
+  });
+  Object.keys(pendingByType).forEach(t=>{ pendingByType[t]=[...pendingByType[t]].sort((a,b)=>a-b); });
+
+  // BUILDINGS = max pending-building count so engine creates enough slots per type
+  const maxPendingCount = Math.max(...Object.values(pendingByType).map(a=>a.length));
 
   // Start: day after latest cast date, or today
   let startDate;
@@ -3089,13 +3483,12 @@ async function redistributePendingCells(){
   const savedBuildings = BUILDINGS;
   const savedStart    = ($("#pStart")||{}).value||'';
 
-  // Override for pending-only run
   TYPES     = TYPES.filter(t=>pendingTypeSet.has(t.code));
-  BUILDINGS = pendingBuildingSet.size;
+  BUILDINGS = maxPendingCount;
   if($("#pStart"))    $("#pStart").value    = startDate;
   if($("#pBuildings")) $("#pBuildings").value = BUILDINGS;
 
-  const _cast = castCells.slice();   // stash before runEngine overwrites schedule
+  const _cast = castCells.map(c=>({...c}));   // deep-copy so engine/compact cannot mutate original dates
 
   await runEngine();
 
@@ -3104,6 +3497,36 @@ async function redistributePendingCells(){
   BUILDINGS = savedBuildings;
   if($("#pStart"))    $("#pStart").value    = savedStart;
   if($("#pBuildings")) $("#pBuildings").value = BUILDINGS;
+
+  // Remap engine building indices (1..N) → actual pending building numbers per type,
+  // and discard any excess cells (types with fewer pending buildings than maxPendingCount).
+  const remapped = [];
+  schedule.allCells.forEach(c=>{
+    const pb = pendingByType[c.type];
+    if(!pb){ remapped.push(c); return; }
+    const idx = c.b - 1; // engine uses 1-based indices
+    if(idx >= pb.length) return; // excess cell — this type had fewer pending buildings
+    c.b = pb[idx];  // replace engine building index with actual pending building number
+    remapped.push(c);
+  });
+  schedule.allCells = remapped;
+
+  // Compact each slot's timeline: re-date cells consecutively from startDate with no gaps.
+  // Discarding cells (types with fewer pending buildings) can leave idle days mid-slot;
+  // this step shifts subsequent cells forward to fill those gaps immediately.
+  _pfCompactSlots(schedule, startDate);
+
+  // Remove any pending cell whose (type, b) key matches a cast cell — safety dedup
+  const castKeySet = new Set(_cast.map(c=>`${c.type}|${c.b}`));
+  schedule.allCells = schedule.allCells.filter(c=>!castKeySet.has(`${c.type}|${c.b}`));
+  schedule.cellsByDate = {};
+  schedule.allCells.forEach(c=>{
+    if(!schedule.cellsByDate[c.dateIso]) schedule.cellsByDate[c.dateIso]={};
+    const sid=c.slotId||'_';
+    if(!schedule.cellsByDate[c.dateIso][sid]) schedule.cellsByDate[c.dateIso][sid]=[];
+    schedule.cellsByDate[c.dateIso][sid].push(c);
+  });
+  schedule.allDates=Object.keys(schedule.cellsByDate).sort();
 
   // Merge cast cells back into the new schedule
   _cast.forEach(c=>{
@@ -3161,14 +3584,14 @@ function viewData(){
       </div>
       <div id="panelFilterBar" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0 4px">
         <input id="pflt_code" class="inp sm" placeholder="🔍 Search code…" style="min-width:160px;flex:1;max-width:220px">
-        <select id="pflt_fam" class="inp sm" style="min-width:110px">
-          <option value="">All Families</option>
-          ${[...new Set(TYPES.map(t=>t.fam))].sort().map(f=>`<option value="${f}">${f}</option>`).join("")}
-        </select>
-        <select id="pflt_fl" class="inp sm" style="min-width:110px">
-          <option value="">All Floors</option>
-          ${[...new Set(TYPES.map(t=>t.fl||"").filter(Boolean))].sort().map(f=>`<option value="${f}">${f}</option>`).join("")}
-        </select>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <span style="font-size:10px;color:#6b7280;font-weight:600">Family:</span>
+          ${[...new Set(TYPES.map(t=>t.fam))].sort().map(f=>`<button class="pflt-chip" data-group="fam" data-val="${f}" style="padding:2px 8px;border-radius:10px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:11px;font-weight:600;cursor:pointer;color:#374151">${f}</button>`).join("")}
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <span style="font-size:10px;color:#6b7280;font-weight:600">Floor:</span>
+          ${[...new Set(TYPES.map(t=>t.fl||"").filter(Boolean))].sort().map(f=>`<button class="pflt-chip" data-group="fl" data-val="${f}" style="padding:2px 8px;border-radius:10px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:11px;font-weight:600;cursor:pointer;color:#374151">${f}</button>`).join("")}
+        </div>
         <select id="pflt_src" class="inp sm" style="min-width:130px">
           <option value="">All Sources</option>
           <option value="in">In-House</option>
@@ -3396,12 +3819,16 @@ function bindData(){
   })();
   // ── Panel table filters ─────────────────────────────────────
   (function wirePanelFilters(){
-    const fCode=$('#pflt_code'), fFam=$('#pflt_fam'), fFl=$('#pflt_fl'), fSrc=$('#pflt_src');
+    const fCode=$('#pflt_code'), fSrc=$('#pflt_src');
     const countEl=$('#pflt_count'), resetBtn=$('#pflt_reset');
     if(!fCode) return;
+
+    // Multi-select state for chip filters
+    const chipSel = { fam: new Set(), fl: new Set() };
+
     function applyFilters(){
       const code=(fCode.value||'').trim().toLowerCase();
-      const fam=fFam.value, fl=fFl.value, src=fSrc.value;
+      const src=fSrc ? fSrc.value : '';
       const rows=$$('#view .tbl tbody tr');
       let vis=0;
       rows.forEach(tr=>{
@@ -3412,8 +3839,8 @@ function bindData(){
         const rowFl=(cells[3].textContent||'').trim();
         const rowSrc=(cells[cells.length-2].textContent||'').trim();
         const matchCode=!code||rowCode.includes(code);
-        const matchFam=!fam||rowFam===fam;
-        const matchFl=!fl||rowFl===fl;
+        const matchFam=chipSel.fam.size===0||chipSel.fam.has(rowFam);
+        const matchFl=chipSel.fl.size===0||chipSel.fl.has(rowFl);
         const matchSrc=!src||(src==='in'&&rowSrc==='In-House')||(src==='out'&&rowSrc==='By Others');
         const show=matchCode&&matchFam&&matchFl&&matchSrc;
         tr.style.display=show?'':'none';
@@ -3421,21 +3848,39 @@ function bindData(){
       });
       if(countEl) countEl.textContent=vis<rows.length?`${vis} of ${rows.length} shown`:'';
     }
-    [fCode,fFam,fFl,fSrc].forEach(el=>{ el.oninput=applyFilters; el.onchange=applyFilters; });
-    if(resetBtn) resetBtn.onclick=()=>{ fCode.value=''; fFam.value=''; fFl.value=''; fSrc.value=''; applyFilters(); };
+
+    // Chip toggle
+    $$('#panelFilterBar .pflt-chip').forEach(btn=>{
+      btn.onclick=()=>{
+        const group=btn.dataset.group, val=btn.dataset.val;
+        if(chipSel[group].has(val)){ chipSel[group].delete(val); btn.style.background='#f1f5f9'; btn.style.color='#374151'; btn.style.borderColor='#cbd5e1'; }
+        else { chipSel[group].add(val); btn.style.background='#1e3a5f'; btn.style.color='#fff'; btn.style.borderColor='#1e3a5f'; }
+        applyFilters();
+      };
+    });
+
+    fCode.oninput=applyFilters;
+    if(fSrc){ fSrc.oninput=applyFilters; fSrc.onchange=applyFilters; }
+    if(resetBtn) resetBtn.onclick=()=>{
+      fCode.value='';
+      if(fSrc) fSrc.value='';
+      chipSel.fam.clear(); chipSel.fl.clear();
+      $$('#panelFilterBar .pflt-chip').forEach(b=>{ b.style.background='#f1f5f9'; b.style.color='#374151'; b.style.borderColor='#cbd5e1'; });
+      applyFilters();
+    };
   })();
   // ── Print Panel List PDF ────────────────────────────────────
   if($("#pnlPrintBtn")) $("#pnlPrintBtn").onclick = function(){
     // ── Gather active filters to know which panels to include ──
     const fCode=(($('#pflt_code')||{}).value||'').trim().toLowerCase();
-    const fFam =(($('#pflt_fam') ||{}).value||'');
-    const fFl  =(($('#pflt_fl')  ||{}).value||'');
+    const selFams=[...($$('#panelFilterBar .pflt-chip[data-group="fam"]')||[])].filter(b=>b.style.background==='rgb(30, 58, 95)').map(b=>b.dataset.val);
+    const selFls =[...($$('#panelFilterBar .pflt-chip[data-group="fl"]') ||[])].filter(b=>b.style.background==='rgb(30, 58, 95)').map(b=>b.dataset.val);
     const fSrc =(($('#pflt_src') ||{}).value||'');
     // ── Build data directly from TYPES (no DOM scraping) ───────
     const visTypes = TYPES.filter(t=>{
       if(fCode && !t.code.toLowerCase().includes(fCode)) return false;
-      if(fFam  && t.fam !== fFam) return false;
-      if(fFl   && (t.fl||'') !== fFl) return false;
+      if(selFams.length && !selFams.includes(t.fam)) return false;
+      if(selFls.length  && !selFls.includes(t.fl||'')) return false;
       const inh = isInHouse(t);
       if(fSrc==='in'  && !inh)  return false;
       if(fSrc==='out' &&  inh)  return false;
@@ -3452,10 +3897,10 @@ function bindData(){
     const timeStr  = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
     // Filter chips
     const filterParts=[];
-    if(fCode) filterParts.push('Code contains "'+fCode+'"');
-    if(fFam)  filterParts.push('Family: '+fFam);
-    if(fFl)   filterParts.push('Floor: '+fFl);
-    if(fSrc)  filterParts.push('Source: '+(fSrc==='in'?'In-House':'By Others'));
+    if(fCode)         filterParts.push('Code contains "'+fCode+'"');
+    if(selFams.length) filterParts.push('Family: '+selFams.join(', '));
+    if(selFls.length)  filterParts.push('Floor: '+selFls.join(', '));
+    if(fSrc)          filterParts.push('Source: '+(fSrc==='in'?'In-House':'By Others'));
     // ── Build table rows ────────────────────────────────────────
     const FAMILY_COLORS={IP:'#1e3a5f',WL:'#065f46',WN:'#7c2d12',PB:'#4c1d95'};
     let tbody='', rowNum=0;
@@ -3551,7 +3996,7 @@ function bindData(){
   </div>
   <div class="ph-right">
     Printed: ${dateStr} at ${timeStr}<br>
-    Precast Production Engine v1.0
+    Precast Production Engine v1.1
   </div>
 </div>
 <div class="stats-bar">
@@ -3769,6 +4214,7 @@ function pfShowApp(){
   _pfSetActiveTab("patch");
   _pfUpdateHeader();
   renderTabs(); render();
+  if(typeof _pfShowReschedSection === "function") _pfShowReschedSection();
 }
 function pfHomeLoadFile(file){
   if(!file) return;
@@ -4495,7 +4941,8 @@ function captureRunParamsSnap(){
   const floors=[];
   document.querySelectorAll("#pFloors input[type=checkbox]").forEach(c=>{ if(c.checked) floors.push(c.dataset.fl); });
   return { start:$("#pStart")?.value||"", buildings:$("#pBuildings")?.value||"", weekend:$("#pWeekend")?.value||"0",
-           shutter:$("#pShutter")?.value||"300", floorMode:$("#pFloorMode")?.value||"all", floors, strat:$("#pStrat")?.value||"batch" };
+           shutter:$("#pShutter")?.value||"300", maxKg:$("#pMaxKg")?.value||"7",
+           floorMode:$("#pFloorMode")?.value||"all", floors, strat:$("#pStrat")?.value||"batch" };
 }
 function applyRunParamsSnap(p){
   if(!p) return;
@@ -4503,6 +4950,7 @@ function applyRunParamsSnap(p){
   if($("#pBuildings")&&p.buildings){ $("#pBuildings").value=p.buildings; $("#pBuildings").dispatchEvent(new Event("input")); }
   if($("#pWeekend")&&p.weekend!==undefined) $("#pWeekend").value=p.weekend;
   if($("#pShutter")&&p.shutter!==undefined) $("#pShutter").value=p.shutter;
+  if($("#pMaxKg")&&p.maxKg!==undefined) $("#pMaxKg").value=p.maxKg;
   if($("#pFloorMode")&&p.floorMode){ $("#pFloorMode").value=p.floorMode; $("#pFloorMode").dispatchEvent(new Event("change")); }
   if(p.floors&&p.floors.length) document.querySelectorAll("#pFloors input[type=checkbox]").forEach(c=>{ c.checked=p.floors.includes(c.dataset.fl); });
   if($("#pStrat")&&p.strat) $("#pStrat").value=p.strat;
@@ -4677,10 +5125,7 @@ refreshSidebarCounts();
 
 // ── Reschedule Pending ────────────────────────────────────────
 function _pfShowReschedSection(){
-  const sec = document.getElementById('reschedSection');
-  if(!sec) return;
-  sec.style.display = schedule ? '' : 'none';
-  // Default cutoff to today if empty
+  // Always visible when a patch is open; button handles no-schedule case gracefully
   const inp = document.getElementById('rsCutoff');
   if(inp && !inp.value) inp.value = new Date().toISOString().split('T')[0];
   _pfUpdatePendingPreview();
@@ -4695,18 +5140,19 @@ function _pfUpdatePendingPreview(){
     infoEl.innerHTML = 'Select a date above';
     return;
   }
-  const pending = schedule.allCells.filter(c => c.dateIso >= cutoff);
-  const locked  = schedule.allCells.filter(c => c.dateIso <  cutoff);
+  // All pending (any date) will be redistributed from cutoff; only cast cells are locked
+  const pending = schedule.allCells.filter(c => getStatus(c) !== 'cast');
+  const locked  = schedule.allCells.filter(c => getStatus(c) === 'cast');
   if(!pending.length){
-    infoEl.innerHTML = '<span style="color:#94a3b8">No pending panels from this date — all cast already.</span>';
+    infoEl.innerHTML = '<span style="color:#94a3b8">No pending panels — all marked as cast.</span>';
     return;
   }
   const types     = new Set(pending.map(c => c.type)).size;
   const buildings = new Set(pending.map(c => c.b)).size;
   infoEl.innerHTML =
-    `<span style="color:#7dd3fc"><b>${pending.length}</b> panels pending</span>` +
+    `<span style="color:#7dd3fc"><b>${pending.length}</b> panels to reschedule from ${cutoff}</span>` +
     ` · <b>${types}</b> types · <b>${buildings}</b> building${buildings>1?'s':''}` +
-    (locked.length ? `<br><span style="color:#6b7280">${locked.length} panels locked (cast)</span>` : '');
+    (locked.length ? `<br><span style="color:#6b7280">${locked.length} cast panels locked in place</span>` : '');
 }
 
 async function reschedulePending(){
@@ -4714,26 +5160,34 @@ async function reschedulePending(){
   if(!cutoff){ _pfToast('Select a cutoff date','info'); return; }
   if(!schedule){ _pfToast('Run optimization first','info'); return; }
 
-  const lockedCells  = schedule.allCells.filter(c => c.dateIso <  cutoff);
-  const pendingCells = schedule.allCells.filter(c => c.dateIso >= cutoff);
-  if(!pendingCells.length){ _pfToast('No pending panels from '+cutoff,'info'); return; }
+  // Lock only CAST cells (regardless of date); all pending panels get redistributed from cutoff
+  const lockedCells  = schedule.allCells.filter(c => getStatus(c) === 'cast');
+  const pendingCells = schedule.allCells.filter(c => getStatus(c) !== 'cast');
+  if(!pendingCells.length){ _pfToast('No pending panels to reschedule','info'); return; }
 
-  const pendingTypeSet     = new Set(pendingCells.map(c => c.type));
-  const pendingBuildingSet = new Set(pendingCells.map(c => c.b));
+  const pendingTypeSet = new Set(pendingCells.map(c => c.type));
+
+  // Per-type sorted list of pending building numbers (skips cast buildings)
+  const pendingByType = {};
+  pendingCells.forEach(c => {
+    if(!pendingByType[c.type]) pendingByType[c.type] = new Set();
+    pendingByType[c.type].add(c.b);
+  });
+  Object.keys(pendingByType).forEach(t => { pendingByType[t] = [...pendingByType[t]].sort((a,b)=>a-b); });
+
+  const maxPendingCount = Math.max(...Object.values(pendingByType).map(a => a.length));
 
   // Save globals
   const savedTypes    = TYPES;
   const savedBuildings = BUILDINGS;
   const savedStart    = ($("#pStart")||{}).value || '';
 
-  // Override engine inputs for pending-only run
   TYPES     = TYPES.filter(t => pendingTypeSet.has(t.code));
-  BUILDINGS = pendingBuildingSet.size;
+  BUILDINGS = maxPendingCount;
   if($("#pStart"))    $("#pStart").value    = cutoff;
   if($("#pBuildings")) $("#pBuildings").value = BUILDINGS;
 
-  // Stash locked cells before runEngine overwrites schedule
-  const _locked = lockedCells.slice();
+  const _locked = lockedCells.map(c=>({...c}));   // deep-copy so engine/compact cannot mutate original dates
 
   await runEngine();   // sets global schedule + renders
 
@@ -4743,7 +5197,35 @@ async function reschedulePending(){
   if($("#pStart"))    $("#pStart").value    = savedStart;
   if($("#pBuildings")) $("#pBuildings").value = BUILDINGS;
 
-  // Merge locked cells into the new schedule
+  // Remap engine building indices → actual pending building numbers per type,
+  // discarding excess cells (types with fewer pending buildings than maxPendingCount).
+  const remapped = [];
+  schedule.allCells.forEach(c => {
+    const pb = pendingByType[c.type];
+    if(!pb){ remapped.push(c); return; }
+    const idx = c.b - 1;
+    if(idx >= pb.length) return; // excess cell
+    c.b = pb[idx];
+    remapped.push(c);
+  });
+  schedule.allCells = remapped;
+
+  // Compact each slot's timeline from cutoff with no gaps (same as redistributePendingCells)
+  _pfCompactSlots(schedule, cutoff);
+
+  // Remove any pending cell whose (type, b) key matches a locked/cast cell — safety dedup
+  const lockedKeySet = new Set(_locked.map(c=>`${c.type}|${c.b}`));
+  schedule.allCells = schedule.allCells.filter(c=>!lockedKeySet.has(`${c.type}|${c.b}`));
+  schedule.cellsByDate = {};
+  schedule.allCells.forEach(c=>{
+    if(!schedule.cellsByDate[c.dateIso]) schedule.cellsByDate[c.dateIso]={};
+    const sid=c.slotId||'_';
+    if(!schedule.cellsByDate[c.dateIso][sid]) schedule.cellsByDate[c.dateIso][sid]=[];
+    schedule.cellsByDate[c.dateIso][sid].push(c);
+  });
+  schedule.allDates=Object.keys(schedule.cellsByDate).sort();
+
+  // Merge locked (cast) cells back into the new schedule
   _locked.forEach(c => {
     if(!schedule.cellsByDate[c.dateIso]) schedule.cellsByDate[c.dateIso] = {};
     const sid = c.slotId || 'locked';
@@ -4760,6 +5242,144 @@ async function reschedulePending(){
   _pfToast(`✓ Rescheduled ${pendingCells.length} pending panels from ${cutoff}`, 'ok');
   _pfShowReschedSection();
 }
+
+// ============================================================
+// BUILDING WISE TRACKING
+// ============================================================
+function viewBuildingTracking(){
+  if(!TYPES || !TYPES.length) return `<div class="panel"><p style="color:#6b7280">No panel data loaded.</p></div>`;
+
+  const B = BUILDINGS || 16;
+  const floors = [...new Set(TYPES.map(t=>t.fl||'').filter(Boolean))].sort();
+  const activeFloor = window._btrackFloor || floors[0] || 'GF';
+  const famOrder = ['WL','IP','WN','PB'];
+
+  const floorTypes = TYPES.filter(t=>(t.fl||'')===activeFloor);
+  const grouped = {};
+  famOrder.forEach(f=>{ grouped[f] = floorTypes.filter(t=>t.fam===f); });
+
+  // Building header numbers
+  const bHeaders = Array.from({length:B},(_,i)=>`<th style="min-width:32px">B${i+1}</th>`).join('');
+  const colHeaders = `<tr>
+    <th class="col-label">Element ID</th>
+    <th>Family</th>
+    <th>Floor</th>
+    <th style="text-align:center">Total</th>
+    <th style="text-align:center;color:#065f46">Cast</th>
+    <th style="text-align:center;color:#991b1b">Balance</th>
+    ${bHeaders}
+  </tr>`;
+
+  let totalCastByBuilding = new Array(B).fill(0);
+  let totalPanelsByBuilding = new Array(B).fill(0);
+  let totalCastAll = 0, totalAll = 0;
+
+  const sectionRows = famOrder.map(fam=>{
+    const types = grouped[fam];
+    if(!types || !types.length) return '';
+    const famColors = {IP:'#1e3a5f',WL:'#059669',WN:'#7c3aed',PB:'#dc2626'};
+    const rows = types.map(t=>{
+      let castCount = 0;
+      const bCells = Array.from({length:B},(_,i)=>{
+        const b = i+1;
+        const isCast = (CAST_STATUS[`${t.code}|${b}`] || 'pending') === 'cast';
+        if(isCast){ castCount++; totalCastByBuilding[i]++; }
+        totalPanelsByBuilding[i]++;
+        return isCast
+          ? `<td class="col-cast" title="${esc(t.code)} · B${b} · Cast">✓</td>`
+          : `<td class="col-empty">–</td>`;
+      }).join('');
+      totalCastAll += castCount;
+      totalAll += B;
+      const balance = B - castCount;
+      return `<tr>
+        <td class="col-label"><span class="pill ${t.fam}" style="font-size:9px;padding:1px 5px">${esc(t.code)}</span></td>
+        <td><span class="pill ${t.fam}" style="font-size:9px;padding:1px 5px">${t.fam}</span></td>
+        <td style="color:#6b7280;font-size:10px">${esc(t.fl||'')}</td>
+        <td style="text-align:center;font-weight:600">${B}</td>
+        <td style="text-align:center;color:#065f46;font-weight:700">${castCount}</td>
+        <td style="text-align:center;color:${balance>0?'#991b1b':'#065f46'};font-weight:600">${balance}</td>
+        ${bCells}
+      </tr>`;
+    }).join('');
+
+    return `<tr class="btrack-section">
+      <th colspan="${6+B}" style="border-left:4px solid ${famColors[fam]||'#94a3b8'}">
+        ${fam} — ${types.length} types × ${B} buildings = ${types.length*B} pieces
+      </th>
+    </tr>
+    ${rows}`;
+  }).join('');
+
+  // Total + percentage rows
+  const totalCells = totalCastByBuilding.map((n,i)=>`<td>${n} / ${totalPanelsByBuilding[i]}</td>`).join('');
+  const pctCells   = totalCastByBuilding.map((n,i)=>{
+    const pct = totalPanelsByBuilding[i]>0 ? Math.round(n/totalPanelsByBuilding[i]*100) : 0;
+    return `<td>${pct}%</td>`;
+  }).join('');
+
+  const overallPct = totalAll>0 ? Math.round(totalCastAll/totalAll*100) : 0;
+
+  const floorTabs = floors.map(fl=>`<button class="btrack-tab${fl===activeFloor?' active':''}" data-fl="${fl}">${fl}</button>`).join('');
+
+  return `
+    <div class="panel">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h2 style="margin:0">Building-Wise Tracking</h2>
+        <span style="font-size:12px;color:#6b7280">${activeFloor} floor · ${totalCastAll} of ${totalAll} panels cast (${overallPct}%)</span>
+        <button class="btn sm" id="btrackExportBtn" style="margin-left:auto">⬇ Export CSV</button>
+      </div>
+      <div class="btrack-tabs">${floorTabs}</div>
+      <div class="btrack-wrap">
+        <table class="btrack-tbl">
+          <thead>${colHeaders}</thead>
+          <tbody>
+            ${sectionRows}
+            <tr class="btrack-total">
+              <td class="col-label" colspan="3">TOTAL CAST (${activeFloor})</td>
+              <td>${totalAll}</td>
+              <td style="color:#065f46">${totalCastAll}</td>
+              <td style="color:#991b1b">${totalAll-totalCastAll}</td>
+              ${totalCells}
+            </tr>
+            <tr class="btrack-pct">
+              <td class="col-label" colspan="3">% Building Completion</td>
+              <td></td>
+              <td>${overallPct}%</td>
+              <td></td>
+              ${pctCells}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function bindBuildingTracking(){
+  $$('.btrack-tab').forEach(btn=>{
+    btn.onclick=()=>{ window._btrackFloor=btn.dataset.fl; render(); };
+  });
+  const expBtn = $('#btrackExportBtn');
+  if(expBtn) expBtn.onclick = _btrackExportCSV;
+}
+
+function _btrackExportCSV(){
+  const B = BUILDINGS || 16;
+  const floor = window._btrackFloor || 'GF';
+  const types = TYPES.filter(t=>(t.fl||'')===floor);
+  const headers = ['S.NO','Element ID','Family','Floor','Total Qty','Cast','Balance',...Array.from({length:B},(_,i)=>`B${i+1}`)];
+  const rows = types.map((t,idx)=>{
+    const bCols = Array.from({length:B},(_,i)=>(CAST_STATUS[`${t.code}|${i+1}`]||'pending')==='cast'?'1':'');
+    const cast = bCols.filter(v=>v==='1').length;
+    return [idx+1, t.code, t.fam, t.fl||'', B, cast, B-cast, ...bCols].join(',');
+  });
+  const csv = [headers.join(','), ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download = `Building_Tracking_${floor}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
 </script>
 
 </body>
