@@ -405,7 +405,7 @@
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0">
             <div style="font-size:13px;font-weight:700;color:#1e3a5f">☁ Running Patches</div>
             <div style="display:flex;gap:8px">
-              <button onclick="_pfRefreshHome()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;font-size:11px;font-weight:600;font-family:inherit">🔄 Refresh</button>
+              <button onclick="_pfIndexCache=null;_pfRefreshHome()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;font-size:11px;font-weight:600;font-family:inherit">🔄 Refresh</button>
               <button onclick="window._pfOpenSettings()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#1e3a5f;color:#fff;border:none;font-size:11px;font-weight:600;font-family:inherit">🔐 Sign In</button>
             </div>
           </div>
@@ -4620,8 +4620,10 @@ function _pfRefreshHome(){
   if(!listEl.children.length) listEl.innerHTML = `<div style="grid-column:1/-1;padding:28px;text-align:center;color:#64748b;font-size:12px">⏳ Loading…</div>`;
 
   // Load file list + metadata in parallel — use index file (GET, no PROPFIND)
+  // Always bust in-memory index cache before fetching so deleted patches are not shown
+  _pfIndexCache = null;
   Promise.all([_pfGetIndex(cfg), _pfGetMeta(cfg)]).then(([arr, meta])=>{
-    // Persist cache for next load
+    // Persist live result — overwrites any stale cached list (handles deletions)
     try{ localStorage.setItem(PF_PATCH_CACHE_KEY, JSON.stringify({arr, meta})); } catch(e){}
 
     window._pfMeta = meta||{};
