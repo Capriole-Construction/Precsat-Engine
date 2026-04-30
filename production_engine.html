@@ -269,6 +269,7 @@
         <select id="pWeekend"><option value="0">No</option><option value="1">Yes</option></select>
       </div>
       <div class="sb-row"><label>Shuttering (mm)</label><input type="number" id="pShutter" value="300" min="0" max="1000" step="50"></div>
+      <div class="sb-row"><label>Max table load (t)</label><input type="number" id="pMaxKg" value="7" min="1" max="100" step="0.5" title="Maximum total panel weight per table per day (tonnes)"></div>
       <div class="sb-row"><label>Floor</label>
         <select id="pFloorMode" title="Pick a single floor to run optimisation on, or 'All floors', or open Custom for multi-select">
           <option value="all">All floors</option>
@@ -778,6 +779,7 @@ function readParams(){
     weekend: $("#pWeekend").value==="1",
     parallel: 64, // safety cap on slot count; effective limit is active table count
     shutter: parseInt($("#pShutter").value)||0,
+    maxKg: (parseFloat($("#pMaxKg").value)||7) * 1000,  // convert tonnes → kg
     strat: $("#pStrat").value,
     floors,
   };
@@ -1399,6 +1401,24 @@ async function runEngine(){
         // usedBuildings starts EMPTY — a building only counts as "used" once
         // the FULL template is cast on it (which happens in template-mode).
         slotTemplate[slot.slotId] = { types: newTypes, usedBuildings: new Set() };
+      }
+
+      // ── Weight limit: trim lot so total panel weight ≤ params.maxKg per table ──
+      // Sort lightest-first so we maximise piece count within the budget.
+      // Dropped panels are returned to globalQueue so they are scheduled the next day.
+      if(lot.length > 0 && params.maxKg > 0){
+        const sorted = lot.slice().sort((a,b)=> a.t.kg - b.t.kg);
+        let budgetKg = 0;
+        const kept = [], dropped = [];
+        for(const item of sorted){
+          if(budgetKg + item.t.kg <= params.maxKg){ kept.push(item); budgetKg += item.t.kg; }
+          else { dropped.push(item); }
+        }
+        if(dropped.length > 0){
+          // Re-insert dropped items at the front of the queue (they weren't in it anymore)
+          for(let i = dropped.length - 1; i >= 0; i--) globalQueue.unshift(dropped[i]);
+          lot = kept;
+        }
       }
 
       lot.forEach((item, idx)=>{
@@ -4792,7 +4812,8 @@ function captureRunParamsSnap(){
   const floors=[];
   document.querySelectorAll("#pFloors input[type=checkbox]").forEach(c=>{ if(c.checked) floors.push(c.dataset.fl); });
   return { start:$("#pStart")?.value||"", buildings:$("#pBuildings")?.value||"", weekend:$("#pWeekend")?.value||"0",
-           shutter:$("#pShutter")?.value||"300", floorMode:$("#pFloorMode")?.value||"all", floors, strat:$("#pStrat")?.value||"batch" };
+           shutter:$("#pShutter")?.value||"300", maxKg:$("#pMaxKg")?.value||"7",
+           floorMode:$("#pFloorMode")?.value||"all", floors, strat:$("#pStrat")?.value||"batch" };
 }
 function applyRunParamsSnap(p){
   if(!p) return;
@@ -4800,6 +4821,7 @@ function applyRunParamsSnap(p){
   if($("#pBuildings")&&p.buildings){ $("#pBuildings").value=p.buildings; $("#pBuildings").dispatchEvent(new Event("input")); }
   if($("#pWeekend")&&p.weekend!==undefined) $("#pWeekend").value=p.weekend;
   if($("#pShutter")&&p.shutter!==undefined) $("#pShutter").value=p.shutter;
+  if($("#pMaxKg")&&p.maxKg!==undefined) $("#pMaxKg").value=p.maxKg;
   if($("#pFloorMode")&&p.floorMode){ $("#pFloorMode").value=p.floorMode; $("#pFloorMode").dispatchEvent(new Event("change")); }
   if(p.floors&&p.floors.length) document.querySelectorAll("#pFloors input[type=checkbox]").forEach(c=>{ c.checked=p.floors.includes(c.dataset.fl); });
   if($("#pStrat")&&p.strat) $("#pStrat").value=p.strat;
