@@ -19,6 +19,7 @@
   .header .spacer{flex:1}
   /* ── Hide main header on home screen ────────────────────── */
   body.home-screen .header, body.home-screen #pfTabBar { display:none }
+  body.home-screen #reschedSection { display:none }
   /* ── Patch tab bar ───────────────────────────────────────── */
   #pfTabBar{background:#0b1a2e;display:flex;align-items:flex-end;padding:0 18px;gap:3px;border-bottom:2px solid #1e3a5f;min-height:36px}
   .pf-tab{display:inline-flex;align-items:center;gap:6px;padding:7px 16px 6px;font-size:11.5px;font-weight:700;font-family:inherit;cursor:pointer;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;background:transparent;color:#64748b;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;transition:background .15s,color .15s;letter-spacing:.3px}
@@ -298,7 +299,7 @@
     </div>
 
     <!-- RESCHEDULE PENDING -->
-    <div class="sb-section" id="reschedSection" style="display:none">
+    <div class="sb-section" id="reschedSection">
       <div class="sb-h">🔄 Reschedule Pending</div>
       <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;line-height:1.4">Mark panels as cast up to a date, then re-optimise the remaining panels.</div>
       <div class="sb-row">
@@ -4961,10 +4962,7 @@ refreshSidebarCounts();
 
 // ── Reschedule Pending ────────────────────────────────────────
 function _pfShowReschedSection(){
-  const sec = document.getElementById('reschedSection');
-  if(!sec) return;
-  sec.style.display = schedule ? '' : 'none';
-  // Default cutoff to today if empty
+  // Always visible when a patch is open; button handles no-schedule case gracefully
   const inp = document.getElementById('rsCutoff');
   if(inp && !inp.value) inp.value = new Date().toISOString().split('T')[0];
   _pfUpdatePendingPreview();
