@@ -231,6 +231,27 @@
   .tplan-toc a.PB{background:#dc2626}
   .tplan-toc a.idle{background:#94a3b8}
 
+  /* Building Tracking */
+  .btrack-wrap{overflow-x:auto}
+  .btrack-tbl{border-collapse:collapse;font-size:11px;min-width:600px;width:100%}
+  .btrack-tbl th,.btrack-tbl td{border:1px solid #e5e7eb;padding:4px 6px;white-space:nowrap}
+  .btrack-tbl thead th{background:#1e3a5f;color:#fff;text-align:center;font-weight:700;position:sticky;top:0;z-index:2}
+  .btrack-tbl thead th.col-label{text-align:left;position:sticky;left:0;z-index:3;min-width:130px}
+  .btrack-tbl tbody tr:nth-child(even){background:#f9fafb}
+  .btrack-tbl tbody tr:hover{background:#eff6ff}
+  .btrack-tbl td.col-label{font-weight:600;color:#1e3a5f;position:sticky;left:0;background:inherit;z-index:1;min-width:130px}
+  .btrack-tbl td.col-fac{color:#6b7280;font-size:10px}
+  .btrack-tbl td.col-cast{text-align:center;background:#d1fae5;color:#065f46;font-weight:700;cursor:default}
+  .btrack-tbl td.col-empty{text-align:center;color:#d1d5db;cursor:default}
+  .btrack-tbl tr.btrack-section th{background:#374151;color:#f9fafb;text-align:left;font-size:11px;padding:5px 6px}
+  .btrack-tbl tr.btrack-total td{background:#fef3c7;font-weight:700;color:#92400e;text-align:center}
+  .btrack-tbl tr.btrack-total td.col-label{text-align:left;color:#78350f}
+  .btrack-tbl tr.btrack-pct td{background:#fffbeb;font-size:10px;color:#b45309;text-align:center}
+  .btrack-tbl tr.btrack-pct td.col-label{text-align:left;font-weight:600}
+  .btrack-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .btrack-tab{padding:5px 14px;border-radius:14px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:12px;font-weight:600;cursor:pointer;color:#374151}
+  .btrack-tab.active{background:#1e3a5f;color:#fff;border-color:#1e3a5f}
+
   @media print{
     body{background:#fff}
     .sidebar,.run-btn,.tabs,.toolbar,.runner{display:none!important}
@@ -438,6 +459,7 @@
         <button class="tab" data-tab="orders">📋 Order Schedule</button>
         <button class="tab" data-tab="plan">📐 Table Plan</button>
         <button class="tab" data-tab="tables">🪵 Casting Tables</button>
+        <button class="tab" data-tab="tracking">📊 Building Tracking</button>
         <button class="tab" data-tab="data">💾 Data</button>
         <span style="flex:1"></span>
         <button id="engineSaveBtn" title="Save patch to cloud" style="margin:4px 8px 4px 0;padding:5px 14px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:5px">💾 Save Patch</button>
@@ -1631,6 +1653,11 @@ function render(){
     bindTables();
     return;
   }
+  if(activeTab==="tracking"){
+    $("#view").innerHTML = viewBuildingTracking();
+    bindBuildingTracking();
+    return;
+  }
   if(activeTab==="data"){
     $("#view").innerHTML = viewData();
     bindData();
@@ -1658,8 +1685,9 @@ function render(){
   else if(activeTab==="moulds")   v.innerHTML = viewMoulds();
   else if(activeTab==="orders")  { v.innerHTML = viewOrders(); bindOrders(); }
   else if(activeTab==="plan")    { v.innerHTML = viewTablePlan(); bindTablePlan(); }
-  else if(activeTab==="tables")  { v.innerHTML = viewTables(); bindTables(); }
-  else if(activeTab==="data")    { v.innerHTML = viewData(); bindData(); }
+  else if(activeTab==="tables")   { v.innerHTML = viewTables(); bindTables(); }
+  else if(activeTab==="tracking") { v.innerHTML = viewBuildingTracking(); bindBuildingTracking(); }
+  else if(activeTab==="data")     { v.innerHTML = viewData(); bindData(); }
 }
 
 // --- 2D bin-packing: how many panels (with shuttering) fit on a table simultaneously ---
@@ -5214,6 +5242,144 @@ async function reschedulePending(){
   _pfToast(`✓ Rescheduled ${pendingCells.length} pending panels from ${cutoff}`, 'ok');
   _pfShowReschedSection();
 }
+
+// ============================================================
+// BUILDING WISE TRACKING
+// ============================================================
+function viewBuildingTracking(){
+  if(!TYPES || !TYPES.length) return `<div class="panel"><p style="color:#6b7280">No panel data loaded.</p></div>`;
+
+  const B = BUILDINGS || 16;
+  const floors = [...new Set(TYPES.map(t=>t.fl||'').filter(Boolean))].sort();
+  const activeFloor = window._btrackFloor || floors[0] || 'GF';
+  const famOrder = ['WL','IP','WN','PB'];
+
+  const floorTypes = TYPES.filter(t=>(t.fl||'')===activeFloor);
+  const grouped = {};
+  famOrder.forEach(f=>{ grouped[f] = floorTypes.filter(t=>t.fam===f); });
+
+  // Building header numbers
+  const bHeaders = Array.from({length:B},(_,i)=>`<th style="min-width:32px">B${i+1}</th>`).join('');
+  const colHeaders = `<tr>
+    <th class="col-label">Element ID</th>
+    <th>Family</th>
+    <th>Floor</th>
+    <th style="text-align:center">Total</th>
+    <th style="text-align:center;color:#065f46">Cast</th>
+    <th style="text-align:center;color:#991b1b">Balance</th>
+    ${bHeaders}
+  </tr>`;
+
+  let totalCastByBuilding = new Array(B).fill(0);
+  let totalPanelsByBuilding = new Array(B).fill(0);
+  let totalCastAll = 0, totalAll = 0;
+
+  const sectionRows = famOrder.map(fam=>{
+    const types = grouped[fam];
+    if(!types || !types.length) return '';
+    const famColors = {IP:'#1e3a5f',WL:'#059669',WN:'#7c3aed',PB:'#dc2626'};
+    const rows = types.map(t=>{
+      let castCount = 0;
+      const bCells = Array.from({length:B},(_,i)=>{
+        const b = i+1;
+        const isCast = (CAST_STATUS[`${t.code}|${b}`] || 'pending') === 'cast';
+        if(isCast){ castCount++; totalCastByBuilding[i]++; }
+        totalPanelsByBuilding[i]++;
+        return isCast
+          ? `<td class="col-cast" title="${esc(t.code)} · B${b} · Cast">✓</td>`
+          : `<td class="col-empty">–</td>`;
+      }).join('');
+      totalCastAll += castCount;
+      totalAll += B;
+      const balance = B - castCount;
+      return `<tr>
+        <td class="col-label"><span class="pill ${t.fam}" style="font-size:9px;padding:1px 5px">${esc(t.code)}</span></td>
+        <td><span class="pill ${t.fam}" style="font-size:9px;padding:1px 5px">${t.fam}</span></td>
+        <td style="color:#6b7280;font-size:10px">${esc(t.fl||'')}</td>
+        <td style="text-align:center;font-weight:600">${B}</td>
+        <td style="text-align:center;color:#065f46;font-weight:700">${castCount}</td>
+        <td style="text-align:center;color:${balance>0?'#991b1b':'#065f46'};font-weight:600">${balance}</td>
+        ${bCells}
+      </tr>`;
+    }).join('');
+
+    return `<tr class="btrack-section">
+      <th colspan="${6+B}" style="border-left:4px solid ${famColors[fam]||'#94a3b8'}">
+        ${fam} — ${types.length} types × ${B} buildings = ${types.length*B} pieces
+      </th>
+    </tr>
+    ${rows}`;
+  }).join('');
+
+  // Total + percentage rows
+  const totalCells = totalCastByBuilding.map((n,i)=>`<td>${n} / ${totalPanelsByBuilding[i]}</td>`).join('');
+  const pctCells   = totalCastByBuilding.map((n,i)=>{
+    const pct = totalPanelsByBuilding[i]>0 ? Math.round(n/totalPanelsByBuilding[i]*100) : 0;
+    return `<td>${pct}%</td>`;
+  }).join('');
+
+  const overallPct = totalAll>0 ? Math.round(totalCastAll/totalAll*100) : 0;
+
+  const floorTabs = floors.map(fl=>`<button class="btrack-tab${fl===activeFloor?' active':''}" data-fl="${fl}">${fl}</button>`).join('');
+
+  return `
+    <div class="panel">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <h2 style="margin:0">Building-Wise Tracking</h2>
+        <span style="font-size:12px;color:#6b7280">${activeFloor} floor · ${totalCastAll} of ${totalAll} panels cast (${overallPct}%)</span>
+        <button class="btn sm" id="btrackExportBtn" style="margin-left:auto">⬇ Export CSV</button>
+      </div>
+      <div class="btrack-tabs">${floorTabs}</div>
+      <div class="btrack-wrap">
+        <table class="btrack-tbl">
+          <thead>${colHeaders}</thead>
+          <tbody>
+            ${sectionRows}
+            <tr class="btrack-total">
+              <td class="col-label" colspan="3">TOTAL CAST (${activeFloor})</td>
+              <td>${totalAll}</td>
+              <td style="color:#065f46">${totalCastAll}</td>
+              <td style="color:#991b1b">${totalAll-totalCastAll}</td>
+              ${totalCells}
+            </tr>
+            <tr class="btrack-pct">
+              <td class="col-label" colspan="3">% Building Completion</td>
+              <td></td>
+              <td>${overallPct}%</td>
+              <td></td>
+              ${pctCells}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function bindBuildingTracking(){
+  $$('.btrack-tab').forEach(btn=>{
+    btn.onclick=()=>{ window._btrackFloor=btn.dataset.fl; render(); };
+  });
+  const expBtn = $('#btrackExportBtn');
+  if(expBtn) expBtn.onclick = _btrackExportCSV;
+}
+
+function _btrackExportCSV(){
+  const B = BUILDINGS || 16;
+  const floor = window._btrackFloor || 'GF';
+  const types = TYPES.filter(t=>(t.fl||'')===floor);
+  const headers = ['S.NO','Element ID','Family','Floor','Total Qty','Cast','Balance',...Array.from({length:B},(_,i)=>`B${i+1}`)];
+  const rows = types.map((t,idx)=>{
+    const bCols = Array.from({length:B},(_,i)=>(CAST_STATUS[`${t.code}|${i+1}`]||'pending')==='cast'?'1':'');
+    const cast = bCols.filter(v=>v==='1').length;
+    return [idx+1, t.code, t.fam, t.fl||'', B, cast, B-cast, ...bCols].join(',');
+  });
+  const csv = [headers.join(','), ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download = `Building_Tracking_${floor}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
 </script>
 
 </body>
