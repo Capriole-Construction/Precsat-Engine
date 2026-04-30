@@ -95,6 +95,7 @@
   .gantt-row{display:contents}
   .gantt-cell{padding:3px 4px;border-right:1px solid #f1f5f9;border-bottom:1px solid #f1f5f9;min-height:28px;position:relative;font-size:10px;color:#fff;text-align:center;display:flex;align-items:center;justify-content:center;line-height:1.1;overflow:hidden}
   .gantt-cell.empty{background:#fafbfc;color:transparent}
+  .gantt-cell.swap{background:#fef3c7;color:#92400e;font-size:9px;font-weight:700;border:1px dashed #f59e0b;line-height:1.2}
   .gantt-cell.weekend{background:repeating-linear-gradient(45deg,#f9fafb,#f9fafb 4px,#e5e7eb 4px,#e5e7eb 8px)}
   .gantt-mould{background:#1e3a5f;color:#fff;font-weight:700;padding:6px 8px;border-right:2px solid #f59e0b;position:sticky;left:0;z-index:1;font-size:11px;display:flex;align-items:center;min-height:28px}
   .gantt-mould.h{background:#1e3a5f;border-bottom:1px solid #2a4f80;position:sticky;top:0;z-index:3}
@@ -1410,7 +1411,17 @@ async function runEngine(){
           slotSwapUntil[slot.slotId] = dayIdx + 1;  // skip this slot today
           // Return items to globalQueue (they were already removed above)
           for(let i = lot.length - 1; i >= 0; i--) globalQueue.unshift(lot[i]);
-          lot = [];
+          // Store a visible swap-day marker cell (not a panel — excluded from totals)
+          const swapCell = {
+            slotId: slot.slotId, slotLabel: slot.label,
+            type: '__SWAP__', fam: null, b: null, kg: 0,
+            dayIdx, dateIso: iso, dt: new Date(dt),
+            isSwap: true, lotIdx: 0, lotSize: 0, layout: null, isLast: false,
+          };
+          if(!cellsByDate[iso]) cellsByDate[iso] = {};
+          if(!cellsByDate[iso][slot.slotId]) cellsByDate[iso][slot.slotId] = [];
+          cellsByDate[iso][slot.slotId].push(swapCell);
+          allCells.push(swapCell);
           continue;
         }
 
@@ -1425,18 +1436,23 @@ async function runEngine(){
       }
 
       // ── Weight limit: trim lot so total panel weight ≤ params.maxKg per table ──
-      // Sort lightest-first so we maximise piece count within the budget.
-      // Dropped panels are returned to globalQueue so they are scheduled the next day.
+      // Sort lightest-first to maximise piece count within the budget.
+      // Edge-case safety: always keep at least 1 panel even if it alone exceeds the limit
+      // (prevents a heavy panel being permanently stuck in the queue).
+      // Dropped panels are returned to globalQueue to be scheduled the next day.
       if(lot.length > 0 && params.maxKg > 0){
         const sorted = lot.slice().sort((a,b)=> a.t.kg - b.t.kg);
         let budgetKg = 0;
         const kept = [], dropped = [];
         for(const item of sorted){
-          if(budgetKg + item.t.kg <= params.maxKg){ kept.push(item); budgetKg += item.t.kg; }
-          else { dropped.push(item); }
+          if(kept.length === 0 || budgetKg + item.t.kg <= params.maxKg){
+            kept.push(item); budgetKg += item.t.kg;
+          } else {
+            dropped.push(item);
+          }
         }
         if(dropped.length > 0){
-          // Re-insert dropped items at the front of the queue (they weren't in it anymore)
+          // Re-insert dropped items at the front of the queue (they were already removed)
           for(let i = dropped.length - 1; i >= 0; i--) globalQueue.unshift(dropped[i]);
           lot = kept;
         }
@@ -1550,14 +1566,15 @@ async function runEngine(){
   const avgM3PerDay = totalDays>0 ? totalM3/totalDays : 0;
   const peakM3PerDay = dailyM3Values.length ? Math.max(...dailyM3Values) : 0;
   const peakM3Date   = allDates.find(d=>m3ByDate[d]===peakM3PerDay) || "";
+  const panelCells = allCells.filter(c=>!c.isSwap);
   // Utilization = panels actually cast vs working days × slots (1 cycle/day)
   const utilization = slotAssignments.length>0 && totalDays>0
-    ? (allCells.length/(slotAssignments.length*totalDays))*100 : 0;
+    ? (panelCells.length/(slotAssignments.length*totalDays))*100 : 0;
 
   // Per-family stats
   const famStats = {};
   FAMILIES.forEach(f=>{
-    const fc = allCells.filter(c=>c.fam===f);
+    const fc = panelCells.filter(c=>c.fam===f);
     const famSlots = slotAssignments.filter(s=>s.fam===f).length;
     famStats[f] = {pieces:fc.length, kg:fc.reduce((s,c)=>s+c.kg,0), slots:famSlots, types:typesByFam[f].length};
   });
@@ -1566,7 +1583,7 @@ async function runEngine(){
     params, slotAssignments, slotTimeline, cellsByDate, allCells, allDates,
     firstDate, lastDate, totalDays, calendarDays, totalKg, totalM3, utilization, famStats,
     m3ByDate, avgM3PerDay, peakM3PerDay, peakM3Date,
-    totalPieces: allCells.length,
+    totalPieces: panelCells.length,
     shutterChanges,
     unfit: [...new Set(unfit.map(t=>t.code))].map(c=>TYPES.find(t=>t.code===c)),
     activeTables: activeTables.map(t=>({id:t.id,name:t.name,L:t.L,W:t.W})),
@@ -2983,15 +3000,20 @@ function viewGantt(){
                   const dt = new Date(d);
                   return `<div class="gantt-cell ${isWeekend(dt)?"weekend":"empty"}"></div>`;
                 }
-                const isLast = cells.some(c=>c.isLast);
-                const fam = cells[0].fam;
-                const labels = cells.map(c=>`B${c.b}`).join(",");
-                const types = [...new Set(cells.map(c=>c.type))].join(", ");
-                const totalKg = cells.reduce((sum,c)=>sum+c.kg,0);
-                const tip = `${types}|${labels}|${totalKg}|×${cells.length}|${d}`;
+                // Swap-day marker
+                if(cells[0].isSwap){
+                  return `<div class="gantt-cell swap" title="Mould swap — no casting today">🔄<br>SWAP</div>`;
+                }
+                const panelCells = cells.filter(c=>!c.isSwap);
+                const isLast = panelCells.some(c=>c.isLast);
+                const fam = panelCells[0].fam;
+                const labels = panelCells.map(c=>`B${c.b}`).join(",");
+                const types = [...new Set(panelCells.map(c=>c.type))].join(", ");
+                const totalKg = panelCells.reduce((sum,c)=>sum+c.kg,0);
+                const tip = `${types}|${labels}|${totalKg}|×${panelCells.length}|${d}`;
                 return `<div class="gantt-cell c-${fam} ${isLast?"last":""}"
                   data-tip="${esc(tip)}">
-                  <span>${cells.length>1?`<b>×${cells.length}</b><br>`:""}${esc(types.split(",")[0].replace(/.*-/,""))}${cells.length>1?"…":"<br>B"+cells[0].b}</span>
+                  <span>${panelCells.length>1?`<b>×${panelCells.length}</b><br>`:""}${esc(types.split(",")[0].replace(/.*-/,""))}${panelCells.length>1?"…":"<br>B"+panelCells[0].b}</span>
                 </div>`;
               }).join("")}
             `;
@@ -3003,7 +3025,7 @@ function viewGantt(){
             let count = 0;
             slots.forEach(slot=>{
               const cs = (s.cellsByDate[d]||{})[slot.slotId];
-              if(cs) count += cs.length;
+              if(cs) count += cs.filter(c=>!c.isSwap).length;
             });
             const cls = isWeekend(dt) ? "gantt-cell totals weekend" : "gantt-cell totals";
             return `<div class="${cls}"${count>0?` title="${count} panel${count>1?'s':''} cast on ${d}"`:""}>${count>0?`<b>${count}</b>`:""}</div>`;
