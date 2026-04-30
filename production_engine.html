@@ -3556,14 +3556,14 @@ function viewData(){
       </div>
       <div id="panelFilterBar" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0 4px">
         <input id="pflt_code" class="inp sm" placeholder="🔍 Search code…" style="min-width:160px;flex:1;max-width:220px">
-        <select id="pflt_fam" class="inp sm" style="min-width:110px">
-          <option value="">All Families</option>
-          ${[...new Set(TYPES.map(t=>t.fam))].sort().map(f=>`<option value="${f}">${f}</option>`).join("")}
-        </select>
-        <select id="pflt_fl" class="inp sm" style="min-width:110px">
-          <option value="">All Floors</option>
-          ${[...new Set(TYPES.map(t=>t.fl||"").filter(Boolean))].sort().map(f=>`<option value="${f}">${f}</option>`).join("")}
-        </select>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <span style="font-size:10px;color:#6b7280;font-weight:600">Family:</span>
+          ${[...new Set(TYPES.map(t=>t.fam))].sort().map(f=>`<button class="pflt-chip" data-group="fam" data-val="${f}" style="padding:2px 8px;border-radius:10px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:11px;font-weight:600;cursor:pointer;color:#374151">${f}</button>`).join("")}
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <span style="font-size:10px;color:#6b7280;font-weight:600">Floor:</span>
+          ${[...new Set(TYPES.map(t=>t.fl||"").filter(Boolean))].sort().map(f=>`<button class="pflt-chip" data-group="fl" data-val="${f}" style="padding:2px 8px;border-radius:10px;border:1px solid #cbd5e1;background:#f1f5f9;font-size:11px;font-weight:600;cursor:pointer;color:#374151">${f}</button>`).join("")}
+        </div>
         <select id="pflt_src" class="inp sm" style="min-width:130px">
           <option value="">All Sources</option>
           <option value="in">In-House</option>
@@ -3791,12 +3791,16 @@ function bindData(){
   })();
   // ── Panel table filters ─────────────────────────────────────
   (function wirePanelFilters(){
-    const fCode=$('#pflt_code'), fFam=$('#pflt_fam'), fFl=$('#pflt_fl'), fSrc=$('#pflt_src');
+    const fCode=$('#pflt_code'), fSrc=$('#pflt_src');
     const countEl=$('#pflt_count'), resetBtn=$('#pflt_reset');
     if(!fCode) return;
+
+    // Multi-select state for chip filters
+    const chipSel = { fam: new Set(), fl: new Set() };
+
     function applyFilters(){
       const code=(fCode.value||'').trim().toLowerCase();
-      const fam=fFam.value, fl=fFl.value, src=fSrc.value;
+      const src=fSrc ? fSrc.value : '';
       const rows=$$('#view .tbl tbody tr');
       let vis=0;
       rows.forEach(tr=>{
@@ -3807,8 +3811,8 @@ function bindData(){
         const rowFl=(cells[3].textContent||'').trim();
         const rowSrc=(cells[cells.length-2].textContent||'').trim();
         const matchCode=!code||rowCode.includes(code);
-        const matchFam=!fam||rowFam===fam;
-        const matchFl=!fl||rowFl===fl;
+        const matchFam=chipSel.fam.size===0||chipSel.fam.has(rowFam);
+        const matchFl=chipSel.fl.size===0||chipSel.fl.has(rowFl);
         const matchSrc=!src||(src==='in'&&rowSrc==='In-House')||(src==='out'&&rowSrc==='By Others');
         const show=matchCode&&matchFam&&matchFl&&matchSrc;
         tr.style.display=show?'':'none';
@@ -3816,21 +3820,39 @@ function bindData(){
       });
       if(countEl) countEl.textContent=vis<rows.length?`${vis} of ${rows.length} shown`:'';
     }
-    [fCode,fFam,fFl,fSrc].forEach(el=>{ el.oninput=applyFilters; el.onchange=applyFilters; });
-    if(resetBtn) resetBtn.onclick=()=>{ fCode.value=''; fFam.value=''; fFl.value=''; fSrc.value=''; applyFilters(); };
+
+    // Chip toggle
+    $$('#panelFilterBar .pflt-chip').forEach(btn=>{
+      btn.onclick=()=>{
+        const group=btn.dataset.group, val=btn.dataset.val;
+        if(chipSel[group].has(val)){ chipSel[group].delete(val); btn.style.background='#f1f5f9'; btn.style.color='#374151'; btn.style.borderColor='#cbd5e1'; }
+        else { chipSel[group].add(val); btn.style.background='#1e3a5f'; btn.style.color='#fff'; btn.style.borderColor='#1e3a5f'; }
+        applyFilters();
+      };
+    });
+
+    fCode.oninput=applyFilters;
+    if(fSrc){ fSrc.oninput=applyFilters; fSrc.onchange=applyFilters; }
+    if(resetBtn) resetBtn.onclick=()=>{
+      fCode.value='';
+      if(fSrc) fSrc.value='';
+      chipSel.fam.clear(); chipSel.fl.clear();
+      $$('#panelFilterBar .pflt-chip').forEach(b=>{ b.style.background='#f1f5f9'; b.style.color='#374151'; b.style.borderColor='#cbd5e1'; });
+      applyFilters();
+    };
   })();
   // ── Print Panel List PDF ────────────────────────────────────
   if($("#pnlPrintBtn")) $("#pnlPrintBtn").onclick = function(){
     // ── Gather active filters to know which panels to include ──
     const fCode=(($('#pflt_code')||{}).value||'').trim().toLowerCase();
-    const fFam =(($('#pflt_fam') ||{}).value||'');
-    const fFl  =(($('#pflt_fl')  ||{}).value||'');
+    const selFams=[...($$('#panelFilterBar .pflt-chip[data-group="fam"]')||[])].filter(b=>b.style.background==='rgb(30, 58, 95)').map(b=>b.dataset.val);
+    const selFls =[...($$('#panelFilterBar .pflt-chip[data-group="fl"]') ||[])].filter(b=>b.style.background==='rgb(30, 58, 95)').map(b=>b.dataset.val);
     const fSrc =(($('#pflt_src') ||{}).value||'');
     // ── Build data directly from TYPES (no DOM scraping) ───────
     const visTypes = TYPES.filter(t=>{
       if(fCode && !t.code.toLowerCase().includes(fCode)) return false;
-      if(fFam  && t.fam !== fFam) return false;
-      if(fFl   && (t.fl||'') !== fFl) return false;
+      if(selFams.length && !selFams.includes(t.fam)) return false;
+      if(selFls.length  && !selFls.includes(t.fl||'')) return false;
       const inh = isInHouse(t);
       if(fSrc==='in'  && !inh)  return false;
       if(fSrc==='out' &&  inh)  return false;
@@ -3847,10 +3869,10 @@ function bindData(){
     const timeStr  = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
     // Filter chips
     const filterParts=[];
-    if(fCode) filterParts.push('Code contains "'+fCode+'"');
-    if(fFam)  filterParts.push('Family: '+fFam);
-    if(fFl)   filterParts.push('Floor: '+fFl);
-    if(fSrc)  filterParts.push('Source: '+(fSrc==='in'?'In-House':'By Others'));
+    if(fCode)         filterParts.push('Code contains "'+fCode+'"');
+    if(selFams.length) filterParts.push('Family: '+selFams.join(', '));
+    if(selFls.length)  filterParts.push('Floor: '+selFls.join(', '));
+    if(fSrc)          filterParts.push('Source: '+(fSrc==='in'?'In-House':'By Others'));
     // ── Build table rows ────────────────────────────────────────
     const FAMILY_COLORS={IP:'#1e3a5f',WL:'#065f46',WN:'#7c2d12',PB:'#4c1d95'};
     let tbody='', rowNum=0;
