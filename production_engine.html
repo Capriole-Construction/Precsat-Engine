@@ -1512,6 +1512,16 @@ async function runEngine(){
           const cells = dayCells[slotId];
           if(!newCellsByDate[outIso][slotId]) newCellsByDate[outIso][slotId] = [];
           for(const c of cells){
+            if(c.isSwap){
+              // Swap cells must not be replicated per building — keep exactly one per slot-day
+              if(b === 1){
+                const nc = { ...c, dayIdx: outDayIdx, dateIso: outIso, dt: new Date(dt) };
+                newCellsByDate[outIso][slotId].push(nc);
+                (newSlotTimeline[slotId] = newSlotTimeline[slotId] || []).push(nc);
+                newAllCells.push(nc);
+              }
+              continue;
+            }
             const nc = { ...c, b, dayIdx: outDayIdx, dateIso: outIso, dt: new Date(dt), isLast: false };
             newCellsByDate[outIso][slotId].push(nc);
             (newSlotTimeline[slotId] = newSlotTimeline[slotId] || []).push(nc);
@@ -2632,12 +2642,18 @@ function viewTablePlan(){
         </div>
       </div>`;
     }
-    const tl = s.slotTimeline[slot.slotId] || [];
+    const tl = (s.slotTimeline[slot.slotId] || []).filter(c=>!c.isSwap);
     if(tl.length===0) return "";
 
     // Group cells by date (one entry per casting day, possibly multiple panels)
     const byDay = {};
     tl.forEach(cell=>{ (byDay[cell.dateIso] = byDay[cell.dateIso]||[]).push(cell); });
+
+    // Also collect swap days for this slot so we can show them in the timeline
+    const swapDays = new Set(
+      (s.slotTimeline[slot.slotId] || []).filter(c=>c.isSwap).map(c=>c.dateIso)
+    );
+
     const days = Object.keys(byDay).sort();
 
     const totalKg = tl.reduce((sum,c)=>sum+c.kg,0);
@@ -2649,14 +2665,34 @@ function viewTablePlan(){
     const usableL = tab.L;
     const usableW = tab.W;
 
-    const dayRows = days.map((d,i)=>{
-      const cells = byDay[d];
+    // Merge casting days + swap days into a unified sorted list
+    const allDaysList = [...new Set([...days, ...swapDays])].sort();
+    let castDayNum = 0;
+    const dayRows = allDaysList.map(d=>{
       const dt = new Date(d);
+      const dayLabel3 = `${dayLabel(dt)} <span style="opacity:.6">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt.getDay()]}</span>`;
+      // Swap day
+      if(swapDays.has(d) && !byDay[d]){
+        return `<div class="dayrow" style="background:#fffbeb;border-color:#fde68a">
+          <div class="dayrow-h">
+            <div class="dayrow-num" style="color:#92400e">🔄 Swap</div>
+            <div class="dayrow-date">${dayLabel3}</div>
+            <div class="dayrow-meta" style="color:#b45309">Mould change — no casting</div>
+            <div class="dayrow-bar"><div style="width:0%;background:#f59e0b"></div></div>
+          </div>
+          <div class="dayrow-content" style="align-items:center;color:#b45309;font-size:12px;padding:8px">
+            New mould being installed. Casting resumes the next working day.
+          </div>
+        </div>`;
+      }
+      castDayNum++;
+      const cells = byDay[d];
       // Area-based utilization: actual panel footprint vs. actual table area.
       const tabArea = tab.L * tab.W;
       const usedArea = cells.reduce((sum,c)=> sum + c.w*c.h, 0);
       const usedPct = Math.min(100, Math.round(usedArea / tabArea * 100));
       const dayKg = cells.reduce((sum,c)=>sum+c.kg,0);
+      const barColor = cells[0].fam==='IP'?'#1e3a5f':cells[0].fam==='WL'?'#059669':cells[0].fam==='WN'?'#7c3aed':'#dc2626';
       const chips = cells.map(c=>{
         const t = TYPES.find(x=>x.code===c.type)||{};
         return `<div class="dlot ${c.fam}" title="${esc(c.type)} · B${c.b} · ${c.w}×${c.h} mm · ${fmt(c.kg)} kg · floor ${esc(t.fl||"?")}">
@@ -2667,10 +2703,10 @@ function viewTablePlan(){
       const sketch = renderTableSketch(tab, cells, s.params.shutter);
       return `<div class="dayrow">
         <div class="dayrow-h">
-          <div class="dayrow-num">Day ${i+1}</div>
-          <div class="dayrow-date">${dayLabel(dt)} <span style="opacity:.6">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt.getDay()]}</span></div>
+          <div class="dayrow-num">Day ${castDayNum}</div>
+          <div class="dayrow-date">${dayLabel3}</div>
           <div class="dayrow-meta">${cells.length} panel${cells.length>1?"s":""} · ${fmt(dayKg)} kg · table use ${usedPct}%</div>
-          <div class="dayrow-bar"><div style="width:${usedPct}%;background:${cells[0].fam==='IP'?'#1e3a5f':cells[0].fam==='WL'?'#059669':cells[0].fam==='WN'?'#7c3aed':'#dc2626'}"></div></div>
+          <div class="dayrow-bar"><div style="width:${usedPct}%;background:${barColor}"></div></div>
         </div>
         <div class="dayrow-content">
           ${sketch}
