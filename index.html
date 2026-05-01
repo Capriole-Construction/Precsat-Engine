@@ -5750,10 +5750,9 @@ function _btrackPrintReport(){
         const isCast = st==='cast'||st==='cast-inhouse';
         if(isCast){ castCount++; totalCastByBuilding[i]++; }
         totalPanelsByBuilding[i]++;
-        const bg  = st==='cast-inhouse'?'#dbeafe':isCast?'#d1fae5':'#fff';
-        const col = st==='cast-inhouse'?'#1e40af':isCast?'#065f46':'#d1d5db';
+        const cls = st==='cast-inhouse'?'cell-inhouse':isCast?'cell-cast':'cell-pending';
         const lbl = st==='cast-inhouse'?'✓ IH':isCast?'✓':'–';
-        return `<td style="text-align:center;font-size:9px;padding:3px;background:${bg};color:${col};font-weight:${isCast?700:400}">${lbl}</td>`;
+        return `<td class="${cls}" style="font-size:9px;padding:3px">${lbl}</td>`;
       }).join('');
       totalCastFloor+=castCount; totalFloor+=B;
       const balance=B-castCount;
@@ -5848,19 +5847,39 @@ function _btrackPrintReport(){
     th,td{border:1px solid #e5e7eb;padding:3px 5px}
     thead th{background:#1e3a5f;color:#fff;font-weight:700;text-align:center}
     thead th:first-child{text-align:left}
+    .cell-cast{background:#059669!important;color:#fff!important;font-weight:800!important;text-align:center}
+    .cell-inhouse{background:#1e40af!important;color:#fff!important;font-weight:800!important;text-align:center}
+    .cell-pending{text-align:center;color:#cbd5e1}
     @media print{
       body{padding:10px 12px}
       @page{size:A3 landscape;margin:10mm}
       button{display:none!important}
+      .cell-cast{background:#059669!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .cell-inhouse{background:#1e40af!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     }
   </style>
   </head><body>
   <!-- Header -->
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:3px solid #1e3a5f">
-    <div>
-      <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:#6b7280;text-transform:uppercase;margin-bottom:4px">CAPRIOLE PRECAST ENGINE</div>
-      <h1>Building-Wise Tracking Report</h1>
-      <div style="font-size:11px;color:#6b7280;margin-top:4px">Project: <b style="color:#1e3a5f">${esc(projName)}</b> &nbsp;|&nbsp; Printed: ${printDate}</div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;padding-bottom:12px;border-bottom:3px solid #1e3a5f">
+    <div style="display:flex;align-items:center;gap:18px">
+      <img src="https://capriole-construction.github.io/KnowledgeBase/Books%20and%20References/capriole-platform/logo.png"
+           alt="Capriole" style="height:56px;width:auto;object-fit:contain"
+           onerror="this.style.display='none'">
+      <div>
+        <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:#6b7280;text-transform:uppercase;margin-bottom:4px">CAPRIOLE PRECAST ENGINE</div>
+        <h1>Building-Wise Tracking Report</h1>
+        <div style="font-size:11px;color:#6b7280;margin-top:4px">Project: <b style="color:#1e3a5f">${esc(projName)}</b> &nbsp;|&nbsp; Printed: ${printDate}</div>
+      </div>
+    </div>
+    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+      <div style="font-size:30px;font-weight:900;color:${grandColor};line-height:1">${grandPct}%</div>
+      <div style="font-size:10px;color:#6b7280">Overall Cast Progress</div>
+      <div style="font-size:10px;font-weight:700;color:#374151">${grandCast} / ${grandTotal} panels</div>
+      <div style="display:flex;gap:8px;margin-top:4px;font-size:9px">
+        <span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:12px;height:12px;background:#059669;border-radius:2px"></span> Cast</span>
+        <span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:12px;height:12px;background:#1e40af;border-radius:2px"></span> Cast In-House</span>
+        <span style="display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:12px;height:12px;background:#e5e7eb;border-radius:2px"></span> Pending</span>
+      </div>
     </div>
   </div>
 
