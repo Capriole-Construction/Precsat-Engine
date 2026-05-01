@@ -3794,6 +3794,7 @@ function viewData(){
         </span>
         <span style="margin-left:auto"></span>
         <button class="btn sm" id="pnlPrintBtn" title="Print / Save as PDF">🖨 Print PDF</button>
+        <button class="btn sm" id="pnlExportBtn" title="Export panel list to CSV">⬇ Export CSV</button>
         <button class="btn sm" id="pnlTemplateBtn" title="Download Excel import template">📥 Template</button>
         <label class="btn sm" style="cursor:pointer;margin:0" title="Import panels from CSV or Excel file">
           📤 Import
@@ -4339,6 +4340,29 @@ ${filterParts.length?`<div class="filter-bar"><strong>Filtered by:</strong>${fil
   $("#srcReset") && ($("#srcReset").onclick = ()=>{
     SRC_OVR = {}; saveSrcOverrides(); refreshSidebarCounts(); render();
   });
+  if($("#pnlExportBtn")) $("#pnlExportBtn").onclick = ()=>{
+    const cols = ["Code","Family","Floor","Width_mm","Height_mm","Thick_mm","M2","KG","Openings","MEP","In-House","Source","Supplier"];
+    const rows = TYPES.map(t=>{
+      const openings = [
+        t.wins  ? t.wins +" Win"  : "",
+        t.doors ? t.doors+" Door" : "",
+        t.louv  ? t.louv +" Louv" : ""
+      ].filter(Boolean).join("; ") || "—";
+      return [
+        t.code, t.fam, t.fl||"", t.w, t.h, t.thk||250,
+        (t.m2||((t.w/1000)*(t.h/1000))).toFixed(2),
+        t.kg||"",
+        openings,
+        t.mep ? "Yes" : "No",
+        isInHouse(t) ? "In-House" : "By Others",
+        isByOthers(t) && t.supplier ? t.supplier : ""
+      ].map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(",");
+    });
+    const csv = [cols.join(","), ...rows].join("\r\n");
+    const projName = ($("#cfgName")?.value||"Precast").trim();
+    dl(new Blob([csv],{type:"text/csv"}), `${projName}_panel-list_${isoDate(new Date())}.csv`);
+    _pfToast("✓ Exported "+TYPES.length+" panels","ok");
+  };
   if($("#dlJson")) $("#dlJson").onclick = ()=>{
     const blob = new Blob([JSON.stringify(schedule, (k,v)=>k==="dt"?undefined:v, 2)],{type:"application/json"});
     dl(blob, `naheel-schedule-${isoDate(new Date())}.json`);
