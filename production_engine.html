@@ -1459,32 +1459,13 @@ async function runEngine(){
         const newTypes = new Set(lot.map(c => c.type));
         const prevTypes = tpl ? tpl.types : null;
 
-        // ── Mould-swap day: if any type is NEW vs the prior mould, the slot is idle
-        // today while the mould is changed. Panels go back to queue; casting resumes
-        // the next day with the new mould already installed.
+        // ── Mould-swap detection: note that types changed vs prior mould.
+        // No idle day is emitted here — exactly 1 SWAP day per type-group
+        // boundary is injected during the EXPAND pass below, guaranteeing
+        // swaps always cost exactly 1 calendar day regardless of how many
+        // type changes the 1-building sub-schedule produces.
         const isRealSwap = prevTypes && prevTypes.size > 0 &&
           [...newTypes].some(t => !prevTypes.has(t));
-        if(isRealSwap){
-          // Count how many mould dimensions changed
-          for(const t of newTypes){ if(!prevTypes.has(t)) shutterChanges++; }
-          // Record new template now so tomorrow runs in template-mode
-          slotTemplate[slot.slotId] = { types: newTypes, usedBuildings: new Set() };
-          slotSwapUntil[slot.slotId] = dayIdx + 1;  // skip this slot today
-          // Return items to globalQueue (they were already removed above)
-          for(let i = lot.length - 1; i >= 0; i--) globalQueue.unshift(lot[i]);
-          // Store a visible swap-day marker cell (not a panel — excluded from totals)
-          const swapCell = {
-            slotId: slot.slotId, slotLabel: slot.label,
-            type: '__SWAP__', fam: null, b: null, kg: 0,
-            dayIdx, dateIso: iso, dt: new Date(dt),
-            isSwap: true, lotIdx: 0, lotSize: 0, layout: null, isLast: false,
-          };
-          if(!cellsByDate[iso]) cellsByDate[iso] = {};
-          if(!cellsByDate[iso][slot.slotId]) cellsByDate[iso][slot.slotId] = [];
-          cellsByDate[iso][slot.slotId].push(swapCell);
-          allCells.push(swapCell);
-          continue;
-        }
 
         if(prevTypes){
           for(const t of newTypes){ if(!prevTypes.has(t)) shutterChanges++; }
@@ -1592,23 +1573,22 @@ async function runEngine(){
     }
   }
 
-  // EXPAND ACROSS BUILDINGS: 1-building schedule is replicated userBuildings
-  // times. Each original day becomes userBuildings consecutive working days,
-  // building-numbered 1..userBuildings, with identical type/layout per day.
-  if(userBuildings > 1){
+  // EXPAND ACROSS BUILDINGS + INJECT SWAP DAYS:
+  // Always run this pass (even for 1 building). Each original cast day is
+  // replicated userBuildings times (one per building). When the type-set
+  // changes between consecutive cast days on a slot, exactly 1 SWAP day is
+  // injected before the first cast day of the new type group — guaranteed
+  // regardless of how many type changes the 1-building sub-schedule produces.
+  {
     const sortedDays = Object.keys(cellsByDate).sort();
     const newCellsByDate = {};
     const newSlotTimeline = {};
     slotAssignments.forEach(s => newSlotTimeline[s.slotId] = []);
     const newAllCells = [];
 
-    // PER-SLOT INDEPENDENT REPLICATION
-    // Each slot gets its own output day counter so that a mould-swap on one
-    // slot consumes exactly 1 calendar day while other slots advance normally
-    // through their N buildings. The old single-counter approach caused every
-    // swap to waste (N-1) phantom empty days on the swapping slot.
     const slotOutDay = {};
     slotAssignments.forEach(s => { slotOutDay[s.slotId] = 0; });
+    const slotLastTypes = {}; // slotId → Set<typeCode> from previous committed group
 
     const nextWorkDay = (slotId)=>{
       let d = slotOutDay[slotId];
@@ -1618,6 +1598,22 @@ async function runEngine(){
       return { d, dt, iso: isoDate(dt) };
     };
 
+    const emitSwapCell = (sid, slotLabel)=>{
+      const { d, dt, iso: outIso } = nextWorkDay(sid);
+      const swapCell = {
+        slotId: sid, slotLabel,
+        type: '__SWAP__', fam: null, b: null, kg: 0,
+        dayIdx: d, dateIso: outIso, dt: new Date(dt),
+        isSwap: true, lotIdx: 0, lotSize: 0, layout: null, isLast: false,
+      };
+      if(!newCellsByDate[outIso]) newCellsByDate[outIso] = {};
+      if(!newCellsByDate[outIso][sid]) newCellsByDate[outIso][sid] = [];
+      newCellsByDate[outIso][sid].push(swapCell);
+      (newSlotTimeline[sid] = newSlotTimeline[sid] || []).push(swapCell);
+      newAllCells.push(swapCell);
+      slotOutDay[sid]++;
+    };
+
     for(const iso of sortedDays){
       const dayCells = cellsByDate[iso];
       for(const slotId of Object.keys(dayCells)){
@@ -1625,30 +1621,30 @@ async function runEngine(){
         if(!cells || cells.length === 0) continue;
         const sid = +slotId;
 
-        if(cells[0].isSwap){
-          // Swap: 1 physical mould-change — occupies exactly 1 calendar day.
+        // Skip any old-style SWAP cells — SWAP days are now injected solely
+        // by this pass based on per-slot type-group boundaries.
+        if(cells[0].isSwap) continue;
+
+        // Detect type-group change → inject exactly 1 SWAP day.
+        const curTypes = new Set(cells.map(c => c.type));
+        const prevLastTypes = slotLastTypes[sid];
+        if(prevLastTypes && [...curTypes].some(t => !prevLastTypes.has(t))){
+          emitSwapCell(sid, cells[0].slotLabel || '');
+        }
+        slotLastTypes[sid] = curTypes;
+
+        // Replicate for each building on consecutive working days.
+        for(let b=1; b<=userBuildings; b++){
           const { d, dt, iso: outIso } = nextWorkDay(sid);
-          const nc = { ...cells[0], dayIdx: d, dateIso: outIso, dt: new Date(dt) };
           if(!newCellsByDate[outIso]) newCellsByDate[outIso] = {};
           if(!newCellsByDate[outIso][sid]) newCellsByDate[outIso][sid] = [];
-          newCellsByDate[outIso][sid].push(nc);
-          (newSlotTimeline[sid] = newSlotTimeline[sid] || []).push(nc);
-          newAllCells.push(nc);
-          slotOutDay[sid]++;
-        } else {
-          // Panel lot: replicate for each building on consecutive work days.
-          for(let b=1; b<=userBuildings; b++){
-            const { d, dt, iso: outIso } = nextWorkDay(sid);
-            if(!newCellsByDate[outIso]) newCellsByDate[outIso] = {};
-            if(!newCellsByDate[outIso][sid]) newCellsByDate[outIso][sid] = [];
-            for(const c of cells){
-              const nc = { ...c, b, dayIdx: d, dateIso: outIso, dt: new Date(dt), isLast: false };
-              newCellsByDate[outIso][sid].push(nc);
-              (newSlotTimeline[sid] = newSlotTimeline[sid] || []).push(nc);
-              newAllCells.push(nc);
-            }
-            slotOutDay[sid]++;
+          for(const c of cells){
+            const nc = { ...c, b, dayIdx: d, dateIso: outIso, dt: new Date(dt), isLast: false };
+            newCellsByDate[outIso][sid].push(nc);
+            (newSlotTimeline[sid] = newSlotTimeline[sid] || []).push(nc);
+            newAllCells.push(nc);
           }
+          slotOutDay[sid]++;
         }
       }
     }
