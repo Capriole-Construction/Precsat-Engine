@@ -685,7 +685,7 @@ function getMeta(code){
     if((+m.opnW||0)||(+m.opnL||0))   openings.push({type:'win', w:+m.opnW||0, l:+m.opnL||0});
     if((+m.doorsW||0)||(+m.doorsL||0)) openings.push({type:'door',w:+m.doorsW||0,l:+m.doorsL||0});
   }
-  return { openings, mep:+m.mep||0,
+  return { openings, mep:+m.mep||0, qty:+m.qty||1,
     // Keep legacy fields for any code that still reads them
     opnW:openings.filter(o=>o.type==='win').reduce((s,o)=>s+o.w,0)||0,
     opnL:openings.filter(o=>o.type==='win').reduce((s,o)=>s+o.l,0)||0,
@@ -3846,6 +3846,7 @@ function viewData(){
           <label style="font-size:11px;color:#6b7280">Height (mm)<input id="np_h" type="number" class="inp sm" value="3000" style="width:100%"></label>
           <label style="font-size:11px;color:#6b7280">Thickness (mm)<input id="np_t" type="number" class="inp sm" value="200" style="width:100%"></label>
           <label style="font-size:11px;color:#6b7280">Weight (kg)<input id="np_kg" type="number" class="inp sm" value="3000" style="width:100%"></label>
+          <label style="font-size:11px;color:#6b7280">No. of Panels<input id="np_qty" type="number" class="inp sm" value="1" min="1" step="1" style="width:100%"></label>
           <label style="font-size:11px;color:#6b7280">Opening W (mm)<input id="np_opnW" type="number" class="inp sm" value="0" min="0" style="width:100%"></label>
           <label style="font-size:11px;color:#6b7280">Opening L (mm)<input id="np_opnL" type="number" class="inp sm" value="0" min="0" style="width:100%"></label>
           <label style="font-size:11px;color:#6b7280">Door Opening W (mm)<input id="np_doorsW" type="number" class="inp sm" value="0" min="0" style="width:100%"></label>
@@ -3860,7 +3861,7 @@ function viewData(){
       </div>
       <table class="tbl">
         <thead><tr>
-          <th>#</th><th>Code</th><th>Family</th><th>Floor</th>
+          <th>#</th><th>Code</th><th class="num" title="Number of panels of this type">Qty</th><th>Family</th><th>Floor</th>
           <th class="num">Width (mm)</th><th class="num">Height (mm)</th><th class="num">Thick</th>
           <th class="num">m³</th><th class="num">kg</th>
           <th class="ctr" title="Window and door openings — click ✏ to manage multiple">Openings</th>
@@ -3877,6 +3878,7 @@ function viewData(){
             return `<tr${inh?"":' style="background:#fef2f2"'}>
               <td>${i+1}</td>
               <td><b>${esc(t.code)}</b>${t._user?' <span style="font-size:10px;color:#0369a1">●custom</span>':""}</td>
+              <td class="num"><input type="number" min="1" step="1" value="${m.qty}" data-meta="qty" data-code="${esc(t.code)}" style="width:52px;text-align:center" title="Number of panels"></td>
               <td><span class="pill ${t.fam}">${t.fam}</span></td>
               <td>${esc(t.fl||"")}</td>
               <td class="num">${t.w}</td>
@@ -3950,7 +3952,8 @@ function bindData(){
   // Inline meta editing (MEP checkbox + any remaining number fields)
   $$('#view input[data-meta]').forEach(inp=>{
     inp.onchange = ()=>{
-      const val = inp.type==='checkbox' ? (inp.checked?1:0) : inp.value;
+      let val = inp.type==='checkbox' ? (inp.checked?1:0) : inp.value;
+      if(inp.dataset.meta==='qty') val = Math.max(1, +val||1);
       setMeta(inp.dataset.code, inp.dataset.meta, val);
     };
   });
@@ -4294,6 +4297,7 @@ ${filterParts.length?`<div class="filter-bar"><strong>Filtered by:</strong>${fil
     setMeta(code,"doorsW", $("#np_doorsW").value);
     setMeta(code,"doorsL", $("#np_doorsL").value);
     setMeta(code,"mep",    $("#np_mep").checked?1:0);
+    setMeta(code,"qty",    Math.max(1,+$("#np_qty").value||1));
     saveUserTypes();
     refreshSidebarCounts();
     refreshFloorSelectors();
@@ -4354,7 +4358,7 @@ ${filterParts.length?`<div class="filter-bar"><strong>Filtered by:</strong>${fil
       'Opening 1 Type (win/door)','Opening 1 Width (mm)','Opening 1 Length (mm)',
       'Opening 2 Type (win/door)','Opening 2 Width (mm)','Opening 2 Length (mm)',
       'Opening 3 Type (win/door)','Opening 3 Width (mm)','Opening 3 Length (mm)',
-      'MEP (1=yes 0=no)','Source'
+      'MEP (1=yes 0=no)','Source','Qty'
     ];
     const q = v => '"'+String(v??'').replace(/"/g,'""')+'"';
     const rows = TYPES.map(t=>{
@@ -4368,7 +4372,8 @@ ${filterParts.length?`<div class="filter-bar"><strong>Filtered by:</strong>${fil
         o[1].type, o[1].w||'', o[1].l||'',
         o[2].type, o[2].w||'', o[2].l||'',
         m.mep ? 1 : 0,
-        isInHouse(t) ? 'In-House' : 'By Others'
+        isInHouse(t) ? 'In-House' : 'By Others',
+        m.qty
       ].map(q).join(',');
     });
     const csv = BOM + [headers.map(q).join(','), ...rows].join('\r\n');
@@ -4505,12 +4510,12 @@ window._pfDownloadTemplate = function(){
     'Opening 1 Type (win/door)','Opening 1 Width (mm)','Opening 1 Length (mm)',
     'Opening 2 Type (win/door)','Opening 2 Width (mm)','Opening 2 Length (mm)',
     'Opening 3 Type (win/door)','Opening 3 Width (mm)','Opening 3 Length (mm)',
-    'MEP (1=yes 0=no)'
+    'MEP (1=yes 0=no)','Qty'
   ];
   const rows = [
-    ['GF-IP-NEW','IP','GF','4000','3400','250','5000','win','1200','1600','','','','','','','1'],
-    ['FF-WL-NEW','WL','FF','5000','3100','200','6200','door','900','2100','win','800','1200','','','','0'],
-    ['RF-WN-NEW','WN','RF','3000','2800','200','3500','','','','','','','','','','0'],
+    ['GF-IP-NEW','IP','GF','4000','3400','250','5000','win','1200','1600','','','','','','','1','4'],
+    ['FF-WL-NEW','WL','FF','5000','3100','200','6200','door','900','2100','win','800','1200','','','','0','2'],
+    ['RF-WN-NEW','WN','RF','3000','2800','200','3500','','','','','','','','','','0','1'],
   ];
   const csv = BOM + [headers,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\r\n');
   const a = document.createElement('a');
@@ -4572,9 +4577,11 @@ window._pfImportPanels = function(input){
           openings.push({type:tp==='window'?'win':tp, w:ow, l:ol});
       }
       const mep = parseInt(get(row,'mep'))||0;
+      const qty = Math.max(1, parseInt(get(row,'qty'))||1);
       if(!TYPE_META[code]) TYPE_META[code]={};
       TYPE_META[code].openings=openings;
       TYPE_META[code].mep=mep?1:0;
+      TYPE_META[code].qty=qty;
       const wins=openings.filter(o=>o.type==='win'), doors=openings.filter(o=>o.type==='door');
       TYPE_META[code].opnW  =wins[0]?wins[0].w:0;  TYPE_META[code].opnL  =wins[0]?wins[0].l:0;
       TYPE_META[code].doorsW=doors[0]?doors[0].w:0; TYPE_META[code].doorsL=doors[0]?doors[0].l:0;
