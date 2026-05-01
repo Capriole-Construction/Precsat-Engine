@@ -5391,6 +5391,12 @@ if($("#cfgFileInput")){
 
   _pfRefresh();
 
+  // Auto-load cloud patches on page load if already signed in.
+  // Credentials persist in localStorage — no need to sign in again on refresh.
+  if(window._pfConfig && window._pfConfig.ocUser && window._pfConfig.ocPass){
+    _pfRefreshHome();
+  }
+
 })();
 
 function refreshSidebarCounts(){
