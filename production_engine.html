@@ -1170,6 +1170,13 @@ async function runEngine(){
     const iso = isoDate(dt);
     let placedThisDay = 0;
 
+    // Floor fence: only schedule panels from the lowest floor still in the queue.
+    // This guarantees GF finishes before FF starts, FF before SF, SF before RF.
+    const _floorFence = globalQueue.reduce((best, it) => {
+      const r = floorRank(it.t.fl||'');
+      return r < best ? r : best;
+    }, 99);
+
     // Slots whose existing template can still be re-used (template-mode) go
     // FIRST so they claim their (type, building) panels before any free-pack
     // slot drains them. Within each group, larger tables go first.
@@ -1374,7 +1381,8 @@ async function runEngine(){
           return (t.w + params.shutter) <= (L - 2*O) && (t.h + params.shutter) <= (W - 2*O);
         };
         const eligible = globalQueue.filter(it =>
-          (!allow || !it.fam || allow.includes(it.fam)) && fits(it.t)
+          (!allow || !it.fam || allow.includes(it.fam)) && fits(it.t) &&
+          floorRank(it.t.fl||'') === _floorFence
         );
         if(eligible.length === 0) continue;
 
@@ -1507,7 +1515,8 @@ async function runEngine(){
             // Eligible guests: any queue item whose family is NOT already
             // covered by this slot's allows list AND physically fits the table.
             const gPool = globalQueue.filter(it=>
-              !allow.includes(it.fam) && fits(it.t)
+              !allow.includes(it.fam) && fits(it.t) &&
+              floorRank(it.t.fl||'') === _floorFence
             );
             if(gPool.length){
               gPool.sort((a,b)=>(b.t.w*b.t.h)-(a.t.w*a.t.h));
