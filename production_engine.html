@@ -1153,8 +1153,7 @@ async function runEngine(){
     const L = Math.max(tab.L, tab.W) + params.shutter, W = Math.min(tab.L, tab.W) + params.shutter;
     const fits = (t)=>{
       const O = TABLE_EDGE_OFFSET;
-      const aw=t.w+params.shutter, ah=t.h+params.shutter, aW=L-2*O, aH=W-2*O;
-      return (aw<=aW && ah<=aH) || (ah<=aW && aw<=aH);
+      return (t.w + params.shutter) <= (L - 2*O) && (t.h + params.shutter) <= (W - 2*O);
     };
     for(let b=1; b<=BUILDINGS; b++){
       if(tpl.usedBuildings.has(b)) continue;
@@ -1222,9 +1221,9 @@ async function runEngine(){
         const L = Math.max(tab.L, tab.W) + params.shutter;
         const W = Math.min(tab.L, tab.W) + params.shutter;
         const fits = (t)=>{
+          // Fixed orientation: t.w along L, t.h along W; both checked against offset-reduced bin.
           const O = TABLE_EDGE_OFFSET;
-          const aw=t.w+params.shutter, ah=t.h+params.shutter, aW=L-2*O, aH=W-2*O;
-      return (aw<=aW && ah<=aH) || (ah<=aW && aw<=aH);
+          return (t.w + params.shutter) <= (L - 2*O) && (t.h + params.shutter) <= (W - 2*O);
         };
         const claimed = new Set();   // queue items locked in for this lot
         const consumed = [];         // fresh buildings cast this day
@@ -1385,8 +1384,7 @@ async function runEngine(){
         const SWAP_PENALTY = 0.15 * TABLE_AREA;
         const fits = (t)=>{
           const O = TABLE_EDGE_OFFSET;
-          const aw=t.w+params.shutter, ah=t.h+params.shutter, aW=L-2*O, aH=W-2*O;
-      return (aw<=aW && ah<=aH) || (ah<=aW && aw<=aH);
+          return (t.w + params.shutter) <= (L - 2*O) && (t.h + params.shutter) <= (W - 2*O);
         };
         const eligible = globalQueue.filter(it =>
           (!allow || !it.fam || allow.includes(it.fam)) && fits(it.t) &&
@@ -2116,28 +2114,25 @@ function maxRectsRun(items, L, W, shutter, seedRects){
     let bestScore = Infinity, bestSecondary = Infinity, best = null;
     for(let i=0; i<remaining.length; i++){
       const it = remaining[i];
-      // Try both orientations: natural and 90° rotated.
-      // Natural: panel Width (t.w) along L (x / long side), Height (t.h) along W (y / short side).
-      // Rotated: panel Height (t.h) along L, Width (t.w) along W.
-      for(const rotated of [false, true]){
-        const pw = (rotated ? it.t.h : it.t.w) + shutter;
-        const ph = (rotated ? it.t.w : it.t.h) + shutter;
-        for(const r of freeRects){
-          if(pw<=r.w && ph<=r.h){
-            const lwL = r.w - pw, lwS = r.h - ph;
-            const sScore = Math.min(lwL, lwS);
-            const lScore = Math.max(lwL, lwS);
-            if(sScore < bestScore || (sScore===bestScore && lScore<bestSecondary)){
-              bestScore = sScore; bestSecondary = lScore;
-              best = {idx:i, x:r.x, y:r.y, pw, ph, item:it, rotated};
-            }
+      // Fixed orientation: panel Width (t.w) always along L (x / 8 m side),
+      // panel Height (t.h) always along W (y side).
+      const pw = it.t.w + shutter;
+      const ph = it.t.h + shutter;
+      for(const r of freeRects){
+        if(pw<=r.w && ph<=r.h){
+          const lwL = r.w - pw, lwS = r.h - ph;
+          const sScore = Math.min(lwL, lwS);
+          const lScore = Math.max(lwL, lwS);
+          if(sScore < bestScore || (sScore===bestScore && lScore<bestSecondary)){
+            bestScore = sScore; bestSecondary = lScore;
+            best = {idx:i, x:r.x, y:r.y, pw, ph, item:it};
           }
         }
       }
     }
     if(!best) break;
-    const {idx, x, y, pw, ph, item, rotated} = best;
-    item.layout = {x, y, pw, ph, tableL:L, tableW:W, rotated};
+    const {idx, x, y, pw, ph, item} = best;
+    item.layout = {x, y, pw, ph, tableL:L, tableW:W};
     placed.push(item);
     remaining.splice(idx, 1);
     freeRects = splitFreeRects(freeRects, {x, y, w:pw, h:ph});
@@ -2497,7 +2492,7 @@ function renderTableSketch(tab, cells, shutter){
       ${strips}
       <rect x="${innerX.toFixed(1)}" y="${innerY.toFixed(1)}" width="${innerW.toFixed(1)}" height="${innerH.toFixed(1)}"
             fill="${fill}" stroke="#fff" stroke-width=".8" opacity=".95">
-        <title>${esc(c.type)} · B${c.b} · ${c.layout.rotated?c.h+'×'+c.w:c.w+'×'+c.h} mm · ${fmt(c.kg)} kg${c.layout.rotated?' (rotated 90°)':''}</title>
+        <title>${esc(c.type)} · B${c.b} · ${c.w}×${c.h} mm · ${fmt(c.kg)} kg</title>
       </rect>
       ${showFull ? `
         <text x="${cx.toFixed(1)}" y="${(cy-2).toFixed(1)}"
@@ -2937,12 +2932,13 @@ function viewTablePlan(){
 // --- Casting Tables ---
 function getShutterMm(){ return parseInt($("#pShutter")?.value)||300; }
 function fitsTable(typ, tab, shutter){
-  // Panel fits if it can be placed in natural OR 90°-rotated orientation
-  // within the table's usable area (inside the 300 mm edge offset on each side).
+  // Shutter only counts BETWEEN adjacent panels. A single panel sits flush
+  // against the table edge, so the perimeter shutter cancels — fit is just
+  // panel size vs. table size.
+  // Fixed orientation: typ.w along L, typ.h along W; both must fit within the 300 mm edge offset.
   const L=Math.max(tab.L,tab.W), W=Math.min(tab.L,tab.W);
   const O=TABLE_EDGE_OFFSET;
-  return (typ.w<=(L-2*O) && typ.h<=(W-2*O)) ||
-         (typ.h<=(L-2*O) && typ.w<=(W-2*O));
+  return typ.w<=(L-2*O) && typ.h<=(W-2*O);
 }
 function viewTables(){
   // Per-table: types that fit, total weight if they were each cast once
