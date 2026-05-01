@@ -3296,6 +3296,13 @@ function viewOrders(){
   const hideCompleted = window._ordersHideCompleted !== false; // default ON
   let hiddenDayCount = 0;
   let rows = "";
+  // Collect unique tables and families for filter chips
+  const allTableIds = [...new Set(s.slotAssignments.map(sl=>sl.tableId).filter(Boolean))].sort();
+  const allFams = [...new Set(s.allCells.filter(c=>!c.isSwap && c.type).map(c=>{
+    const m = c.type.match(/^([A-Z]+)/); return m ? m[1] : c.type;
+  }))].sort();
+  const allBuildings = [...new Set(s.allCells.filter(c=>!c.isSwap).map(c=>c.b))].sort((a,b)=>a-b);
+
   s.allDates.forEach(d=>{
     const cells = byDate[d];
     if(!cells) return;
@@ -3307,19 +3314,21 @@ function viewOrders(){
     const pendHere = cells.filter(c=>getStatus(c)!=='cast').length;
     const castHere = cells.length - pendHere;
     const daySuffix = castHere>0 ? ` · <span style="color:#065f46;font-weight:600">${castHere} cast</span>` : '';
-    rows += `<tr style="background:#f8fafc"><td colspan="8"><b>${esc(d)}</b> · ${dayLabel(new Date(d))} <span style="float:right;color:#6b7280">${pendHere} pending${daySuffix}</span></td></tr>`;
+    rows += `<tr class="ord-date-hdr" data-date="${esc(d)}" style="background:#f8fafc"><td colspan="8"><b>${esc(d)}</b> · ${dayLabel(new Date(d))} <span style="float:right;color:#6b7280">${pendHere} pending${daySuffix}</span></td></tr>`;
     cells.forEach((c,idx)=>{
       const st = getStatus(c);
       const rowBg = st==="cast" ? 'background:#f0fdf4' : '';
       const ckey = `${c.dateIso}|${c.slotId}|${c.type}|${c.b}`;
       const f = cellReuse[ckey];
+      const tableId = c.slotId ? (schedule.slotAssignments.find(s=>s.slotId===c.slotId)?.tableId||"") : "";
+      const famCode = (c.type||'').match(/^([A-Z]+)/) ? c.type.match(/^([A-Z]+)/)[1] : (c.type||'');
       let mouldCell = "";
       if(f === 'reuse') mouldCell = `<span title="Mould kept from yesterday — no shutter swap" style="color:#065f46;font-weight:600">♻ reuse</span>`;
       else if(f === 'swap') mouldCell = `<span title="New mould installed today — shutter swap" style="color:#b45309;font-weight:600">🔄 swap</span>`;
       else mouldCell = `<span title="First use of this slot" style="color:#6b7280">— new</span>`;
-      rows += `<tr style="${rowBg}" data-ckey="${esc(ckey)}">
+      rows += `<tr class="ord-panel-row" style="${rowBg}" data-ckey="${esc(ckey)}" data-date="${esc(d)}" data-table="${esc(tableId)}" data-fam="${esc(famCode)}" data-type="${esc(c.type||'')}" data-b="${c.b}" data-status="${st}">
         <td></td>
-        <td>${esc(c.slotId ? (schedule.slotAssignments.find(s=>s.slotId===c.slotId)?.tableId||"") : "")}</td>
+        <td>${esc(tableId)}</td>
         <td><b>${esc(c.type)}</b></td>
         <td>Building ${c.b}</td>
         <td class="num">${c.w}×${c.h} mm</td>
@@ -3335,6 +3344,14 @@ function viewOrders(){
       </tr>`;
     });
   });
+
+  // Build chip HTML helpers
+  function _chipHtml(group, val, label){
+    return `<button class="ord-chip" data-group="${group}" data-val="${esc(val)}" style="padding:3px 10px;border-radius:12px;border:1px solid #cbd5e1;background:#f1f5f9;color:#374151;font-size:11px;cursor:pointer;font-weight:600;transition:all .15s">${esc(label||val)}</button>`;
+  }
+  const tableChips  = allTableIds.map(t=>_chipHtml('table',t,t)).join(' ');
+  const famChips    = allFams.map(f=>_chipHtml('fam',f,f)).join(' ');
+  const buildChips  = allBuildings.map(b=>_chipHtml('bld',''+b,'B'+b)).join(' ');
   // Status counts for header
   let castCount=0, pendCount=0;
   s.allCells.forEach(c=>{ if(getStatus(c)==="cast") castCount++; else pendCount++; });
@@ -3351,6 +3368,20 @@ function viewOrders(){
         <button class="btn sm" id="resetStatusBtn" title="Clear all cast/pending statuses">Reset Status</button>
         <button class="btn sm${hideCompleted?' primary':''}" id="hideCompletedBtn" title="Toggle visibility of fully-cast days">${hideCompleted?'✓ ':''}Hide Completed Days${hiddenDayCount>0?' ('+hiddenDayCount+')':''}</button>
       </div>
+
+      <!-- ── Order Schedule Filter Bar ── -->
+      <div id="ordersFilterBar" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+        <input id="ord_search" type="text" placeholder="Search type / code…" class="inp" style="width:160px;padding:4px 8px;font-size:12px">
+        ${tableChips.length ? `<span style="font-size:11px;color:#6b7280;font-weight:600">Table:</span>${tableChips}` : ''}
+        ${famChips.length   ? `<span style="font-size:11px;color:#6b7280;font-weight:600;margin-left:4px">Family:</span>${famChips}` : ''}
+        ${buildChips.length ? `<span style="font-size:11px;color:#6b7280;font-weight:600;margin-left:4px">Building:</span>${buildChips}` : ''}
+        <span style="font-size:11px;color:#6b7280;font-weight:600;margin-left:4px">Status:</span>
+        <button class="ord-chip" data-group="status" data-val="pending" style="padding:3px 10px;border-radius:12px;border:1px solid #cbd5e1;background:#f1f5f9;color:#374151;font-size:11px;cursor:pointer;font-weight:600">Pending</button>
+        <button class="ord-chip" data-group="status" data-val="cast" style="padding:3px 10px;border-radius:12px;border:1px solid #cbd5e1;background:#f1f5f9;color:#374151;font-size:11px;cursor:pointer;font-weight:600">Cast</button>
+        <button id="ord_clear" class="btn xs" style="margin-left:auto" title="Clear all filters">✕ Clear</button>
+        <span id="ord_filter_count" style="font-size:11px;color:#6b7280"></span>
+      </div>
+
       <p style="margin:0 0 8px;font-size:11px;color:#475569">
         Mark each panel as <b>✓ Cast</b> when production is complete. Click <b>↻</b> to push a panel to the next working day on the same table — useful when site delays force a reshuffle.
         <b style="color:#2563eb">🔄 Redistribute Pending</b> re-optimises all uncast panels into new days, starting after the last ✓ Cast day.
@@ -3400,6 +3431,71 @@ function bindOrders(){
     window._ordersHideCompleted = window._ordersHideCompleted === false ? true : false;
     render();
   };
+
+  // ── Order Schedule filter bar ────────────────────────────────
+  (function wireOrderFilters(){
+    const searchEl = $('#ord_search');
+    const clearBtn  = $('#ord_clear');
+    const countEl   = $('#ord_filter_count');
+    if(!searchEl) return;
+
+    const chipSel = { table: new Set(), fam: new Set(), bld: new Set(), status: new Set() };
+
+    function applyOrdFilters(){
+      const q = (searchEl.value||'').trim().toLowerCase();
+      const panelRows = $$('#view .ord-panel-row');
+      let vis = 0, total = 0;
+      // First pass: show/hide panel rows
+      const visibleDates = new Set();
+      panelRows.forEach(tr=>{
+        total++;
+        const type   = (tr.dataset.type||'').toLowerCase();
+        const table  = tr.dataset.table||'';
+        const fam    = tr.dataset.fam||'';
+        const b      = tr.dataset.b||'';
+        const status = tr.dataset.status||'';
+        const date   = tr.dataset.date||'';
+        const matchQ      = !q || type.includes(q);
+        const matchTable  = chipSel.table.size===0 || chipSel.table.has(table);
+        const matchFam    = chipSel.fam.size===0   || chipSel.fam.has(fam);
+        const matchBld    = chipSel.bld.size===0   || chipSel.bld.has(b);
+        const matchStatus = chipSel.status.size===0|| chipSel.status.has(status);
+        const show = matchQ && matchTable && matchFam && matchBld && matchStatus;
+        tr.style.display = show ? '' : 'none';
+        if(show){ vis++; visibleDates.add(date); }
+      });
+      // Second pass: hide date header rows that have no visible panels
+      $$('#view .ord-date-hdr').forEach(tr=>{
+        tr.style.display = visibleDates.has(tr.dataset.date) ? '' : 'none';
+      });
+      const isFiltered = q || chipSel.table.size || chipSel.fam.size || chipSel.bld.size || chipSel.status.size;
+      if(countEl) countEl.textContent = isFiltered ? `${vis} of ${total} panels` : '';
+    }
+
+    // Chip toggle
+    function chipStyle(btn, active){
+      btn.style.background   = active ? '#1e3a5f' : '#f1f5f9';
+      btn.style.color        = active ? '#fff'    : '#374151';
+      btn.style.borderColor  = active ? '#1e3a5f' : '#cbd5e1';
+    }
+    $$('#ordersFilterBar .ord-chip').forEach(btn=>{
+      btn.onclick=()=>{
+        const g=btn.dataset.group, v=btn.dataset.val;
+        if(chipSel[g].has(v)){ chipSel[g].delete(v); chipStyle(btn,false); }
+        else                  { chipSel[g].add(v);    chipStyle(btn,true);  }
+        applyOrdFilters();
+      };
+    });
+
+    searchEl.oninput = applyOrdFilters;
+
+    if(clearBtn) clearBtn.onclick=()=>{
+      searchEl.value='';
+      ['table','fam','bld','status'].forEach(g=>chipSel[g].clear());
+      $$('#ordersFilterBar .ord-chip').forEach(b=>chipStyle(b,false));
+      applyOrdFilters();
+    };
+  })();
 }
 
 // ── Redistribute Pending Cells ────────────────────────────────
