@@ -407,18 +407,33 @@
       <!-- Body: cloud projects left, capabilities right -->
       <div style="flex:1;display:grid;grid-template-columns:1fr 320px;overflow:hidden">
 
-        <!-- LEFT: Running Patches -->
-        <div style="padding:28px 32px;overflow-y:auto;border-right:1px solid #e2e8f0;display:flex;flex-direction:column">
+        <!-- LEFT: Running Patches + Dashboard -->
+        <div style="padding:24px 28px 28px;overflow-y:auto;border-right:1px solid #e2e8f0;display:flex;flex-direction:column">
+
+          <!-- Header row -->
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0">
             <div style="font-size:13px;font-weight:700;color:#1e3a5f">☁ Running Patches</div>
-            <div style="display:flex;gap:8px">
-              <button onclick="_pfIndexCache=null;_pfRefreshHome()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;font-size:11px;font-weight:600;font-family:inherit">🔄 Refresh</button>
-              <button onclick="window._pfOpenSettings()" style="cursor:pointer;padding:6px 13px;border-radius:6px;background:#1e3a5f;color:#fff;border:none;font-size:11px;font-weight:600;font-family:inherit">🔐 Sign In</button>
+            <div style="display:flex;gap:6px;align-items:center">
+              <!-- View toggle -->
+              <div style="display:flex;border:1px solid #e2e8f0;border-radius:7px;overflow:hidden">
+                <button id="pf-view-card" onclick="_pfToggleView('card')"
+                  style="padding:5px 11px;font-size:11px;font-weight:600;cursor:pointer;border:none;background:#1e3a5f;color:#fff;font-family:inherit" title="Card view">⊞ Cards</button>
+                <button id="pf-view-table" onclick="_pfToggleView('table')"
+                  style="padding:5px 11px;font-size:11px;font-weight:600;cursor:pointer;border:none;background:#f1f5f9;color:#374151;font-family:inherit" title="Table view">☰ Table</button>
+              </div>
+              <button onclick="_pfIndexCache=null;_pfRefreshHome()" style="cursor:pointer;padding:6px 12px;border-radius:6px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;font-size:11px;font-weight:600;font-family:inherit">🔄 Refresh</button>
+              <button onclick="window._pfOpenSettings()" style="cursor:pointer;padding:6px 12px;border-radius:6px;background:#1e3a5f;color:#fff;border:none;font-size:11px;font-weight:600;font-family:inherit">🔐 Sign In</button>
             </div>
           </div>
-          <div id="pfHomeCloudStatus" style="font-size:11px;color:#64748b;margin-bottom:16px">
+
+          <div id="pfHomeCloudStatus" style="font-size:11px;color:#64748b;margin-bottom:12px">
             Not signed in — <span onclick="window._pfOpenSettings()" style="cursor:pointer;color:#1e3a5f;font-weight:700;text-decoration:underline">🔐 Sign In</span> to connect to your cloud running patches
           </div>
+
+          <!-- KPI strip -->
+          <div id="pfDashKpi" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+
+          <!-- Patch cards / table -->
           <div id="pfHomeCloudList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px"></div>
         </div>
 
@@ -4567,6 +4582,135 @@ function _pfPropfindList(cfg){
 }
 
 // ---- Rich patch card HTML ----
+// ── Enterprise Dashboard helpers ─────────────────────────────
+window._pfHomeView = window._pfHomeView || 'card'; // 'card' | 'table'
+
+window._pfToggleView = function(mode){
+  window._pfHomeView = mode;
+  _pfRenderDash();
+  // style the toggle buttons
+  ['card','table'].forEach(m=>{
+    const btn = document.getElementById('pf-view-'+m);
+    if(btn){ btn.style.background = m===mode?'#1e3a5f':'#f1f5f9'; btn.style.color = m===mode?'#fff':'#374151'; }
+  });
+};
+
+function _pfRenderDash(){
+  const patches = window._pfPatches||[];
+  const kpiEl   = document.getElementById('pfDashKpi');
+  const listEl  = document.getElementById('pfHomeCloudList');
+  if(!kpiEl||!listEl) return;
+
+  // Aggregate KPIs from enriched patches
+  let totTypes=0, totPieces=0, totWdays=0, totConc=0, totCast=0, hasSched=0;
+  patches.forEach(p=>{
+    totTypes  += (p.typeCount||0);
+    totPieces += (p.totalPieces||0);
+    if(p.workingDays) totWdays += (+p.workingDays||0);
+    if(p.totalConc)   totConc  += (+p.totalConc||0);
+    if(p.castPieces)  totCast  += (+p.castPieces||0);
+    if(p.totalPieces) hasSched++;
+  });
+  const overallPct = totPieces>0 ? Math.round(totCast/totPieces*100) : null;
+  const kpiItems = [
+    {icon:'🏗', label:'Patches',    val:patches.length, color:'#1e3a5f'},
+    {icon:'📐', label:'Panel Types', val:totTypes||'—',  color:'#0891b2'},
+    {icon:'🧱', label:'Total Pieces',val:totPieces||'—', color:'#7c3aed'},
+    {icon:'📅', label:'Work Days',   val:totWdays||'—',  color:'#059669'},
+    {icon:'🪣', label:'Concrete m³', val:totConc>0?totConc.toFixed(1):'—', color:'#b45309'},
+    {icon:'✅', label:'Overall Cast', val:overallPct!==null?overallPct+'%':'—', color:overallPct>=80?'#059669':overallPct>=40?'#f59e0b':'#3b82f6'},
+  ];
+  kpiEl.innerHTML = kpiItems.map(k=>`
+    <div style="flex:1;min-width:100px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:22px">${k.icon}</span>
+      <div>
+        <div style="font-size:18px;font-weight:800;color:${k.color};line-height:1">${k.val}</div>
+        <div style="font-size:9.5px;font-weight:600;color:#94a3b8;text-transform:uppercase;margin-top:2px">${k.label}</div>
+      </div>
+    </div>`).join('');
+
+  // Render card or table view
+  if(window._pfHomeView==='table'){
+    listEl.style.display = 'block';
+    listEl.innerHTML = _pfTableViewHtml(patches);
+  } else {
+    listEl.style.display = 'grid';
+    listEl.innerHTML = patches.map((p,i)=>_pfCardHtml(p,i)).join('');
+  }
+}
+
+function _pfTableViewHtml(patches){
+  if(!patches.length) return '<div style="padding:28px;text-align:center;color:#94a3b8;font-size:12px">No patches loaded.</div>';
+  const rows = patches.map((p,i)=>{
+    const m = (window._pfMeta||{})[p.name]||{};
+    const title = (p.name||'').replace(/\.pfproj$/i,'');
+    const pct   = p.totalPieces>0 ? Math.round(p.castPieces/p.totalPieces*100) : null;
+    const barColor = pct===null?'#3b82f6':pct>=80?'#059669':pct>=40?'#f59e0b':'#3b82f6';
+    const bar = pct!==null
+      ? `<div style="display:flex;align-items:center;gap:5px">
+           <div style="flex:1;height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;min-width:60px">
+             <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px"></div>
+           </div>
+           <span style="font-size:10px;font-weight:700;color:${barColor};white-space:nowrap">${pct}%</span>
+         </div>`
+      : '<span style="color:#94a3b8;font-size:10px">—</span>';
+    const dateRange = p.startDate&&p.endDate ? `${p.startDate} → ${p.endDate}` : (p.startDate||'—');
+    return `<tr onclick="_pfHomeOpenProject('${encodeURIComponent(p.url||'')}','${encodeURIComponent(p.name||'')}')"
+        style="cursor:pointer;border-bottom:1px solid #f1f5f9"
+        onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''">
+      <td style="padding:9px 10px;font-weight:700;color:#1e3a5f;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis">
+        🏗 ${esc(title)}
+      </td>
+      <td style="padding:9px 10px;font-size:11px;color:#374151">${esc(m.projNo||'—')}</td>
+      <td style="padding:9px 10px;font-size:11px;color:#374151;white-space:nowrap">${esc(m.buildingNo||'—')}</td>
+      <td style="padding:9px 10px;font-size:11px;color:#374151;text-align:center">${p.BUILDINGS||'—'}</td>
+      <td style="padding:9px 10px;font-size:11px;color:#374151;text-align:center">${p.typeCount!=null?p.typeCount:'—'}</td>
+      <td style="padding:9px 10px;font-size:11px;color:#374151;text-align:center">${p.totalPieces||'—'}</td>
+      <td style="padding:9px 10px;font-size:11px;color:#374151;text-align:center">${p.workingDays||'—'}</td>
+      <td style="padding:9px 10px;font-size:11px;color:#374151;white-space:nowrap">${esc(dateRange)}</td>
+      <td style="padding:9px 10px;font-size:11px;color:#374151;text-align:center">${p.totalConc!=null?p.totalConc.toFixed(1)+' m³':'—'}</td>
+      <td style="padding:9px 14px;min-width:120px">${bar}</td>
+      <td style="padding:9px 10px"><button onclick="event.stopPropagation();_pfOpenCardEdit(${i})"
+        style="background:none;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;padding:2px 7px;font-size:10px;color:#64748b">✏️</button></td>
+    </tr>
+    <tr id="pf-edit-tr-${i}" style="display:none"><td colspan="11" style="padding:0">
+      <div id="pf-edit-${i}" style="display:none;padding:14px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
+        <div style="font-size:11px;font-weight:700;color:#1e3a5f;margin-bottom:10px">Edit Details — ${esc(title)}</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+          <div><div style="font-size:9.5px;font-weight:600;color:#64748b;margin-bottom:3px;text-transform:uppercase">Project No.</div>
+            <input id="pf-ed-projNo-${i}" value="${esc(m.projNo||'')}" placeholder="e.g. PRJ-001" style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:inherit"></div>
+          <div><div style="font-size:9.5px;font-weight:600;color:#64748b;margin-bottom:3px;text-transform:uppercase">Building No.</div>
+            <input id="pf-ed-buildNo-${i}" value="${esc(m.buildingNo||'')}" placeholder="e.g. B-01" style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:inherit"></div>
+          <div><div style="font-size:9.5px;font-weight:600;color:#64748b;margin-bottom:3px;text-transform:uppercase">Nos of Buildings</div>
+            <input id="pf-ed-nosB-${i}" value="${esc(m.nosOfBuildings||'')}" placeholder="e.g. 16" type="number" min="1" style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:inherit"></div>
+          <div><div style="font-size:9.5px;font-weight:600;color:#64748b;margin-bottom:3px;text-transform:uppercase">Floor No.</div>
+            <input id="pf-ed-floorNo-${i}" value="${esc(m.floorNo||'')}" placeholder="e.g. GF+FF" style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:inherit"></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="_pfCloseCardEdit(${i})" style="padding:5px 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;font-size:11px;cursor:pointer;font-family:inherit">Cancel</button>
+          <button onclick="_pfSaveCardMeta(${i},'${encodeURIComponent(p.name||'')}')" style="padding:5px 12px;border:none;border-radius:6px;background:#1e3a5f;color:#fff;font-size:11px;cursor:pointer;font-weight:600;font-family:inherit">💾 Save</button>
+        </div>
+      </div>
+    </td></tr>`;
+  }).join('');
+  return `<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+      <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;white-space:nowrap">Patch</th>
+      <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;white-space:nowrap">Project No.</th>
+      <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;white-space:nowrap">Bldg Ref</th>
+      <th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">Bldgs</th>
+      <th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">Types</th>
+      <th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">Pieces</th>
+      <th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">W.Days</th>
+      <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;white-space:nowrap">Schedule</th>
+      <th style="padding:8px 10px;text-align:center;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase">Concrete</th>
+      <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;min-width:120px">Progress</th>
+      <th style="padding:8px 10px;width:36px"></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
 function _pfCardHtml(p, idx){
   const name = p.name||'patch';
   const url  = p.url||'';
@@ -4614,6 +4758,19 @@ function _pfCardHtml(p, idx){
   ].filter(Boolean);
   const pillsHtml = pills.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${pills.join('')}</div>` : '';
 
+  // Progress bar
+  const totalP = p.totalPieces||0, castP = p.castPieces||0;
+  const pct = totalP>0 ? Math.round(castP/totalP*100) : null;
+  const barColor = pct===null?'#3b82f6':pct>=80?'#059669':pct>=40?'#f59e0b':'#3b82f6';
+  const progressHtml = pct!==null ? `<div style="margin:6px 0 4px">
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:#64748b;margin-bottom:3px">
+      <span>${castP} of ${totalP} cast</span><span style="font-weight:700;color:${barColor}">${pct}%</span>
+    </div>
+    <div style="height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .4s"></div>
+    </div>
+  </div>` : '';
+
   return `<div id="pf-card-${idx}" style="border-radius:12px;background:#fff;border:1.5px solid #e2e8f0;transition:border-color .15s,box-shadow .15s;position:relative;overflow:hidden">
     <div onclick="_pfHomeOpenProject('${encodeURIComponent(url)}','${encodeURIComponent(name)}')"
       style="cursor:pointer;padding:16px 16px 12px"
@@ -4627,6 +4784,7 @@ function _pfCardHtml(p, idx){
           title="Edit details">✏️ Edit</button>
       </div>
       ${pillsHtml}
+      ${progressHtml}
       ${metricsHtml}
       <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:6px">
         ${modStr?`<span>🕐 ${modStr}</span>`:'<span></span>'}
@@ -4670,10 +4828,15 @@ function _pfCardHtml(p, idx){
 window._pfOpenCardEdit = function(idx){
   const ed = document.getElementById('pf-edit-'+idx);
   if(ed) ed.style.display = ed.style.display==='none'?'block':'none';
+  // In table view: also toggle the hidden row
+  const tr = document.getElementById('pf-edit-tr-'+idx);
+  if(tr) tr.style.display = tr.style.display==='none'?'table-row':'none';
 };
 window._pfCloseCardEdit = function(idx){
   const ed = document.getElementById('pf-edit-'+idx);
   if(ed) ed.style.display = 'none';
+  const tr = document.getElementById('pf-edit-tr-'+idx);
+  if(tr) tr.style.display = 'none';
 };
 window._pfSaveCardMeta = function(idx, encName){
   const name = decodeURIComponent(encName);
@@ -4715,7 +4878,8 @@ function _pfRefreshHome(){
       window._pfPatches = cached.arr;
       window._pfMeta    = cached.meta||{};
       statEl.innerHTML  = `<span style="color:#64748b">⏳ Refreshing… (showing ${cached.arr.length} cached patch${cached.arr.length>1?'es':''})</span>`;
-      listEl.innerHTML  = cached.arr.map((p,i)=>_pfCardHtml(p,i)).join("");
+      window._pfPatches = cached.arr;
+      _pfRenderDash();
     }
   } catch(e){}
 
@@ -4738,7 +4902,7 @@ function _pfRefreshHome(){
     arr.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:"base"}));
     window._pfPatches = arr;
     statEl.innerHTML = `✓ <strong>${arr.length}</strong> running patch${arr.length>1?"es":""}`;
-    listEl.innerHTML = arr.map((p,i)=>_pfCardHtml(p,i)).join("");
+    _pfRenderDash();
     // Enrich each card by fetching snapshot data; cache snap for instant open
     if(!window._pfSnapCache) window._pfSnapCache = {};
     arr.forEach((p,i)=>{
@@ -4753,14 +4917,21 @@ function _pfRefreshHome(){
           p.pieces      = inH.length && snap.BUILDINGS ? inH.length * snap.BUILDINGS : '—';
           const sch = snap.schedule;
           if(sch){
-            p.workingDays = sch.workingDays || (sch.days ? sch.days.length : null);
-            p.startDate   = sch.startDate   || (sch.days&&sch.days[0]?sch.days[0].date:'');
-            p.endDate     = sch.endDate     || (sch.days&&sch.days.length?sch.days[sch.days.length-1].date:'');
-            p.totalConc   = sch.totalConcrete || sch.totalConc || null;
+            p.workingDays  = sch.workingDays || (sch.days ? sch.days.length : null);
+            p.startDate    = sch.startDate   || (sch.days&&sch.days[0]?sch.days[0].date:'');
+            p.endDate      = sch.endDate     || (sch.days&&sch.days.length?sch.days[sch.days.length-1].date:'');
+            p.totalConc    = sch.totalConcrete || sch.totalConc || null;
+            // Progress: count cast vs total from the stored CAST_STATUS + allCells
+            const cells    = (sch.allCells||[]).filter(c=>!c.isSwap);
+            const cs       = snap.CAST_STATUS||{};
+            p.totalPieces  = cells.length;
+            p.castPieces   = Object.values(cs).filter(v=>v==='cast').length;
           }
           window._pfPatches[i] = p;
           const card = document.getElementById('pf-card-'+i);
           if(card) card.outerHTML = _pfCardHtml(p,i);
+          // Re-render KPI strip whenever a patch enriches
+          _pfRenderDash();
         }).catch(()=>{});
     });
   }).catch(e=>{
@@ -4771,7 +4942,8 @@ function _pfRefreshHome(){
         window._pfPatches = cached.arr;
         window._pfMeta    = cached.meta||{};
         statEl.innerHTML  = `<span style="color:#b45309">⚠ Offline — showing ${cached.arr.length} cached patch${cached.arr.length>1?'es':''}. <span onclick="window._pfOpenSettings()" style="cursor:pointer;text-decoration:underline;color:#1e3a5f">Re-authenticate</span></span>`;
-        listEl.innerHTML  = cached.arr.map((p,i)=>_pfCardHtml(p,i)).join("");
+        window._pfPatches = cached.arr;
+        _pfRenderDash();
         return;
       }
     } catch(ex){}
@@ -5461,7 +5633,8 @@ function viewBuildingTracking(){
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
         <h2 style="margin:0">Building-Wise Tracking</h2>
         <span style="font-size:12px;color:#6b7280">${activeFloor} floor · ${totalCastAll} of ${totalAll} panels cast (${overallPct}%)</span>
-        <button class="btn sm" id="btrackExportBtn" style="margin-left:auto">⬇ Export CSV</button>
+        <button class="btn sm" id="btrackPrintBtn" style="margin-left:auto">🖨 Print Report</button>
+        <button class="btn sm" id="btrackExportBtn">⬇ Export CSV</button>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
         <div class="btrack-tabs" style="margin-bottom:0">${floorTabs}</div>
@@ -5496,6 +5669,8 @@ function bindBuildingTracking(){
   $$('.btrack-tab').forEach(btn=>{
     btn.onclick=()=>{ window._btrackFloor=btn.dataset.fl; render(); };
   });
+  const printBtn = $('#btrackPrintBtn');
+  if(printBtn) printBtn.onclick = _btrackPrintReport;
   const expBtn = $('#btrackExportBtn');
   if(expBtn) expBtn.onclick = _btrackExportCSV;
 
@@ -5514,6 +5689,170 @@ function bindBuildingTracking(){
       bindBuildingTracking();
     };
   });
+}
+
+function _btrackPrintReport(){
+  const B = BUILDINGS || 16;
+  const floors = [...new Set(TYPES.map(t=>t.fl||'').filter(Boolean))].sort();
+  const activeFloor = window._btrackFloor || floors[0] || 'GF';
+  const famOrder = ['WL','IP','WN','PB'];
+  const famColors = {IP:'#1e3a5f',WL:'#059669',WN:'#7c3aed',PB:'#dc2626'};
+  const projName = (document.getElementById('cfgName')||{}).value || 'Precast Project';
+  const printDate = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
+
+  // Build full data for ALL floors (for all-floor summary)
+  let grandTotal=0, grandCast=0;
+  const floorSummaries = floors.map(fl=>{
+    const ft = TYPES.filter(t=>(t.fl||'')===fl);
+    let tot=ft.length*B, cast=0;
+    ft.forEach(t=>{ for(let b=1;b<=B;b++) if((CAST_STATUS[`${t.code}|${b}`]||'pending')==='cast') cast++; });
+    grandTotal+=tot; grandCast+=cast;
+    const pct=tot>0?Math.round(cast/tot*100):0;
+    const barColor=pct>=80?'#059669':pct>=40?'#f59e0b':'#dc2626';
+    return {fl,tot,cast,pct,barColor};
+  });
+
+  // Build the selected floor table
+  const floorTypes = TYPES.filter(t=>(t.fl||'')===activeFloor);
+  const grouped = {};
+  famOrder.forEach(f=>{ grouped[f] = floorTypes.filter(t=>t.fam===f); });
+  let totalCastByBuilding = new Array(B).fill(0);
+  let totalPanelsByBuilding = new Array(B).fill(0);
+  let totalCastFloor=0, totalFloor=0;
+
+  const sectionRows = famOrder.map(fam=>{
+    const types = (grouped[fam]||[]);
+    if(!types.length) return '';
+    const inH  = types.filter(t=> isInHouse(t));
+    const byOth = types.filter(t=>!isInHouse(t));
+    const allT = [...inH,...byOth];
+    const dataRows = allT.map((t,ri)=>{
+      const isByOth = !isInHouse(t);
+      let castCount=0;
+      const bCells = Array.from({length:B},(_,i)=>{
+        const b=i+1, isCast=(CAST_STATUS[`${t.code}|${b}`]||'pending')==='cast';
+        if(isCast){ castCount++; totalCastByBuilding[i]++; }
+        totalPanelsByBuilding[i]++;
+        return `<td style="text-align:center;font-size:9px;padding:3px;background:${isCast?'#d1fae5':'#fff'};color:${isCast?'#065f46':'#d1d5db'}">${isCast?'✓':'–'}</td>`;
+      }).join('');
+      totalCastFloor+=castCount; totalFloor+=B;
+      const balance=B-castCount;
+      const rowBg=isByOth?(ri%2===0?'#fef9f0':'#fef3e2'):(ri%2===0?'#fff':'#f9fafb');
+      return `<tr style="background:${rowBg}">
+        <td style="font-size:10px;font-weight:600;color:#1e3a5f;padding:3px 6px;white-space:nowrap">${esc(t.code)}</td>
+        <td style="text-align:center;font-size:9px;padding:3px;font-weight:700;color:${famColors[t.fam]||'#374151'}">${t.fam}</td>
+        <td style="text-align:center;font-size:9px;padding:3px;color:#6b7280">${esc(t.fl||'')}</td>
+        <td style="text-align:center;font-size:8px;padding:3px;color:${isByOth?'#991b1b':'#065f46'};font-weight:600">${isByOth?'By Others':'In-House'}</td>
+        <td style="text-align:center;font-weight:600;padding:3px">${B}</td>
+        <td style="text-align:center;color:#065f46;font-weight:700;padding:3px">${castCount}</td>
+        <td style="text-align:center;color:${balance>0?'#991b1b':'#065f46'};font-weight:600;padding:3px">${balance}</td>
+        ${bCells}
+      </tr>`;
+    }).join('');
+    const sectionLabel=[inH.length?inH.length+' In-House':'',byOth.length?byOth.length+' By Others':''].filter(Boolean).join(' · ');
+    return `<tr style="background:#374151;color:#f9fafb">
+      <th colspan="${7+B}" style="text-align:left;padding:5px 8px;font-size:10px;border-left:4px solid ${famColors[fam]||'#94a3b8'}">
+        ${fam} — ${allT.length} types (${sectionLabel}) × ${B} buildings = ${allT.length*B} pieces
+      </th>
+    </tr>${dataRows}`;
+  }).join('');
+
+  const bHeaders = Array.from({length:B},(_,i)=>`<th style="text-align:center;min-width:22px;font-size:9px;padding:4px 2px">B${i+1}</th>`).join('');
+  const totalCells = totalCastByBuilding.map((n,i)=>{
+    const pct=totalPanelsByBuilding[i]>0?Math.round(n/totalPanelsByBuilding[i]*100):0;
+    const col=pct>=100?'#065f46':pct>=50?'#d97706':'#991b1b';
+    return `<td style="text-align:center;font-size:9px;font-weight:700;background:#fef3c7;color:${col}">${n}<br><span style="font-size:8px">${pct}%</span></td>`;
+  }).join('');
+
+  const overallPct=totalFloor>0?Math.round(totalCastFloor/totalFloor*100):0;
+  const barColor=overallPct>=80?'#059669':overallPct>=40?'#f59e0b':'#dc2626';
+
+  // Floor summary cards
+  const summaryCards = floorSummaries.map(s=>`
+    <div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;min-width:140px;background:#fff">
+      <div style="font-size:18px;font-weight:800;color:${s.barColor}">${s.pct}%</div>
+      <div style="font-size:11px;font-weight:700;color:#374151">${esc(s.fl)} Floor</div>
+      <div style="font-size:10px;color:#6b7280;margin-top:2px">${s.cast} / ${s.tot} cast</div>
+      <div style="height:4px;background:#e5e7eb;border-radius:2px;margin-top:6px;overflow:hidden">
+        <div style="height:100%;width:${s.pct}%;background:${s.barColor};border-radius:2px"></div>
+      </div>
+    </div>`).join('');
+
+  const grandPct = grandTotal>0?Math.round(grandCast/grandTotal*100):0;
+  const grandColor = grandPct>=80?'#059669':grandPct>=40?'#f59e0b':'#dc2626';
+
+  const html = `<!DOCTYPE html><html><head>
+  <meta charset="utf-8">
+  <title>Building-Wise Tracking Report — ${esc(projName)}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#111;background:#fff;padding:20px 28px}
+    h1{font-size:18px;color:#1e3a5f;font-weight:800}
+    h2{font-size:13px;color:#1e3a5f;font-weight:700;margin-top:16px;margin-bottom:8px;border-bottom:2px solid #e5e7eb;padding-bottom:4px}
+    table{border-collapse:collapse;width:100%;font-size:10px}
+    th,td{border:1px solid #e5e7eb;padding:3px 5px}
+    thead th{background:#1e3a5f;color:#fff;font-weight:700;text-align:center}
+    thead th:first-child{text-align:left}
+    @media print{
+      body{padding:10px 12px}
+      @page{size:A3 landscape;margin:10mm}
+      button{display:none!important}
+    }
+  </style>
+  </head><body>
+  <!-- Header -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:3px solid #1e3a5f">
+    <div>
+      <div style="font-size:9px;font-weight:700;letter-spacing:2px;color:#6b7280;text-transform:uppercase;margin-bottom:4px">CAPRIOLE PRECAST ENGINE</div>
+      <h1>Building-Wise Tracking Report</h1>
+      <div style="font-size:11px;color:#6b7280;margin-top:4px">Project: <b style="color:#1e3a5f">${esc(projName)}</b> &nbsp;|&nbsp; Printed: ${printDate}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:32px;font-weight:900;color:${grandColor}">${grandPct}%</div>
+      <div style="font-size:10px;color:#6b7280">Overall Cast Progress</div>
+      <div style="font-size:10px;color:#374151;font-weight:700">${grandCast} / ${grandTotal} panels</div>
+    </div>
+  </div>
+
+  <!-- Summary cards per floor -->
+  <h2>Progress Summary by Floor</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">${summaryCards}</div>
+
+  <!-- Detailed table for active floor -->
+  <h2>${esc(activeFloor)} Floor — Panel Tracking Detail (${totalCastFloor} of ${totalFloor} cast · ${overallPct}%)</h2>
+  <table>
+    <thead><tr>
+      <th style="text-align:left;min-width:100px">Element ID</th>
+      <th style="min-width:30px">Fam.</th>
+      <th style="min-width:28px">Floor</th>
+      <th style="min-width:56px">Source</th>
+      <th style="min-width:30px">Total</th>
+      <th style="min-width:30px;color:#d1fae5">Cast</th>
+      <th style="min-width:36px;color:#fca5a5">Bal.</th>
+      ${bHeaders}
+    </tr></thead>
+    <tbody>
+      ${sectionRows}
+      <tr style="background:#fef3c7;font-weight:700">
+        <td colspan="4" style="font-weight:700">TOTAL — ${esc(activeFloor)} Floor</td>
+        <td style="text-align:center">${totalFloor}</td>
+        <td style="text-align:center;color:#065f46">${totalCastFloor}</td>
+        <td style="text-align:center;color:#991b1b">${totalFloor-totalCastFloor}</td>
+        ${totalCells}
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:16px;font-size:9px;color:#94a3b8;border-top:1px solid #e5e7eb;padding-top:8px">
+    Generated by Capriole Precast Engine · ${printDate} · Showing ${esc(activeFloor)} floor · ${esc(projName)}
+  </div>
+
+  <script>window.onload=()=>{ setTimeout(()=>window.print(),300); };<\/script>
+  </body></html>`;
+
+  const w = window.open('','_blank','width=1200,height=800');
+  if(w){ w.document.write(html); w.document.close(); }
+  else { _pfToast('⚠ Pop-up blocked — allow pop-ups and try again','err'); }
 }
 
 function _btrackExportCSV(){
