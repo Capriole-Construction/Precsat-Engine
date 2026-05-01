@@ -103,11 +103,17 @@
   .gantt-cell.totals{background:#fff7ed;color:#1e3a5f;font-weight:700;border-top:2px solid #f59e0b;position:sticky;bottom:0;z-index:1;font-size:12px}
   .gantt-cell.totals.weekend{background:repeating-linear-gradient(45deg,#fff7ed,#fff7ed 4px,#fde68a 4px,#fde68a 8px)}
 
-  /* Cell colors per family */
+  /* Cell colors per family (used outside Gantt) */
   .c-IP{background:linear-gradient(135deg,#1e3a5f,#2a4f80)}
   .c-WL{background:linear-gradient(135deg,#059669,#047857)}
   .c-WN{background:linear-gradient(135deg,#7c3aed,#5b21b6)}
   .c-PB{background:linear-gradient(135deg,#dc2626,#991b1b)}
+  /* Cell colors per floor (Gantt chart) */
+  .c-FL-GF{background:linear-gradient(135deg,#1e3a5f,#2a4f80)}
+  .c-FL-FF{background:linear-gradient(135deg,#059669,#047857)}
+  .c-FL-SF{background:linear-gradient(135deg,#d97706,#b45309)}
+  .c-FL-RF{background:linear-gradient(135deg,#dc2626,#991b1b)}
+  .c-FL-GF.last,.c-FL-FF.last,.c-FL-SF.last,.c-FL-RF.last,
   .c-IP.last,.c-WL.last,.c-WN.last,.c-PB.last{box-shadow:inset -3px 0 0 #f59e0b}
   .gantt-cell:hover{outline:2px solid #f59e0b;outline-offset:-2px;z-index:5}
   /* Cast status overlay on Gantt cells */
@@ -1561,7 +1567,7 @@ async function runEngine(){
       lot.forEach((item, idx)=>{
         const cell = {
           slotId: slot.slotId, slotLabel: slot.label, fam: item.fam,
-          type: item.type, b: item.b, kg: item.t.kg, w: item.t.w, h: item.t.h,
+          type: item.type, b: item.b, kg: item.t.kg, w: item.t.w, h: item.t.h, fl: item.t.fl||'GF',
           dayIdx, dateIso: iso, dt: new Date(dt),
           lotIdx: idx, lotSize: lot.length,
           layout: item.layout || null,
@@ -3171,12 +3177,15 @@ function viewGantt(){
 
   let html = `
     <div class="legend">
-      ${FAMILIES.map(f=>`<div class="lg-item"><div class="lg-sw c-${f}"></div><span><b>${f}</b> · ${FAM_NAMES[f]}</span></div>`).join("")}
+      <div class="lg-item"><div class="lg-sw c-FL-GF"></div><span><b>GF</b> · Ground Floor</span></div>
+      <div class="lg-item"><div class="lg-sw c-FL-FF"></div><span><b>FF</b> · First Floor</span></div>
+      <div class="lg-item"><div class="lg-sw c-FL-SF"></div><span><b>SF</b> · Second Floor</span></div>
+      <div class="lg-item"><div class="lg-sw c-FL-RF"></div><span><b>RF</b> · Roof Floor</span></div>
       <div class="lg-item"><div class="lg-sw" style="background:repeating-linear-gradient(45deg,#f9fafb,#f9fafb 4px,#e5e7eb 4px,#e5e7eb 8px)"></div><span>Weekend</span></div>
       <div class="lg-item"><div class="lg-sw" style="background:#f59e0b"></div><span>Last building of a type</span></div>
-      <div class="lg-item"><div class="lg-sw c-WL gc-cast" style="position:relative;font-size:9px;opacity:.5;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900">✓</div><span>Cast</span></div>
-      <div class="lg-item"><div class="lg-sw c-WL gc-inhouse" style="position:relative;font-size:8px;opacity:.55;display:flex;align-items:center;justify-content:center;color:#bfdbfe;font-weight:900">IH</div><span>Cast In-House</span></div>
-      <div class="lg-item"><div class="lg-sw c-WL gc-partial" style="position:relative;font-size:10px;opacity:.7;display:flex;align-items:center;justify-content:center;color:#fde68a;font-weight:900">◑</div><span>Partially Cast</span></div>
+      <div class="lg-item"><div class="lg-sw c-FL-FF gc-cast" style="position:relative;font-size:9px;opacity:.5;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900">✓</div><span>Cast</span></div>
+      <div class="lg-item"><div class="lg-sw c-FL-FF gc-inhouse" style="position:relative;font-size:8px;opacity:.55;display:flex;align-items:center;justify-content:center;color:#bfdbfe;font-weight:900">IH</div><span>Cast In-House</span></div>
+      <div class="lg-item"><div class="lg-sw c-FL-FF gc-partial" style="position:relative;font-size:10px;opacity:.7;display:flex;align-items:center;justify-content:center;color:#fde68a;font-weight:900">◑</div><span>Partially Cast</span></div>
     </div>
     <div class="panel" style="padding:0">
       <div class="gantt-wrap">
@@ -3203,6 +3212,8 @@ function viewGantt(){
                 const panelCells = cells.filter(c=>!c.isSwap);
                 const isLast = panelCells.some(c=>c.isLast);
                 const fam = panelCells[0].fam;
+                const fl = (panelCells[0].fl || TYPES.find(x=>x.code===panelCells[0].type)?.fl || 'GF').toUpperCase();
+                const flCls = ['GF','FF','SF','RF'].includes(fl) ? fl : 'GF';
                 const labels = panelCells.map(c=>`B${c.b}`).join(",");
                 const types = [...new Set(panelCells.map(c=>c.type))].join(", ");
                 const totalKg = panelCells.reduce((sum,c)=>sum+c.kg,0);
@@ -3218,7 +3229,7 @@ function viewGantt(){
                 } else if(doneCount > 0){
                   castCls = 'gc-partial';
                 }
-                return `<div class="gantt-cell c-${fam} ${isLast?"last":""} ${castCls}"
+                return `<div class="gantt-cell c-FL-${flCls} ${isLast?"last":""} ${castCls}"
                   data-tip="${esc(tip)}">
                   <span>${panelCells.length>1?`<b>×${panelCells.length}</b><br>`:""}${esc(types.split(",")[0].replace(/.*-/,""))}${panelCells.length>1?"…":"<br>B"+panelCells[0].b}</span>
                 </div>`;
