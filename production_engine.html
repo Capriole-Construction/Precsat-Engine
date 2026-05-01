@@ -925,10 +925,7 @@ async function runEngine(){
   }
   const famDemand = {}; // cycles required if family had only 1 dedicated table
   famsActive.forEach(f=>{
-    famDemand[f] = typesByFam[f].reduce((sum,t)=> {
-      const eff = Math.max(0, ((TYPE_META[t.code]||{}).qty||1) - ((TYPE_META[t.code]||{}).precast||0));
-      return sum + eff * (BUILDINGS / bestPackPerCycle(t));
-    }, 0);
+    famDemand[f] = typesByFam[f].reduce((sum,t)=> sum + ((TYPE_META[t.code]||{}).qty||1) * (BUILDINGS / bestPackPerCycle(t)), 0);
   });
   const totalDemand = famsActive.reduce((s,f)=>s+famDemand[f],0);
 
@@ -1083,8 +1080,7 @@ async function runEngine(){
       );
       sorted.forEach(t=>{
         if(!fitsAnySlot(t,fam)){ if(!seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
-        const qty = Math.max(0, ((TYPE_META[t.code]||{}).qty||1) - ((TYPE_META[t.code]||{}).precast||0));
-        if(qty<=0) return;
+        const qty = (TYPE_META[t.code]||{}).qty||1;
         for(let b=1; b<=BUILDINGS; b++) for(let q=0;q<qty;q++) globalQueue.push({type:t.code, b, t, fam});
       });
     });
@@ -1095,8 +1091,7 @@ async function runEngine(){
       famOrder.forEach(fam=>{
         typesByFam[fam].filter(t=> (t.fl||'').toUpperCase()===fl).forEach(t=>{
           if(!fitsAnySlot(t,fam)){ if(!seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
-          const qty = Math.max(0, ((TYPE_META[t.code]||{}).qty||1) - ((TYPE_META[t.code]||{}).precast||0));
-          if(qty<=0) return;
+          const qty = (TYPE_META[t.code]||{}).qty||1;
           for(let b=1; b<=BUILDINGS; b++) for(let q=0;q<qty;q++) globalQueue.push({type:t.code, b, t, fam});
         });
       });
@@ -1105,8 +1100,7 @@ async function runEngine(){
     famOrder.forEach(fam=>{
       typesByFam[fam].filter(t=> !FLOOR_PRIORITY.includes((t.fl||'').toUpperCase())).forEach(t=>{
         if(!fitsAnySlot(t,fam)){ if(!seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
-        const qty = Math.max(0, ((TYPE_META[t.code]||{}).qty||1) - ((TYPE_META[t.code]||{}).precast||0));
-        if(qty<=0) return;
+        const qty = (TYPE_META[t.code]||{}).qty||1;
         for(let b=1; b<=BUILDINGS; b++) for(let q=0;q<qty;q++) globalQueue.push({type:t.code, b, t, fam});
       });
     });
@@ -1117,8 +1111,7 @@ async function runEngine(){
         const sorted = typesByFam[fam].slice().sort((a,b)=> floorRank(a.fl) - floorRank(b.fl));
         sorted.forEach(t=>{
           if(!fitsAnySlot(t,fam)){ if(b===1 && !seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
-          const qty = Math.max(0, ((TYPE_META[t.code]||{}).qty||1) - ((TYPE_META[t.code]||{}).precast||0));
-          if(qty<=0) return;
+          const qty = (TYPE_META[t.code]||{}).qty||1;
           for(let q=0;q<qty;q++) globalQueue.push({type:t.code, b, t, fam});
         });
       });
@@ -3871,7 +3864,7 @@ function viewData(){
       </div>
       <table class="tbl">
         <thead><tr>
-          <th>#</th><th>Code</th><th class="num" title="Number of panels of this type needed">Qty</th><th class="num" title="Panels already cast before this schedule — subtracted from Qty">Pre-cast</th><th>Family</th><th>Floor</th>
+          <th>#</th><th>Code</th><th class="num" title="Number of panels of this type">Qty</th><th>Family</th><th>Floor</th>
           <th class="num">Width (mm)</th><th class="num">Height (mm)</th><th class="num">Thick</th>
           <th class="num">m³</th><th class="num">kg</th>
           <th class="ctr" title="Window and door openings — click ✏ to manage multiple">Openings</th>
@@ -3889,7 +3882,6 @@ function viewData(){
               <td>${i+1}</td>
               <td><b>${esc(t.code)}</b>${t._user?' <span style="font-size:10px;color:#0369a1">●custom</span>':""}</td>
               <td class="num"><input type="number" min="1" step="1" value="${m.qty}" data-meta="qty" data-code="${esc(t.code)}" style="width:52px;text-align:center" title="Number of panels"></td>
-              <td class="num"><input type="number" min="0" step="1" value="${+((TYPE_META[t.code]||{}).precast)||0}" data-meta="precast" data-code="${esc(t.code)}" style="width:52px;text-align:center;${+((TYPE_META[t.code]||{}).precast)>0?'background:#fef9c3;':''}}" title="Already cast before this schedule"></td>
               <td><span class="pill ${t.fam}">${t.fam}</span></td>
               <td>${esc(t.fl||"")}</td>
               <td class="num">${t.w}</td>
@@ -3965,7 +3957,6 @@ function bindData(){
     inp.onchange = ()=>{
       let val = inp.type==='checkbox' ? (inp.checked?1:0) : inp.value;
       if(inp.dataset.meta==='qty') val = Math.max(1, +val||1);
-      if(inp.dataset.meta==='precast') val = Math.max(0, +val||0);
       setMeta(inp.dataset.code, inp.dataset.meta, val);
     };
   });
@@ -4370,7 +4361,7 @@ ${filterParts.length?`<div class="filter-bar"><strong>Filtered by:</strong>${fil
       'Opening 1 Type (win/door)','Opening 1 Width (mm)','Opening 1 Length (mm)',
       'Opening 2 Type (win/door)','Opening 2 Width (mm)','Opening 2 Length (mm)',
       'Opening 3 Type (win/door)','Opening 3 Width (mm)','Opening 3 Length (mm)',
-      'MEP (1=yes 0=no)','Source','Qty','Pre-cast'
+      'MEP (1=yes 0=no)','Source','Qty'
     ];
     const q = v => '"'+String(v??'').replace(/"/g,'""')+'"';
     const rows = TYPES.map(t=>{
@@ -4385,8 +4376,7 @@ ${filterParts.length?`<div class="filter-bar"><strong>Filtered by:</strong>${fil
         o[2].type, o[2].w||'', o[2].l||'',
         m.mep ? 1 : 0,
         isInHouse(t) ? 'In-House' : 'By Others',
-        m.qty,
-        (TYPE_META[t.code]||{}).precast||0
+        m.qty
       ].map(q).join(',');
     });
     const csv = BOM + [headers.map(q).join(','), ...rows].join('\r\n');
@@ -4523,12 +4513,12 @@ window._pfDownloadTemplate = function(){
     'Opening 1 Type (win/door)','Opening 1 Width (mm)','Opening 1 Length (mm)',
     'Opening 2 Type (win/door)','Opening 2 Width (mm)','Opening 2 Length (mm)',
     'Opening 3 Type (win/door)','Opening 3 Width (mm)','Opening 3 Length (mm)',
-    'MEP (1=yes 0=no)','Qty','Pre-cast'
+    'MEP (1=yes 0=no)','Qty'
   ];
   const rows = [
-    ['GF-IP-NEW','IP','GF','4000','3400','250','5000','win','1200','1600','','','','','','','1','4','0'],
-    ['FF-WL-NEW','WL','FF','5000','3100','200','6200','door','900','2100','win','800','1200','','','','0','2','1'],
-    ['RF-WN-NEW','WN','RF','3000','2800','200','3500','','','','','','','','','','0','1','0'],
+    ['GF-IP-NEW','IP','GF','4000','3400','250','5000','win','1200','1600','','','','','','','1','4'],
+    ['FF-WL-NEW','WL','FF','5000','3100','200','6200','door','900','2100','win','800','1200','','','','0','2'],
+    ['RF-WN-NEW','WN','RF','3000','2800','200','3500','','','','','','','','','','0','1'],
   ];
   const csv = BOM + [headers,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\r\n');
   const a = document.createElement('a');
@@ -4591,12 +4581,10 @@ window._pfImportPanels = function(input){
       }
       const mep = parseInt(get(row,'mep'))||0;
       const qty = Math.max(1, parseInt(get(row,'qty'))||1);
-      const precast = Math.max(0, parseInt(get(row,'pre-cast')||get(row,'precast'))||0);
       if(!TYPE_META[code]) TYPE_META[code]={};
       TYPE_META[code].openings=openings;
       TYPE_META[code].mep=mep?1:0;
       TYPE_META[code].qty=qty;
-      TYPE_META[code].precast=precast;
       const wins=openings.filter(o=>o.type==='win'), doors=openings.filter(o=>o.type==='door');
       TYPE_META[code].opnW  =wins[0]?wins[0].w:0;  TYPE_META[code].opnL  =wins[0]?wins[0].l:0;
       TYPE_META[code].doorsW=doors[0]?doors[0].w:0; TYPE_META[code].doorsL=doors[0]?doors[0].l:0;
