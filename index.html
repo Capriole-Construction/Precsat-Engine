@@ -772,6 +772,11 @@ let tipEl = null;
 function loadCastStatus(){ try{ return JSON.parse(localStorage.getItem("pe_status_v1")||"{}"); }catch(e){ return {}; } }
 function saveCastStatus(){ try{ localStorage.setItem("pe_status_v1", JSON.stringify(CAST_STATUS)); }catch(e){} }
 let CAST_STATUS = loadCastStatus();
+
+// Building Tracking notes — keyed by panel code
+function loadBtrackNotes(){ try{ return JSON.parse(localStorage.getItem("pe_btrack_notes")||"{}"); }catch(e){ return {}; } }
+function saveBtrackNotes(){ try{ localStorage.setItem("pe_btrack_notes", JSON.stringify(BTRACK_NOTES)); }catch(e){} }
+let BTRACK_NOTES = loadBtrackNotes();
 function statusKey(c){ return `${c.type}|${c.b}`; }
 function getStatus(c){ return CAST_STATUS[statusKey(c)] || "pending"; }
 function setStatus(c, val){
@@ -5235,7 +5240,7 @@ function applyRunParamsSnap(p){
 function buildProjectSnapshot(name){
   return { version:3, name, savedAt:new Date().toISOString(), BUILDINGS,
            TYPES:TYPES.map(t=>({...t})), TABLES:TABLES.map(t=>({...t})),
-           SRC_OVR:{...SRC_OVR}, TYPE_META:{...TYPE_META}, CAST_STATUS:{...CAST_STATUS},
+           SRC_OVR:{...SRC_OVR}, TYPE_META:{...TYPE_META}, CAST_STATUS:{...CAST_STATUS}, BTRACK_NOTES:{...BTRACK_NOTES},
            runParams:captureRunParamsSnap(),
            schedule: schedule ? JSON.parse(JSON.stringify(schedule)) : null };
 }
@@ -5246,6 +5251,7 @@ function restoreProjectSnapshot(snap){
   Object.keys(SRC_OVR).forEach(k=>delete SRC_OVR[k]); Object.assign(SRC_OVR,snap.SRC_OVR||{}); saveSrcOverrides();
   Object.keys(TYPE_META).forEach(k=>delete TYPE_META[k]); Object.assign(TYPE_META,snap.TYPE_META||{}); saveTypeMeta();
   Object.keys(CAST_STATUS).forEach(k=>delete CAST_STATUS[k]); Object.assign(CAST_STATUS,snap.CAST_STATUS||{}); saveCastStatus();
+  Object.keys(BTRACK_NOTES).forEach(k=>delete BTRACK_NOTES[k]); Object.assign(BTRACK_NOTES,snap.BTRACK_NOTES||{}); saveBtrackNotes();
   if(snap.BUILDINGS){ BUILDINGS=snap.BUILDINGS; saveBuildingsCount(); }
   applyRunParamsSnap(snap.runParams);
   refreshFloorSelectors();
@@ -5546,6 +5552,7 @@ function viewBuildingTracking(){
     <th style="text-align:center;color:#065f46">Cast</th>
     <th style="text-align:center;color:#991b1b">Balance</th>
     ${bHeaders}
+    <th style="min-width:160px;text-align:left">Notes</th>
   </tr>`;
 
   let totalCastByBuilding = new Array(B).fill(0);
@@ -5585,6 +5592,7 @@ function viewBuildingTracking(){
       const srcBadge = isByOth
         ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#fef2f2;color:#991b1b;border:1px solid #fca5a5;font-weight:600">By Others</span>`
         : `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#f0fdf4;color:#065f46;border:1px solid #86efac;font-weight:600">In-House</span>`;
+      const note = (BTRACK_NOTES[t.code]||'').replace(/"/g,'&quot;');
       return `<tr${isByOth?' class="by-others-row"':''}>
         <td class="col-label"><span class="pill ${t.fam}" style="font-size:9px;padding:1px 5px">${esc(t.code)}</span></td>
         <td><span class="pill ${t.fam}" style="font-size:9px;padding:1px 5px">${t.fam}</span></td>
@@ -5594,6 +5602,12 @@ function viewBuildingTracking(){
         <td style="text-align:center;color:#065f46;font-weight:700">${castCount}</td>
         <td style="text-align:center;color:${balance>0?'#991b1b':'#065f46'};font-weight:600">${balance}</td>
         ${bCells}
+        <td style="padding:2px 4px">
+          <input class="btrack-note-inp" data-code="${esc(t.code)}" value="${note}"
+            placeholder="Add note…"
+            style="width:100%;box-sizing:border-box;padding:3px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:10px;font-family:inherit;color:#374151;background:${isByOth?'#fffbeb':'#fff'};outline:none"
+            onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e5e7eb'">
+        </td>
       </tr>`;
     }).join('');
 
@@ -5651,6 +5665,7 @@ function viewBuildingTracking(){
               <td style="color:#065f46">${totalCastAll}</td>
               <td style="color:#991b1b">${totalAll-totalCastAll}</td>
               ${totalCells}
+              <td></td>
             </tr>
             <tr class="btrack-pct">
               <td class="col-label" colspan="4">% Building Completion</td>
@@ -5658,6 +5673,7 @@ function viewBuildingTracking(){
               <td>${overallPct}%</td>
               <td></td>
               ${pctCells}
+              <td></td>
             </tr>
           </tbody>
         </table>
@@ -5673,6 +5689,18 @@ function bindBuildingTracking(){
   if(printBtn) printBtn.onclick = _btrackPrintReport;
   const expBtn = $('#btrackExportBtn');
   if(expBtn) expBtn.onclick = _btrackExportCSV;
+
+  // Note inputs — persist on change
+  $$('.btrack-note-inp').forEach(inp=>{
+    inp.oninput = ()=>{
+      const code = inp.dataset.code;
+      if(!code) return;
+      const val = inp.value.trim();
+      if(val) BTRACK_NOTES[code] = val;
+      else delete BTRACK_NOTES[code];
+      saveBtrackNotes();
+    };
+  });
 
   // Clickable cells — toggle cast status for By Others panels
   $$('.btrack-tbl td.clickable').forEach(td=>{
@@ -5738,6 +5766,7 @@ function _btrackPrintReport(){
       totalCastFloor+=castCount; totalFloor+=B;
       const balance=B-castCount;
       const rowBg=isByOth?(ri%2===0?'#fef9f0':'#fef3e2'):(ri%2===0?'#fff':'#f9fafb');
+      const noteText = esc(BTRACK_NOTES[t.code]||'');
       return `<tr style="background:${rowBg}">
         <td style="font-size:10px;font-weight:600;color:#1e3a5f;padding:3px 6px;white-space:nowrap">${esc(t.code)}</td>
         <td style="text-align:center;font-size:9px;padding:3px;font-weight:700;color:${famColors[t.fam]||'#374151'}">${t.fam}</td>
@@ -5747,11 +5776,12 @@ function _btrackPrintReport(){
         <td style="text-align:center;color:#065f46;font-weight:700;padding:3px">${castCount}</td>
         <td style="text-align:center;color:${balance>0?'#991b1b':'#065f46'};font-weight:600;padding:3px">${balance}</td>
         ${bCells}
+        <td style="font-size:9px;padding:3px 5px;color:#374151;font-style:${noteText?'normal':'italic'};color:${noteText?'#374151':'#94a3b8'}">${noteText||'—'}</td>
       </tr>`;
     }).join('');
     const sectionLabel=[inH.length?inH.length+' In-House':'',byOth.length?byOth.length+' By Others':''].filter(Boolean).join(' · ');
     return `<tr style="background:#374151;color:#f9fafb">
-      <th colspan="${7+B}" style="text-align:left;padding:5px 8px;font-size:10px;border-left:4px solid ${famColors[fam]||'#94a3b8'}">
+      <th colspan="${8+B}" style="text-align:left;padding:5px 8px;font-size:10px;border-left:4px solid ${famColors[fam]||'#94a3b8'}">
         ${fam} — ${allT.length} types (${sectionLabel}) × ${B} buildings = ${allT.length*B} pieces
       </th>
     </tr>${dataRows}`;
@@ -5830,6 +5860,7 @@ function _btrackPrintReport(){
       <th style="min-width:30px;color:#d1fae5">Cast</th>
       <th style="min-width:36px;color:#fca5a5">Bal.</th>
       ${bHeaders}
+      <th style="text-align:left;min-width:120px">Notes</th>
     </tr></thead>
     <tbody>
       ${sectionRows}
@@ -5839,6 +5870,7 @@ function _btrackPrintReport(){
         <td style="text-align:center;color:#065f46">${totalCastFloor}</td>
         <td style="text-align:center;color:#991b1b">${totalFloor-totalCastFloor}</td>
         ${totalCells}
+        <td></td>
       </tr>
     </tbody>
   </table>
@@ -5859,12 +5891,13 @@ function _btrackExportCSV(){
   const B = BUILDINGS || 16;
   const floor = window._btrackFloor || 'GF';
   const types = TYPES.filter(t=>(t.fl||'')===floor);
-  const headers = ['S.NO','Element ID','Family','Floor','Source','Total Qty','Cast','Balance',...Array.from({length:B},(_,i)=>`B${i+1}`)];
+  const headers = ['S.NO','Element ID','Family','Floor','Source','Total Qty','Cast','Balance',...Array.from({length:B},(_,i)=>`B${i+1}`),'Notes'];
   const rows = types.map((t,idx)=>{
     const bCols = Array.from({length:B},(_,i)=>(CAST_STATUS[`${t.code}|${i+1}`]||'pending')==='cast'?'1':'');
     const cast = bCols.filter(v=>v==='1').length;
     const src = isInHouse(t)?'In-House':'By Others';
-    return [idx+1, t.code, t.fam, t.fl||'', src, B, cast, B-cast, ...bCols].join(',');
+    const note = (BTRACK_NOTES[t.code]||'').replace(/"/g,'""');
+    return [idx+1, t.code, t.fam, t.fl||'', src, B, cast, B-cast, ...bCols, `"${note}"`].join(',');
   });
   const csv = [headers.join(','), ...rows].join('\n');
   const a = document.createElement('a');
