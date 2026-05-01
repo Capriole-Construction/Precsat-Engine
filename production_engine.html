@@ -773,10 +773,6 @@ function loadCastStatus(){ try{ return JSON.parse(localStorage.getItem("pe_statu
 function saveCastStatus(){ try{ localStorage.setItem("pe_status_v1", JSON.stringify(CAST_STATUS)); }catch(e){} }
 let CAST_STATUS = loadCastStatus();
 
-// Building Tracking notes — keyed by panel code
-function loadBtrackNotes(){ try{ return JSON.parse(localStorage.getItem("pe_btrack_notes")||"{}"); }catch(e){ return {}; } }
-function saveBtrackNotes(){ try{ localStorage.setItem("pe_btrack_notes", JSON.stringify(BTRACK_NOTES)); }catch(e){} }
-let BTRACK_NOTES = loadBtrackNotes();
 function statusKey(c){ return `${c.type}|${c.b}`; }
 function getStatus(c){ return CAST_STATUS[statusKey(c)] || "pending"; }
 function setStatus(c, val){
@@ -5240,7 +5236,7 @@ function applyRunParamsSnap(p){
 function buildProjectSnapshot(name){
   return { version:3, name, savedAt:new Date().toISOString(), BUILDINGS,
            TYPES:TYPES.map(t=>({...t})), TABLES:TABLES.map(t=>({...t})),
-           SRC_OVR:{...SRC_OVR}, TYPE_META:{...TYPE_META}, CAST_STATUS:{...CAST_STATUS}, BTRACK_NOTES:{...BTRACK_NOTES},
+           SRC_OVR:{...SRC_OVR}, TYPE_META:{...TYPE_META}, CAST_STATUS:{...CAST_STATUS},
            runParams:captureRunParamsSnap(),
            schedule: schedule ? JSON.parse(JSON.stringify(schedule)) : null };
 }
@@ -5251,7 +5247,6 @@ function restoreProjectSnapshot(snap){
   Object.keys(SRC_OVR).forEach(k=>delete SRC_OVR[k]); Object.assign(SRC_OVR,snap.SRC_OVR||{}); saveSrcOverrides();
   Object.keys(TYPE_META).forEach(k=>delete TYPE_META[k]); Object.assign(TYPE_META,snap.TYPE_META||{}); saveTypeMeta();
   Object.keys(CAST_STATUS).forEach(k=>delete CAST_STATUS[k]); Object.assign(CAST_STATUS,snap.CAST_STATUS||{}); saveCastStatus();
-  Object.keys(BTRACK_NOTES).forEach(k=>delete BTRACK_NOTES[k]); Object.assign(BTRACK_NOTES,snap.BTRACK_NOTES||{}); saveBtrackNotes();
   if(snap.BUILDINGS){ BUILDINGS=snap.BUILDINGS; saveBuildingsCount(); }
   applyRunParamsSnap(snap.runParams);
   refreshFloorSelectors();
@@ -5552,7 +5547,6 @@ function viewBuildingTracking(){
     <th style="text-align:center;color:#065f46">Cast</th>
     <th style="text-align:center;color:#991b1b">Balance</th>
     ${bHeaders}
-    <th style="min-width:160px;text-align:left">Notes</th>
   </tr>`;
 
   let totalCastByBuilding = new Array(B).fill(0);
@@ -5572,18 +5566,27 @@ function viewBuildingTracking(){
       let castCount = 0;
       const bCells = Array.from({length:B},(_,i)=>{
         const b = i+1;
-        const isCast = (CAST_STATUS[`${t.code}|${b}`] || 'pending') === 'cast';
+        const st = CAST_STATUS[`${t.code}|${b}`] || 'pending';
+        const isCast = st === 'cast' || st === 'cast-inhouse';
         if(isCast){ castCount++; totalCastByBuilding[i]++; }
         totalPanelsByBuilding[i]++;
-        // By Others cells are clickable to toggle; In-House are read-only
-        if(isCast){
-          return isByOth
-            ? `<td class="col-cast clickable" data-code="${esc(t.code)}" data-b="${b}" title="Click to unmark cast">✓</td>`
-            : `<td class="col-cast" title="${esc(t.code)} · B${b} · Cast (from schedule)">✓</td>`;
-        } else {
-          return isByOth
-            ? `<td class="col-empty clickable" data-code="${esc(t.code)}" data-b="${b}" title="Click to mark as cast">–</td>`
+        if(!isByOth){
+          // In-House: read-only, always cast from schedule
+          return st==='cast'
+            ? `<td class="col-cast" title="${esc(t.code)} · B${b} · Cast (from schedule)">✓</td>`
             : `<td class="col-empty">–</td>`;
+        }
+        // By Others: three-state clickable — pending → cast-inhouse → cast → pending
+        if(st === 'cast-inhouse'){
+          return `<td class="col-cast clickable" data-code="${esc(t.code)}" data-b="${b}"
+            style="background:#dbeafe;color:#1e40af"
+            title="Cast In-House by our factory — click to mark as Cast by Others">✓ IH</td>`;
+        } else if(st === 'cast'){
+          return `<td class="col-cast clickable" data-code="${esc(t.code)}" data-b="${b}"
+            title="Cast by Others — click to unmark">✓</td>`;
+        } else {
+          return `<td class="col-empty clickable" data-code="${esc(t.code)}" data-b="${b}"
+            title="Pending — click to mark as Cast In-House">–</td>`;
         }
       }).join('');
       totalCastAll += castCount;
@@ -5592,7 +5595,6 @@ function viewBuildingTracking(){
       const srcBadge = isByOth
         ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#fef2f2;color:#991b1b;border:1px solid #fca5a5;font-weight:600">By Others</span>`
         : `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#f0fdf4;color:#065f46;border:1px solid #86efac;font-weight:600">In-House</span>`;
-      const note = (BTRACK_NOTES[t.code]||'').replace(/"/g,'&quot;');
       return `<tr${isByOth?' class="by-others-row"':''}>
         <td class="col-label"><span class="pill ${t.fam}" style="font-size:9px;padding:1px 5px">${esc(t.code)}</span></td>
         <td><span class="pill ${t.fam}" style="font-size:9px;padding:1px 5px">${t.fam}</span></td>
@@ -5602,12 +5604,6 @@ function viewBuildingTracking(){
         <td style="text-align:center;color:#065f46;font-weight:700">${castCount}</td>
         <td style="text-align:center;color:${balance>0?'#991b1b':'#065f46'};font-weight:600">${balance}</td>
         ${bCells}
-        <td style="padding:2px 4px">
-          <input class="btrack-note-inp" data-code="${esc(t.code)}" value="${note}"
-            placeholder="Add note…"
-            style="width:100%;box-sizing:border-box;padding:3px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:10px;font-family:inherit;color:#374151;background:${isByOth?'#fffbeb':'#fff'};outline:none"
-            onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e5e7eb'">
-        </td>
       </tr>`;
     }).join('');
 
@@ -5636,10 +5632,11 @@ function viewBuildingTracking(){
   const overallPct = totalAll>0 ? Math.round(totalCastAll/totalAll*100) : 0;
   const floorTabs = floors.map(fl=>`<button class="btrack-tab${fl===activeFloor?' active':''}" data-fl="${fl}">${fl}</button>`).join('');
 
-  const legend = `<div style="display:flex;gap:10px;align-items:center;font-size:11px;color:#6b7280">
-    <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#d1fae5;display:inline-block"></span> Cast</span>
+  const legend = `<div style="display:flex;gap:10px;align-items:center;font-size:11px;color:#6b7280;flex-wrap:wrap">
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#d1fae5;display:inline-block"></span> Cast (By Others)</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#dbeafe;border:1px solid #93c5fd;display:inline-block"></span> ✓ IH — Cast In-House</span>
     <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#f9fafb;border:1px solid #e5e7eb;display:inline-block"></span> Pending</span>
-    <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#fef9f0;border:1px solid #fde68a;display:inline-block"></span> By Others row — click cell to toggle</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#fef9f0;border:1px solid #fde68a;display:inline-block"></span> By Others row — click to cycle: Pending → Cast IH → Cast</span>
   </div>`;
 
   return `
@@ -5665,7 +5662,6 @@ function viewBuildingTracking(){
               <td style="color:#065f46">${totalCastAll}</td>
               <td style="color:#991b1b">${totalAll-totalCastAll}</td>
               ${totalCells}
-              <td></td>
             </tr>
             <tr class="btrack-pct">
               <td class="col-label" colspan="4">% Building Completion</td>
@@ -5673,7 +5669,6 @@ function viewBuildingTracking(){
               <td>${overallPct}%</td>
               <td></td>
               ${pctCells}
-              <td></td>
             </tr>
           </tbody>
         </table>
@@ -5690,29 +5685,17 @@ function bindBuildingTracking(){
   const expBtn = $('#btrackExportBtn');
   if(expBtn) expBtn.onclick = _btrackExportCSV;
 
-  // Note inputs — persist on change
-  $$('.btrack-note-inp').forEach(inp=>{
-    inp.oninput = ()=>{
-      const code = inp.dataset.code;
-      if(!code) return;
-      const val = inp.value.trim();
-      if(val) BTRACK_NOTES[code] = val;
-      else delete BTRACK_NOTES[code];
-      saveBtrackNotes();
-    };
-  });
-
-  // Clickable cells — toggle cast status for By Others panels
+  // Clickable cells — cycle: pending → cast-inhouse → cast → pending
   $$('.btrack-tbl td.clickable').forEach(td=>{
     td.onclick=()=>{
       const code = td.dataset.code, b = parseInt(td.dataset.b);
       if(!code || !b) return;
       const key = `${code}|${b}`;
       const cur = CAST_STATUS[key] || 'pending';
-      if(cur === 'cast'){ delete CAST_STATUS[key]; }
-      else { CAST_STATUS[key] = 'cast'; }
+      if(cur === 'pending')      { CAST_STATUS[key] = 'cast-inhouse'; }
+      else if(cur === 'cast-inhouse') { CAST_STATUS[key] = 'cast'; }
+      else                       { delete CAST_STATUS[key]; }
       saveCastStatus();
-      // Re-render the tracking view to reflect the change
       $("#view").innerHTML = viewBuildingTracking();
       bindBuildingTracking();
     };
@@ -5758,15 +5741,18 @@ function _btrackPrintReport(){
       const isByOth = !isInHouse(t);
       let castCount=0;
       const bCells = Array.from({length:B},(_,i)=>{
-        const b=i+1, isCast=(CAST_STATUS[`${t.code}|${b}`]||'pending')==='cast';
+        const b=i+1, st=CAST_STATUS[`${t.code}|${b}`]||'pending';
+        const isCast = st==='cast'||st==='cast-inhouse';
         if(isCast){ castCount++; totalCastByBuilding[i]++; }
         totalPanelsByBuilding[i]++;
-        return `<td style="text-align:center;font-size:9px;padding:3px;background:${isCast?'#d1fae5':'#fff'};color:${isCast?'#065f46':'#d1d5db'}">${isCast?'✓':'–'}</td>`;
+        const bg  = st==='cast-inhouse'?'#dbeafe':isCast?'#d1fae5':'#fff';
+        const col = st==='cast-inhouse'?'#1e40af':isCast?'#065f46':'#d1d5db';
+        const lbl = st==='cast-inhouse'?'✓ IH':isCast?'✓':'–';
+        return `<td style="text-align:center;font-size:9px;padding:3px;background:${bg};color:${col};font-weight:${isCast?700:400}">${lbl}</td>`;
       }).join('');
       totalCastFloor+=castCount; totalFloor+=B;
       const balance=B-castCount;
       const rowBg=isByOth?(ri%2===0?'#fef9f0':'#fef3e2'):(ri%2===0?'#fff':'#f9fafb');
-      const noteText = esc(BTRACK_NOTES[t.code]||'');
       return `<tr style="background:${rowBg}">
         <td style="font-size:10px;font-weight:600;color:#1e3a5f;padding:3px 6px;white-space:nowrap">${esc(t.code)}</td>
         <td style="text-align:center;font-size:9px;padding:3px;font-weight:700;color:${famColors[t.fam]||'#374151'}">${t.fam}</td>
@@ -5776,12 +5762,11 @@ function _btrackPrintReport(){
         <td style="text-align:center;color:#065f46;font-weight:700;padding:3px">${castCount}</td>
         <td style="text-align:center;color:${balance>0?'#991b1b':'#065f46'};font-weight:600;padding:3px">${balance}</td>
         ${bCells}
-        <td style="font-size:9px;padding:3px 5px;color:#374151;font-style:${noteText?'normal':'italic'};color:${noteText?'#374151':'#94a3b8'}">${noteText||'—'}</td>
       </tr>`;
     }).join('');
     const sectionLabel=[inH.length?inH.length+' In-House':'',byOth.length?byOth.length+' By Others':''].filter(Boolean).join(' · ');
     return `<tr style="background:#374151;color:#f9fafb">
-      <th colspan="${8+B}" style="text-align:left;padding:5px 8px;font-size:10px;border-left:4px solid ${famColors[fam]||'#94a3b8'}">
+      <th colspan="${7+B}" style="text-align:left;padding:5px 8px;font-size:10px;border-left:4px solid ${famColors[fam]||'#94a3b8'}">
         ${fam} — ${allT.length} types (${sectionLabel}) × ${B} buildings = ${allT.length*B} pieces
       </th>
     </tr>${dataRows}`;
@@ -5797,16 +5782,54 @@ function _btrackPrintReport(){
   const overallPct=totalFloor>0?Math.round(totalCastFloor/totalFloor*100):0;
   const barColor=overallPct>=80?'#059669':overallPct>=40?'#f59e0b':'#dc2626';
 
-  // Floor summary cards
-  const summaryCards = floorSummaries.map(s=>`
-    <div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;min-width:140px;background:#fff">
-      <div style="font-size:18px;font-weight:800;color:${s.barColor}">${s.pct}%</div>
-      <div style="font-size:11px;font-weight:700;color:#374151">${esc(s.fl)} Floor</div>
-      <div style="font-size:10px;color:#6b7280;margin-top:2px">${s.cast} / ${s.tot} cast</div>
-      <div style="height:4px;background:#e5e7eb;border-radius:2px;margin-top:6px;overflow:hidden">
-        <div style="height:100%;width:${s.pct}%;background:${s.barColor};border-radius:2px"></div>
+  // SVG donut chart helper
+  function _svgDonut(pct, label, sub, color, size=110){
+    const r=size/2-12, circ=2*Math.PI*r;
+    const dash=circ*pct/100, gap=circ-dash;
+    const cx=size/2, cy=size/2;
+    return `<div style="text-align:center;min-width:${size}px">
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#e5e7eb" stroke-width="12"/>
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="12"
+          stroke-dasharray="${dash.toFixed(2)} ${gap.toFixed(2)}" stroke-linecap="round"
+          transform="rotate(-90 ${cx} ${cy})"/>
+        <text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="16" font-weight="800" fill="${color}" font-family="Segoe UI,Arial,sans-serif">${pct}%</text>
+        <text x="${cx}" y="${cy+12}" text-anchor="middle" font-size="9" fill="#6b7280" font-family="Segoe UI,Arial,sans-serif">${sub}</text>
+      </svg>
+      <div style="font-size:11px;font-weight:700;color:#374151;margin-top:2px">${label}</div>
+    </div>`;
+  }
+
+  // SVG horizontal bar chart per building
+  function _svgBuildingBars(castArr, totalArr, n){
+    const bW=220, bH=14, gap=5, lblW=26, pctW=34;
+    const svgW=bW+lblW+pctW+10, svgH=n*(bH+gap);
+    const bars = Array.from({length:n},(_,i)=>{
+      const cast=castArr[i]||0, tot=totalArr[i]||0;
+      const pct=tot>0?Math.round(cast/tot*100):0;
+      const w=Math.round(pct/100*bW);
+      const col=pct>=80?'#059669':pct>=50?'#f59e0b':'#dc2626';
+      const y=i*(bH+gap);
+      return `<text x="0" y="${y+bH*0.78}" font-size="9" fill="#374151" font-family="Segoe UI,Arial,sans-serif">B${i+1}</text>
+        <rect x="${lblW}" y="${y}" width="${bW}" height="${bH}" rx="3" fill="#e5e7eb"/>
+        <rect x="${lblW}" y="${y}" width="${w}" height="${bH}" rx="3" fill="${col}"/>
+        <text x="${lblW+w+4}" y="${y+bH*0.78}" font-size="9" font-weight="700" fill="${col}" font-family="Segoe UI,Arial,sans-serif">${pct}%</text>`;
+    }).join('');
+    return `<svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">${bars}</svg>`;
+  }
+
+  const overallColor=grandPct>=80?'#059669':grandPct>=40?'#f59e0b':'#dc2626';
+  const summarySection = `
+    <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;margin-bottom:20px">
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+        ${_svgDonut(grandPct,'All Floors',grandCast+'/'+grandTotal+' cast',overallColor,130)}
+        ${floorSummaries.map(s=>_svgDonut(s.pct,s.fl+' Floor',s.cast+'/'+s.tot+' cast',s.barColor)).join('')}
       </div>
-    </div>`).join('');
+      <div style="flex:1;min-width:280px">
+        <div style="font-size:10px;font-weight:700;color:#374151;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Progress by Building (${esc(activeFloor)} Floor)</div>
+        ${_svgBuildingBars(totalCastByBuilding, totalPanelsByBuilding, B)}
+      </div>
+    </div>`;
 
   const grandPct = grandTotal>0?Math.round(grandCast/grandTotal*100):0;
   const grandColor = grandPct>=80?'#059669':grandPct>=40?'#f59e0b':'#dc2626';
@@ -5837,16 +5860,11 @@ function _btrackPrintReport(){
       <h1>Building-Wise Tracking Report</h1>
       <div style="font-size:11px;color:#6b7280;margin-top:4px">Project: <b style="color:#1e3a5f">${esc(projName)}</b> &nbsp;|&nbsp; Printed: ${printDate}</div>
     </div>
-    <div style="text-align:right">
-      <div style="font-size:32px;font-weight:900;color:${grandColor}">${grandPct}%</div>
-      <div style="font-size:10px;color:#6b7280">Overall Cast Progress</div>
-      <div style="font-size:10px;color:#374151;font-weight:700">${grandCast} / ${grandTotal} panels</div>
-    </div>
   </div>
 
-  <!-- Summary cards per floor -->
-  <h2>Progress Summary by Floor</h2>
-  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">${summaryCards}</div>
+  <!-- Progress charts -->
+  <h2>Progress Charts</h2>
+  ${summarySection}
 
   <!-- Detailed table for active floor -->
   <h2>${esc(activeFloor)} Floor — Panel Tracking Detail (${totalCastFloor} of ${totalFloor} cast · ${overallPct}%)</h2>
@@ -5860,7 +5878,6 @@ function _btrackPrintReport(){
       <th style="min-width:30px;color:#d1fae5">Cast</th>
       <th style="min-width:36px;color:#fca5a5">Bal.</th>
       ${bHeaders}
-      <th style="text-align:left;min-width:120px">Notes</th>
     </tr></thead>
     <tbody>
       ${sectionRows}
@@ -5870,7 +5887,6 @@ function _btrackPrintReport(){
         <td style="text-align:center;color:#065f46">${totalCastFloor}</td>
         <td style="text-align:center;color:#991b1b">${totalFloor-totalCastFloor}</td>
         ${totalCells}
-        <td></td>
       </tr>
     </tbody>
   </table>
@@ -5891,13 +5907,12 @@ function _btrackExportCSV(){
   const B = BUILDINGS || 16;
   const floor = window._btrackFloor || 'GF';
   const types = TYPES.filter(t=>(t.fl||'')===floor);
-  const headers = ['S.NO','Element ID','Family','Floor','Source','Total Qty','Cast','Balance',...Array.from({length:B},(_,i)=>`B${i+1}`),'Notes'];
+  const headers = ['S.NO','Element ID','Family','Floor','Source','Total Qty','Cast','Balance',...Array.from({length:B},(_,i)=>`B${i+1}`)];
   const rows = types.map((t,idx)=>{
     const bCols = Array.from({length:B},(_,i)=>(CAST_STATUS[`${t.code}|${i+1}`]||'pending')==='cast'?'1':'');
     const cast = bCols.filter(v=>v==='1').length;
     const src = isInHouse(t)?'In-House':'By Others';
-    const note = (BTRACK_NOTES[t.code]||'').replace(/"/g,'""');
-    return [idx+1, t.code, t.fam, t.fl||'', src, B, cast, B-cast, ...bCols, `"${note}"`].join(',');
+    return [idx+1, t.code, t.fam, t.fl||'', src, B, cast, B-cast, ...bCols].join(',');
   });
   const csv = [headers.join(','), ...rows].join('\n');
   const a = document.createElement('a');
