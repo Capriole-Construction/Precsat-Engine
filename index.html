@@ -926,7 +926,7 @@ async function runEngine(){
   }
   const famDemand = {}; // cycles required if family had only 1 dedicated table
   famsActive.forEach(f=>{
-    famDemand[f] = typesByFam[f].reduce((sum,t)=> sum + (BUILDINGS / bestPackPerCycle(t)), 0);
+    famDemand[f] = typesByFam[f].reduce((sum,t)=> sum + ((TYPE_META[t.code]||{}).qty||1) * (BUILDINGS / bestPackPerCycle(t)), 0);
   });
   const totalDemand = famsActive.reduce((s,f)=>s+famDemand[f],0);
 
@@ -1081,7 +1081,8 @@ async function runEngine(){
       );
       sorted.forEach(t=>{
         if(!fitsAnySlot(t,fam)){ if(!seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
-        for(let b=1; b<=BUILDINGS; b++) globalQueue.push({type:t.code, b, t, fam});
+        const qty = (TYPE_META[t.code]||{}).qty||1;
+        for(let b=1; b<=BUILDINGS; b++) for(let q=0;q<qty;q++) globalQueue.push({type:t.code, b, t, fam});
       });
     });
   } else if(params.strat === "floor"){
@@ -1091,7 +1092,8 @@ async function runEngine(){
       famOrder.forEach(fam=>{
         typesByFam[fam].filter(t=> (t.fl||'').toUpperCase()===fl).forEach(t=>{
           if(!fitsAnySlot(t,fam)){ if(!seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
-          for(let b=1; b<=BUILDINGS; b++) globalQueue.push({type:t.code, b, t, fam});
+          const qty = (TYPE_META[t.code]||{}).qty||1;
+          for(let b=1; b<=BUILDINGS; b++) for(let q=0;q<qty;q++) globalQueue.push({type:t.code, b, t, fam});
         });
       });
     });
@@ -1099,7 +1101,8 @@ async function runEngine(){
     famOrder.forEach(fam=>{
       typesByFam[fam].filter(t=> !FLOOR_PRIORITY.includes((t.fl||'').toUpperCase())).forEach(t=>{
         if(!fitsAnySlot(t,fam)){ if(!seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
-        for(let b=1; b<=BUILDINGS; b++) globalQueue.push({type:t.code, b, t, fam});
+        const qty = (TYPE_META[t.code]||{}).qty||1;
+        for(let b=1; b<=BUILDINGS; b++) for(let q=0;q<qty;q++) globalQueue.push({type:t.code, b, t, fam});
       });
     });
   } else {
@@ -1109,7 +1112,8 @@ async function runEngine(){
         const sorted = typesByFam[fam].slice().sort((a,b)=> floorRank(a.fl) - floorRank(b.fl));
         sorted.forEach(t=>{
           if(!fitsAnySlot(t,fam)){ if(b===1 && !seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
-          globalQueue.push({type:t.code, b, t, fam});
+          const qty = (TYPE_META[t.code]||{}).qty||1;
+          for(let q=0;q<qty;q++) globalQueue.push({type:t.code, b, t, fam});
         });
       });
     }
@@ -1736,9 +1740,9 @@ async function runEngine(){
     shutterChanges,
     unfit: [...new Set(unfit.map(t=>t.code))].map(c=>TYPES.find(t=>t.code===c)),
     activeTables: activeTables.map(t=>({id:t.id,name:t.name,L:t.L,W:t.W})),
-    byOthers: byOthersTypes.map(t=>({code:t.code, fam:t.fam, w:t.w, h:t.h, kg:t.kg, pieces:BUILDINGS})),
-    byOthersPieces: byOthersTypes.length * BUILDINGS,
-    byOthersKg: byOthersTypes.reduce((s,t)=>s+t.kg*BUILDINGS,0),
+    byOthers: byOthersTypes.map(t=>({code:t.code, fam:t.fam, w:t.w, h:t.h, kg:t.kg, pieces:((TYPE_META[t.code]||{}).qty||1)*BUILDINGS})),
+    byOthersPieces: byOthersTypes.reduce((s,t)=>s+((TYPE_META[t.code]||{}).qty||1)*BUILDINGS,0),
+    byOthersKg: byOthersTypes.reduce((s,t)=>s+t.kg*((TYPE_META[t.code]||{}).qty||1)*BUILDINGS,0),
   };
 
   setStep("✓ Optimization complete", 100);
