@@ -1061,6 +1061,9 @@ async function runEngine(){
   //  • "floor": cast all GF panels first (16 buildings worth), then FF, then RF — supports
   //             site-erection sequence which proceeds floor-by-floor.
   const famOrder = ["PB","WN","WL","IP"].filter(f=>famsActive.includes(f));
+  // Floor casting priority: GF → FF → SF → RF, then any non-standard floor codes last.
+  const FLOOR_PRIORITY = ["GF","FF","SF","RF"];
+  const floorRank = (fl) => { const i = FLOOR_PRIORITY.indexOf((fl||'').toUpperCase()); return i >= 0 ? i : 99; };
   const globalQueue = [];
   // Eligibility helper (used for all strategies) — also collects unfit on first pass.
   const seenUnfit = new Set();
@@ -1071,20 +1074,22 @@ async function runEngine(){
     });
   }
   if(params.strat === "batch"){
-    // Type-major: walk families, then types in their already-sorted order, then b=1..N
+    // Type-major: walk families → floors (GF→FF→SF→RF) → types → b=1..N
     famOrder.forEach(fam=>{
-      typesByFam[fam].forEach(t=>{
+      const sorted = typesByFam[fam].slice().sort((a,b)=>
+        floorRank(a.fl) - floorRank(b.fl) || a.code.localeCompare(b.code)
+      );
+      sorted.forEach(t=>{
         if(!fitsAnySlot(t,fam)){ if(!seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
         for(let b=1; b<=BUILDINGS; b++) globalQueue.push({type:t.code, b, t, fam});
       });
     });
   } else if(params.strat === "floor"){
-    // Floor-major: cast GF for all buildings first, then FF, then RF — matches
+    // Floor-major: cast GF for all buildings first, then FF, SF, RF — matches
     // site erection sequence. Within a floor: walk families × types × buildings.
-    const floorOrder = ["GF","FF","RF"];
-    floorOrder.forEach(fl=>{
+    FLOOR_PRIORITY.forEach(fl=>{
       famOrder.forEach(fam=>{
-        typesByFam[fam].filter(t=> t.fl===fl).forEach(t=>{
+        typesByFam[fam].filter(t=> (t.fl||'').toUpperCase()===fl).forEach(t=>{
           if(!fitsAnySlot(t,fam)){ if(!seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
           for(let b=1; b<=BUILDINGS; b++) globalQueue.push({type:t.code, b, t, fam});
         });
@@ -1092,16 +1097,17 @@ async function runEngine(){
     });
     // Catch any panels with non-standard floor codes at the end (preserves completeness)
     famOrder.forEach(fam=>{
-      typesByFam[fam].filter(t=> !floorOrder.includes(t.fl)).forEach(t=>{
+      typesByFam[fam].filter(t=> !FLOOR_PRIORITY.includes((t.fl||'').toUpperCase())).forEach(t=>{
         if(!fitsAnySlot(t,fam)){ if(!seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
         for(let b=1; b<=BUILDINGS; b++) globalQueue.push({type:t.code, b, t, fam});
       });
     });
   } else {
-    // "round": original building-major ordering, smaller families first within a building
+    // "round": building-major, but within each building sort by floor (GF→FF→SF→RF) then family
     for(let b=1; b<=BUILDINGS; b++){
       famOrder.forEach(fam=>{
-        typesByFam[fam].forEach(t=>{
+        const sorted = typesByFam[fam].slice().sort((a,b)=> floorRank(a.fl) - floorRank(b.fl));
+        sorted.forEach(t=>{
           if(!fitsAnySlot(t,fam)){ if(b===1 && !seenUnfit.has(t.code)){ unfit.push(t); seenUnfit.add(t.code); } return; }
           globalQueue.push({type:t.code, b, t, fam});
         });
