@@ -242,7 +242,14 @@
   .btrack-tbl td.col-label{font-weight:600;color:#1e3a5f;position:sticky;left:0;background:inherit;z-index:1;min-width:130px}
   .btrack-tbl td.col-fac{color:#6b7280;font-size:10px}
   .btrack-tbl td.col-cast{text-align:center;background:#d1fae5;color:#065f46;font-weight:700;cursor:default}
+  .btrack-tbl td.col-cast.clickable{cursor:pointer}
+  .btrack-tbl td.col-cast.clickable:hover{background:#a7f3d0;outline:2px solid #059669;outline-offset:-2px}
   .btrack-tbl td.col-empty{text-align:center;color:#d1d5db;cursor:default}
+  .btrack-tbl td.col-empty.clickable{cursor:pointer;color:#9ca3af}
+  .btrack-tbl td.col-empty.clickable:hover{background:#fef3c7;color:#92400e;outline:2px solid #f59e0b;outline-offset:-2px}
+  .btrack-tbl tr.by-others-row{background:#fef9f0}
+  .btrack-tbl tr.by-others-row:nth-child(even){background:#fef3e2}
+  .btrack-tbl tr.by-others-row:hover{background:#fde68a}
   .btrack-tbl tr.btrack-section th{background:#374151;color:#f9fafb;text-align:left;font-size:11px;padding:5px 6px}
   .btrack-tbl tr.btrack-total td{background:#fef3c7;font-weight:700;color:#92400e;text-align:center}
   .btrack-tbl tr.btrack-total td.col-label{text-align:left;color:#78350f}
@@ -5261,11 +5268,12 @@ function viewBuildingTracking(){
   famOrder.forEach(f=>{ grouped[f] = floorTypes.filter(t=>t.fam===f); });
 
   // Building header numbers
-  const bHeaders = Array.from({length:B},(_,i)=>`<th style="min-width:32px">B${i+1}</th>`).join('');
+  const bHeaders = Array.from({length:B},(_,i)=>`<th style="min-width:36px">B${i+1}</th>`).join('');
   const colHeaders = `<tr>
     <th class="col-label">Element ID</th>
     <th>Family</th>
     <th>Floor</th>
+    <th style="text-align:center">Source</th>
     <th style="text-align:center">Total</th>
     <th style="text-align:center;color:#065f46">Cast</th>
     <th style="text-align:center;color:#991b1b">Balance</th>
@@ -5280,24 +5288,40 @@ function viewBuildingTracking(){
     const types = grouped[fam];
     if(!types || !types.length) return '';
     const famColors = {IP:'#1e3a5f',WL:'#059669',WN:'#7c3aed',PB:'#dc2626'};
-    const rows = types.map(t=>{
+    const inH  = types.filter(t=> isInHouse(t));
+    const byOth = types.filter(t=>!isInHouse(t));
+    const allTypes = [...inH, ...byOth];
+
+    const rows = allTypes.map(t=>{
+      const isByOth = !isInHouse(t);
       let castCount = 0;
       const bCells = Array.from({length:B},(_,i)=>{
         const b = i+1;
         const isCast = (CAST_STATUS[`${t.code}|${b}`] || 'pending') === 'cast';
         if(isCast){ castCount++; totalCastByBuilding[i]++; }
         totalPanelsByBuilding[i]++;
-        return isCast
-          ? `<td class="col-cast" title="${esc(t.code)} · B${b} · Cast">✓</td>`
-          : `<td class="col-empty">–</td>`;
+        // By Others cells are clickable to toggle; In-House are read-only
+        if(isCast){
+          return isByOth
+            ? `<td class="col-cast clickable" data-code="${esc(t.code)}" data-b="${b}" title="Click to unmark cast">✓</td>`
+            : `<td class="col-cast" title="${esc(t.code)} · B${b} · Cast (from schedule)">✓</td>`;
+        } else {
+          return isByOth
+            ? `<td class="col-empty clickable" data-code="${esc(t.code)}" data-b="${b}" title="Click to mark as cast">–</td>`
+            : `<td class="col-empty">–</td>`;
+        }
       }).join('');
       totalCastAll += castCount;
       totalAll += B;
       const balance = B - castCount;
-      return `<tr>
+      const srcBadge = isByOth
+        ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#fef2f2;color:#991b1b;border:1px solid #fca5a5;font-weight:600">By Others</span>`
+        : `<span style="font-size:9px;padding:1px 6px;border-radius:8px;background:#f0fdf4;color:#065f46;border:1px solid #86efac;font-weight:600">In-House</span>`;
+      return `<tr${isByOth?' class="by-others-row"':''}>
         <td class="col-label"><span class="pill ${t.fam}" style="font-size:9px;padding:1px 5px">${esc(t.code)}</span></td>
         <td><span class="pill ${t.fam}" style="font-size:9px;padding:1px 5px">${t.fam}</span></td>
         <td style="color:#6b7280;font-size:10px">${esc(t.fl||'')}</td>
+        <td style="text-align:center">${srcBadge}</td>
         <td style="text-align:center;font-weight:600">${B}</td>
         <td style="text-align:center;color:#065f46;font-weight:700">${castCount}</td>
         <td style="text-align:center;color:${balance>0?'#991b1b':'#065f46'};font-weight:600">${balance}</td>
@@ -5305,47 +5329,62 @@ function viewBuildingTracking(){
       </tr>`;
     }).join('');
 
+    const inHCount = inH.length, byOthCount = byOth.length;
+    const sectionLabel = [
+      inHCount ? `${inHCount} In-House` : '',
+      byOthCount ? `${byOthCount} By Others` : ''
+    ].filter(Boolean).join(' · ');
+
     return `<tr class="btrack-section">
-      <th colspan="${6+B}" style="border-left:4px solid ${famColors[fam]||'#94a3b8'}">
-        ${fam} — ${types.length} types × ${B} buildings = ${types.length*B} pieces
+      <th colspan="${7+B}" style="border-left:4px solid ${famColors[fam]||'#94a3b8'}">
+        ${fam} — ${allTypes.length} types (${sectionLabel}) × ${B} buildings = ${allTypes.length*B} pieces
       </th>
     </tr>
     ${rows}`;
   }).join('');
 
   // Total + percentage rows
-  const totalCells = totalCastByBuilding.map((n,i)=>`<td>${n} / ${totalPanelsByBuilding[i]}</td>`).join('');
+  const totalCells = totalCastByBuilding.map((n,i)=>`<td>${n}<br><span style="font-size:9px;color:#6b7280">/ ${totalPanelsByBuilding[i]}</span></td>`).join('');
   const pctCells   = totalCastByBuilding.map((n,i)=>{
     const pct = totalPanelsByBuilding[i]>0 ? Math.round(n/totalPanelsByBuilding[i]*100) : 0;
-    return `<td>${pct}%</td>`;
+    const col = pct>=100?'#065f46':pct>=50?'#d97706':'#991b1b';
+    return `<td style="color:${col};font-weight:700">${pct}%</td>`;
   }).join('');
 
   const overallPct = totalAll>0 ? Math.round(totalCastAll/totalAll*100) : 0;
-
   const floorTabs = floors.map(fl=>`<button class="btrack-tab${fl===activeFloor?' active':''}" data-fl="${fl}">${fl}</button>`).join('');
+
+  const legend = `<div style="display:flex;gap:10px;align-items:center;font-size:11px;color:#6b7280">
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#d1fae5;display:inline-block"></span> Cast</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#f9fafb;border:1px solid #e5e7eb;display:inline-block"></span> Pending</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#fef9f0;border:1px solid #fde68a;display:inline-block"></span> By Others row — click cell to toggle</span>
+  </div>`;
 
   return `
     <div class="panel">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
         <h2 style="margin:0">Building-Wise Tracking</h2>
         <span style="font-size:12px;color:#6b7280">${activeFloor} floor · ${totalCastAll} of ${totalAll} panels cast (${overallPct}%)</span>
         <button class="btn sm" id="btrackExportBtn" style="margin-left:auto">⬇ Export CSV</button>
       </div>
-      <div class="btrack-tabs">${floorTabs}</div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        <div class="btrack-tabs" style="margin-bottom:0">${floorTabs}</div>
+        ${legend}
+      </div>
       <div class="btrack-wrap">
         <table class="btrack-tbl">
           <thead>${colHeaders}</thead>
           <tbody>
             ${sectionRows}
             <tr class="btrack-total">
-              <td class="col-label" colspan="3">TOTAL CAST (${activeFloor})</td>
+              <td class="col-label" colspan="4">TOTAL CAST (${activeFloor})</td>
               <td>${totalAll}</td>
               <td style="color:#065f46">${totalCastAll}</td>
               <td style="color:#991b1b">${totalAll-totalCastAll}</td>
               ${totalCells}
             </tr>
             <tr class="btrack-pct">
-              <td class="col-label" colspan="3">% Building Completion</td>
+              <td class="col-label" colspan="4">% Building Completion</td>
               <td></td>
               <td>${overallPct}%</td>
               <td></td>
@@ -5363,17 +5402,34 @@ function bindBuildingTracking(){
   });
   const expBtn = $('#btrackExportBtn');
   if(expBtn) expBtn.onclick = _btrackExportCSV;
+
+  // Clickable cells — toggle cast status for By Others panels
+  $$('.btrack-tbl td.clickable').forEach(td=>{
+    td.onclick=()=>{
+      const code = td.dataset.code, b = parseInt(td.dataset.b);
+      if(!code || !b) return;
+      const key = `${code}|${b}`;
+      const cur = CAST_STATUS[key] || 'pending';
+      if(cur === 'cast'){ delete CAST_STATUS[key]; }
+      else { CAST_STATUS[key] = 'cast'; }
+      saveCastStatus();
+      // Re-render the tracking view to reflect the change
+      $("#view").innerHTML = viewBuildingTracking();
+      bindBuildingTracking();
+    };
+  });
 }
 
 function _btrackExportCSV(){
   const B = BUILDINGS || 16;
   const floor = window._btrackFloor || 'GF';
   const types = TYPES.filter(t=>(t.fl||'')===floor);
-  const headers = ['S.NO','Element ID','Family','Floor','Total Qty','Cast','Balance',...Array.from({length:B},(_,i)=>`B${i+1}`)];
+  const headers = ['S.NO','Element ID','Family','Floor','Source','Total Qty','Cast','Balance',...Array.from({length:B},(_,i)=>`B${i+1}`)];
   const rows = types.map((t,idx)=>{
     const bCols = Array.from({length:B},(_,i)=>(CAST_STATUS[`${t.code}|${i+1}`]||'pending')==='cast'?'1':'');
     const cast = bCols.filter(v=>v==='1').length;
-    return [idx+1, t.code, t.fam, t.fl||'', B, cast, B-cast, ...bCols].join(',');
+    const src = isInHouse(t)?'In-House':'By Others';
+    return [idx+1, t.code, t.fam, t.fl||'', src, B, cast, B-cast, ...bCols].join(',');
   });
   const csv = [headers.join(','), ...rows].join('\n');
   const a = document.createElement('a');
