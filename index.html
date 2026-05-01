@@ -4348,21 +4348,21 @@ ${filterParts.length?`<div class="filter-bar"><strong>Filtered by:</strong>${fil
       'Opening 1 Type (win/door)','Opening 1 Width (mm)','Opening 1 Length (mm)',
       'Opening 2 Type (win/door)','Opening 2 Width (mm)','Opening 2 Length (mm)',
       'Opening 3 Type (win/door)','Opening 3 Width (mm)','Opening 3 Length (mm)',
-      'MEP (1=yes 0=no)'
+      'MEP (1=yes 0=no)','Source'
     ];
     const q = v => '"'+String(v??'').replace(/"/g,'""')+'"';
     const rows = TYPES.map(t=>{
-      const meta = (window.TYPE_META||{})[t.code] || {};
-      const opns = meta.openings || [];
+      const m = getMeta(t.code);
       // Pad to 3 opening slots
-      const o = [0,1,2].map(i => opns[i] || {type:'',w:'',l:''});
+      const o = [0,1,2].map(i => m.openings[i] || {type:'',w:'',l:''});
       return [
         t.code, t.fam, t.fl||'GF',
         t.w, t.h, t.t||t.thk||250, t.kg||0,
         o[0].type, o[0].w||'', o[0].l||'',
         o[1].type, o[1].w||'', o[1].l||'',
         o[2].type, o[2].w||'', o[2].l||'',
-        meta.mep ? 1 : 0
+        m.mep ? 1 : 0,
+        isInHouse(t) ? 'In-House' : 'By Others'
       ].map(q).join(',');
     });
     const csv = BOM + [headers.map(q).join(','), ...rows].join('\r\n');
