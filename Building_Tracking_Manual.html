@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Building-Wise Tracking — User Manual</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;font-size:11pt;color:#1a1a2e;background:#fff;padding:0}
+
+  /* ── Page layout ── */
+  .page{width:210mm;min-height:297mm;margin:0 auto;padding:18mm 20mm 18mm 20mm;background:#fff}
+
+  /* ── Cover page ── */
+  .cover{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:260mm;text-align:center;gap:0}
+  .cover-logo{width:120px;height:120px;background:#1e3a5f;border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 28px}
+  .cover-logo img{height:80px;width:auto;filter:brightness(0) invert(1)}
+  .cover-badge{font-size:8pt;font-weight:700;letter-spacing:3px;color:#0891b2;text-transform:uppercase;margin-bottom:12px}
+  .cover-title{font-size:28pt;font-weight:900;color:#1e3a5f;line-height:1.1;margin-bottom:8px}
+  .cover-subtitle{font-size:14pt;color:#475569;margin-bottom:32px}
+  .cover-divider{width:80px;height:4px;background:linear-gradient(90deg,#0891b2,#1e3a5f);border-radius:2px;margin:0 auto 32px}
+  .cover-meta{font-size:10pt;color:#64748b;line-height:1.8}
+  .cover-meta b{color:#1e3a5f}
+  .cover-footer{position:absolute;bottom:20mm;left:0;right:0;text-align:center;font-size:8pt;color:#94a3b8}
+  .cover-warning{margin-top:28px;padding:12px 20px;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px;font-size:9.5pt;color:#92400e;font-weight:600;max-width:340px;line-height:1.5}
+
+  /* ── Typography ── */
+  h1{font-size:18pt;color:#1e3a5f;font-weight:800;margin-bottom:10px;padding-bottom:6px;border-bottom:3px solid #1e3a5f}
+  h2{font-size:13pt;color:#0f4c81;font-weight:700;margin:22px 0 8px;padding-bottom:4px;border-bottom:2px solid #e2e8f0}
+  h3{font-size:11pt;color:#1e3a5f;font-weight:700;margin:14px 0 6px}
+  p{margin-bottom:8px;line-height:1.65;color:#374151}
+  ul,ol{margin:6px 0 10px 20px}
+  li{margin-bottom:5px;line-height:1.6;color:#374151}
+  strong{color:#1e3a5f}
+  code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-family:Consolas,monospace;font-size:9.5pt;color:#0f4c81}
+
+  /* ── Callout boxes ── */
+  .callout{border-radius:8px;padding:12px 16px;margin:12px 0;display:flex;gap:12px;align-items:flex-start}
+  .callout-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+  .callout-body{flex:1}
+  .callout-body p{margin:0;font-size:10.5pt}
+  .callout.info{background:#eff6ff;border-left:4px solid #3b82f6}
+  .callout.warn{background:#fef3c7;border-left:4px solid #f59e0b}
+  .callout.tip{background:#f0fdf4;border-left:4px solid #22c55e}
+  .callout.danger{background:#fef2f2;border-left:4px solid #ef4444}
+
+  /* ── Status badges ── */
+  .badge-row{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
+  .badge{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:8px;font-size:10pt}
+  .badge-swatch{width:24px;height:24px;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9pt;font-weight:800;color:#fff}
+  .badge-label b{display:block;font-size:10pt;margin-bottom:1px}
+  .badge-label span{font-size:9pt;color:#64748b}
+  .b-pending{background:#f8fafc;border:1px solid #e2e8f0}.b-pending .badge-swatch{background:#e2e8f0;color:#9ca3af}
+  .b-cast{background:#f0fdf4;border:1px solid #86efac}.b-cast .badge-swatch{background:#059669}
+  .b-inhouse{background:#eff6ff;border:1px solid #93c5fd}.b-inhouse .badge-swatch{background:#1e40af}
+
+  /* ── Step boxes ── */
+  .steps{counter-reset:step;list-style:none;margin:10px 0;padding:0}
+  .steps li{counter-increment:step;display:flex;gap:12px;margin-bottom:12px;align-items:flex-start}
+  .steps li::before{content:counter(step);flex-shrink:0;width:26px;height:26px;background:#1e3a5f;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10pt;font-weight:800;margin-top:1px}
+  .steps li .step-body{flex:1;padding-top:3px}
+
+  /* ── Table ── */
+  table.man{width:100%;border-collapse:collapse;margin:10px 0;font-size:10pt}
+  table.man th{background:#1e3a5f;color:#fff;padding:7px 10px;text-align:left;font-size:9.5pt}
+  table.man td{padding:7px 10px;border-bottom:1px solid #e5e7eb;vertical-align:top}
+  table.man tr:nth-child(even) td{background:#f8fafc}
+  table.man .cell-cast{background:#059669;color:#fff;font-weight:700;text-align:center;border-radius:3px}
+  table.man .cell-ih{background:#1e40af;color:#fff;font-weight:700;text-align:center;border-radius:3px}
+  table.man .cell-pend{color:#9ca3af;text-align:center}
+
+  /* ── Screenshot placeholder ── */
+  .mockup{border:2px solid #e2e8f0;border-radius:10px;overflow:hidden;margin:12px 0;background:#f8fafc}
+  .mockup-bar{background:#1e3a5f;padding:7px 12px;display:flex;align-items:center;gap:8px}
+  .mockup-bar span{font-size:8.5pt;font-weight:700;color:#fff;letter-spacing:.3px}
+  .mockup-bar .dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .mockup-body{padding:12px 14px}
+  .mockup-row{display:flex;gap:0;margin-bottom:3px;font-size:9pt;border-radius:4px;overflow:hidden}
+  .mockup-row .cell{padding:5px 8px;border-right:1px solid #e5e7eb;flex:1;text-align:center;font-size:8.5pt}
+  .mockup-row .cell:first-child{text-align:left;flex:2;font-weight:600;color:#1e3a5f}
+  .mockup-row.head .cell{background:#1e3a5f;color:#fff;font-weight:700}
+  .mockup-row.r1 .cell{background:#fff}
+  .mockup-row.r2 .cell{background:#f9fafb}
+  .mockup-row.ro .cell{background:#fef9f0}
+  .c-cast{background:#059669!important;color:#fff!important;font-weight:800}
+  .c-ih{background:#1e40af!important;color:#fff!important;font-weight:800}
+  .c-empty{color:#d1d5db!important}
+
+  /* ── Page breaks ── */
+  .page-break{page-break-before:always;padding-top:0}
+  .no-break{page-break-inside:avoid}
+
+  /* ── Footer ── */
+  .doc-footer{margin-top:28px;padding-top:10px;border-top:2px solid #e2e8f0;display:flex;justify-content:space-between;font-size:8pt;color:#94a3b8}
+
+  @media print{
+    body{padding:0}
+    .page{margin:0;padding:12mm 14mm;min-height:auto}
+    @page{size:A4 portrait;margin:0}
+    .page-break{page-break-before:always}
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     COVER PAGE
+════════════════════════════════════════════════ -->
+<div class="page" style="position:relative">
+  <div class="cover">
+    <div class="cover-logo">
+      <img src="https://capriole-construction.github.io/KnowledgeBase/Books%20and%20References/capriole-platform/logo.png"
+           alt="Capriole" onerror="this.parentElement.style.background='#0f4c81'">
+    </div>
+    <div class="cover-badge">Capriole Precast Engine · v1.1</div>
+    <div class="cover-title">Building-Wise<br>Tracking Manual</div>
+    <div class="cover-subtitle">How to Update Cast Status for<br>In-House &amp; By Others Panels</div>
+    <div class="cover-divider"></div>
+    <div class="cover-meta">
+      <b>Audience:</b> Site Engineers · Production Supervisors · QC Team<br>
+      <b>Module:</b> Building Tracking Tab<br>
+      <b>Issued:</b> May 2026
+    </div>
+    <div class="cover-warning">
+      ⚠ This document is for authorised team members only.<br>
+      Changes made here affect the live production schedule.
+    </div>
+  </div>
+  <div class="cover-footer">Capriole Construction · Precast Production Engine · Confidential</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     PAGE 2 — OVERVIEW
+════════════════════════════════════════════════ -->
+<div class="page page-break">
+  <h1>1. Overview</h1>
+
+  <p>The <strong>Building-Wise Tracking</strong> tab gives your team a real-time view of every precast panel across every building — who is casting it, which building it belongs to, and whether it has been completed.</p>
+
+  <p>Your project contains two types of panels:</p>
+
+  <table class="man">
+    <tr>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Who casts?</th>
+    </tr>
+    <tr>
+      <td><strong>In-House</strong></td>
+      <td>Panels scheduled and cast in Capriole's own casting yard</td>
+      <td>Capriole production team</td>
+    </tr>
+    <tr>
+      <td><strong>By Others</strong></td>
+      <td>Panels originally assigned to an external sub-contractor</td>
+      <td>External contractor <em>or</em> Capriole (if reassigned)</td>
+    </tr>
+  </table>
+
+  <div class="callout info">
+    <div class="callout-icon">ℹ️</div>
+    <div class="callout-body"><p><strong>Important:</strong> In some situations, panels originally labelled <em>By Others</em> may end up being cast by Capriole's own yard instead. The tracking tab lets you record this without changing the original contract data.</p></div>
+  </div>
+
+  <h2>1.1 Status States</h2>
+  <p>Each building cell (B1, B2, B3 …) for every panel type can be in one of three states:</p>
+
+  <div class="badge-row">
+    <div class="badge b-pending">
+      <div class="badge-swatch">–</div>
+      <div class="badge-label"><b>Pending</b><span>Not yet cast · grey dash</span></div>
+    </div>
+    <div class="badge b-cast">
+      <div class="badge-swatch">✓</div>
+      <div class="badge-label"><b>Cast (By Others)</b><span>External contractor confirmed cast · green</span></div>
+    </div>
+    <div class="badge b-inhouse">
+      <div class="badge-swatch" style="font-size:7pt">✓IH</div>
+      <div class="badge-label"><b>Cast In-House</b><span>Capriole cast this instead · blue</span></div>
+    </div>
+  </div>
+
+  <div class="callout tip">
+    <div class="callout-icon">✅</div>
+    <div class="callout-body"><p><strong>In-House panels</strong> (green rows) are updated automatically by the engine when a day is marked complete in the Order Schedule. You <strong>do not need to click</strong> them manually.</p></div>
+  </div>
+
+  <h2>1.2 Who Should Update This Tab?</h2>
+  <ul>
+    <li><strong>Site Engineer / Production Supervisor</strong> — marks By Others panels after confirming cast with the sub-contractor</li>
+    <li><strong>QC Team</strong> — verifies and counter-checks cast counts against delivery notes</li>
+    <li><strong>Project Manager</strong> — monitors overall % completion via the Print Report</li>
+  </ul>
+
+  <div class="callout danger">
+    <div class="callout-icon">🚫</div>
+    <div class="callout-body"><p><strong>Do not</strong> mark a panel as cast before physical confirmation. The system has no undo — an incorrect mark must be clicked again to cycle back to Pending.</p></div>
+  </div>
+
+  <div class="doc-footer">
+    <span>Building-Wise Tracking Manual · Capriole Precast Engine v1.1</span>
+    <span>Page 2</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     PAGE 3 — OPENING THE TAB
+════════════════════════════════════════════════ -->
+<div class="page page-break">
+  <h1>2. Opening the Building Tracking Tab</h1>
+
+  <ol class="steps">
+    <li>
+      <div class="step-body">
+        <strong>Open the project in the Precast Engine.</strong><br>
+        Sign in to the cloud from the home screen and click your project card, or open a local <code>.pfproj</code> file.
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        <strong>Click the <em>Building Tracking</em> tab</strong> in the top navigation bar.<br>
+        It is the second tab from the right, labelled <strong>🏢 BUILDING TRACKING</strong>.
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        <strong>Select the correct floor</strong> using the floor tabs (e.g. <code>FF</code>, <code>GF</code>) shown below the title bar.<br>
+        Each floor is tracked independently.
+      </div>
+    </li>
+  </ol>
+
+  <!-- Mockup of the tab bar -->
+  <div class="mockup no-break">
+    <div class="mockup-bar">
+      <span class="dot" style="background:#94a3b8"></span>
+      <span class="dot" style="background:#94a3b8"></span>
+      <span class="dot" style="background:#94a3b8"></span>
+      <span>OVERVIEW &nbsp;│&nbsp; GANTT SCHEDULE &nbsp;│&nbsp; MOULD ASSIGNMENTS &nbsp;│&nbsp; ORDER SCHEDULE &nbsp;│&nbsp; TABLE PLAN &nbsp;│&nbsp; CASTING TABLES &nbsp;│&nbsp; <b style="color:#f59e0b">BUILDING TRACKING</b> &nbsp;│&nbsp; DATA</span>
+    </div>
+    <div class="mockup-body">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <span style="font-weight:800;color:#1e3a5f;font-size:11pt">BUILDING-WISE TRACKING</span>
+        <span style="font-size:9pt;color:#6b7280">FF floor · 36 of 208 panels cast (17%)</span>
+        <button style="margin-left:auto;padding:4px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;font-size:8.5pt;cursor:default">🖨 Print Report</button>
+        <button style="padding:4px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;font-size:8.5pt;cursor:default">⬇ Export CSV</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button style="padding:4px 14px;background:#1e3a5f;color:#fff;border:none;border-radius:20px;font-size:9pt;font-weight:700">FF</button>
+        <button style="padding:4px 14px;background:#f1f5f9;color:#374151;border:1px solid #e2e8f0;border-radius:20px;font-size:9pt">GF</button>
+      </div>
+      <div style="display:flex;gap:12px;font-size:8.5pt;color:#6b7280;flex-wrap:wrap">
+        <span>🟩 Cast (By Others)</span>
+        <span>🟦 ✓ IH — Cast In-House</span>
+        <span>⬜ Pending</span>
+        <span>🟧 By Others row — click to cycle: Pending → Cast IH → Cast</span>
+      </div>
+    </div>
+  </div>
+
+  <h2>2.1 Reading the Table</h2>
+
+  <div class="mockup no-break">
+    <div class="mockup-body" style="padding:0">
+      <div class="mockup-row head">
+        <div class="cell">Element ID</div>
+        <div class="cell">Family</div>
+        <div class="cell">Floor</div>
+        <div class="cell">Source</div>
+        <div class="cell">Total</div>
+        <div class="cell">Cast</div>
+        <div class="cell">Balance</div>
+        <div class="cell">B1</div>
+        <div class="cell">B2</div>
+        <div class="cell">B3</div>
+        <div class="cell">B4</div>
+      </div>
+      <div class="mockup-row r1">
+        <div class="cell">FF-WL-01</div>
+        <div class="cell">WL</div><div class="cell">FF</div>
+        <div class="cell" style="color:#065f46;font-size:8pt;font-weight:600">In-House</div>
+        <div class="cell">4</div><div class="cell" style="color:#065f46;font-weight:700">2</div><div class="cell" style="color:#991b1b">2</div>
+        <div class="cell c-cast">✓</div><div class="cell c-cast">✓</div><div class="cell c-empty">–</div><div class="cell c-empty">–</div>
+      </div>
+      <div class="mockup-row r2" style="background:#fef9f0">
+        <div class="cell">FF-IP-01</div>
+        <div class="cell">IP</div><div class="cell">FF</div>
+        <div class="cell" style="color:#991b1b;font-size:8pt;font-weight:600">By Others</div>
+        <div class="cell">4</div><div class="cell" style="color:#065f46;font-weight:700">2</div><div class="cell" style="color:#991b1b">2</div>
+        <div class="cell c-cast">✓</div><div class="cell c-ih">✓ IH</div><div class="cell c-empty">–</div><div class="cell c-empty">–</div>
+      </div>
+      <div class="mockup-row r1" style="background:#fef9f0">
+        <div class="cell">FF-IP-03</div>
+        <div class="cell">IP</div><div class="cell">FF</div>
+        <div class="cell" style="color:#991b1b;font-size:8pt;font-weight:600">By Others</div>
+        <div class="cell">4</div><div class="cell" style="color:#6b7280;font-weight:700">0</div><div class="cell" style="color:#991b1b">4</div>
+        <div class="cell c-empty">–</div><div class="cell c-empty">–</div><div class="cell c-empty">–</div><div class="cell c-empty">–</div>
+      </div>
+    </div>
+  </div>
+
+  <table class="man" style="margin-top:10px">
+    <tr><th>Column</th><th>Meaning</th></tr>
+    <tr><td><strong>Element ID</strong></td><td>Unique panel code (e.g. FF-IP-01)</td></tr>
+    <tr><td><strong>Source</strong></td><td>In-House (Capriole) or By Others (sub-contractor)</td></tr>
+    <tr><td><strong>Total</strong></td><td>Number of buildings requiring this panel type</td></tr>
+    <tr><td><strong>Cast</strong></td><td>How many buildings have confirmed this panel as cast</td></tr>
+    <tr><td><strong>Balance</strong></td><td>Remaining panels still pending (red = behind)</td></tr>
+    <tr><td><strong>B1 … Bn</strong></td><td>Individual building status — click to update (By Others only)</td></tr>
+  </table>
+
+  <div class="doc-footer">
+    <span>Building-Wise Tracking Manual · Capriole Precast Engine v1.1</span>
+    <span>Page 3</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     PAGE 4 — UPDATING STATUS
+════════════════════════════════════════════════ -->
+<div class="page page-break">
+  <h1>3. Updating Cast Status</h1>
+
+  <h2>3.1 Marking a "By Others" Panel as Cast</h2>
+
+  <p>When a sub-contractor confirms that a panel has been cast, follow these steps:</p>
+
+  <ol class="steps">
+    <li>
+      <div class="step-body">
+        Navigate to <strong>Building Tracking</strong> and select the correct <strong>floor tab</strong> (FF or GF).
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        Find the panel row. <strong>By Others</strong> rows have an amber/cream background and show a red <em>"By Others"</em> source badge.
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        Locate the <strong>building column</strong> (B1, B2, B3 …) for the specific building that has been cast.
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        <strong>Click the cell once.</strong> It will turn <span style="background:#1e40af;color:#fff;padding:1px 6px;border-radius:3px;font-weight:700;font-size:9pt">✓ IH</span> (blue) — meaning <em>Cast In-House by Capriole</em>.
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        <strong>Click again</strong> to advance to <span style="background:#059669;color:#fff;padding:1px 6px;border-radius:3px;font-weight:700;font-size:9pt">✓</span> (green) — meaning <em>Cast by the external contractor (By Others)</em>.
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        <strong>Click a third time</strong> to return to <span style="background:#e2e8f0;color:#9ca3af;padding:1px 6px;border-radius:3px;font-weight:700;font-size:9pt">–</span> (Pending) if you made an error.
+      </div>
+    </li>
+  </ol>
+
+  <div class="callout warn">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-body"><p><strong>Choose the correct state:</strong><br>
+    Use <strong>✓ IH</strong> (blue) when Capriole's own casting yard produced the panel.<br>
+    Use <strong>✓</strong> (green) when the external sub-contractor produced the panel as per contract.</p></div>
+  </div>
+
+  <h2>3.2 Cycle Summary</h2>
+
+  <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:16px 0;flex-wrap:wrap">
+    <div style="padding:8px 16px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:8px;text-align:center;font-size:10pt">
+      <div style="font-size:18pt;color:#9ca3af">–</div>
+      <div style="font-weight:700;color:#374151">Pending</div>
+      <div style="font-size:8.5pt;color:#6b7280">Not yet cast</div>
+    </div>
+    <div style="font-size:18pt;color:#1e3a5f;font-weight:700">→</div>
+    <div style="padding:8px 16px;background:#eff6ff;border:2px solid #93c5fd;border-radius:8px;text-align:center;font-size:10pt">
+      <div style="font-size:16pt;font-weight:900;color:#1e40af">✓ IH</div>
+      <div style="font-weight:700;color:#1e40af">Cast In-House</div>
+      <div style="font-size:8.5pt;color:#6b7280">Capriole cast this</div>
+    </div>
+    <div style="font-size:18pt;color:#1e3a5f;font-weight:700">→</div>
+    <div style="padding:8px 16px;background:#f0fdf4;border:2px solid #86efac;border-radius:8px;text-align:center;font-size:10pt">
+      <div style="font-size:18pt;font-weight:900;color:#059669">✓</div>
+      <div style="font-weight:700;color:#059669">Cast (By Others)</div>
+      <div style="font-size:8.5pt;color:#6b7280">Contractor cast this</div>
+    </div>
+    <div style="font-size:18pt;color:#1e3a5f;font-weight:700">→</div>
+    <div style="padding:8px 16px;background:#f8fafc;border:2px dashed #e2e8f0;border-radius:8px;text-align:center;font-size:10pt;opacity:.7">
+      <div style="font-size:18pt;color:#9ca3af">–</div>
+      <div style="font-weight:700;color:#374151">Back to Pending</div>
+    </div>
+  </div>
+
+  <h2>3.3 Marking In-House Panels as Cast</h2>
+  <p>In-House panel cells in the Building Tracking table are <strong>read-only</strong> — you cannot click them directly here. Their status is driven by the <strong>Order Schedule</strong> tab. Follow these steps to mark an In-House panel as Cast:</p>
+
+  <ol class="steps">
+    <li>
+      <div class="step-body">
+        Click the <strong>ORDER SCHEDULE</strong> tab in the top navigation bar.
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        Use the <strong>Filter Bar</strong> at the top of the table to narrow down the list:<br>
+        — Type the <strong>panel code</strong> (e.g. <code>GF-WL-01</code>) in the Search box, or<br>
+        — Click a <strong>Family chip</strong> (WL, IP, WN, PB) to filter by family, or<br>
+        — Click a <strong>Building chip</strong> to show only one building.
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        Find the correct panel row. The row shows: <strong>Date · Table · Type · Building · Dimensions · Weight · Mould · Status</strong>.
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        In the <strong>Status</strong> column, click the dropdown and change it from <code>Pending</code> to <code>✓ Cast</code>.<br>
+        The row background turns <span style="background:#f0fdf4;padding:1px 5px;border-radius:3px;color:#065f46;font-weight:700">green</span> immediately to confirm.
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        Return to the <strong>Building Tracking</strong> tab — the corresponding building cell will now show a green <span style="background:#059669;color:#fff;padding:1px 6px;border-radius:3px;font-weight:700;font-size:9pt">✓</span>.
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        Click <strong>💾 Save Patch</strong> in the top-right to sync changes to the cloud.
+      </div>
+    </li>
+  </ol>
+
+  <!-- Order Schedule mockup -->
+  <div class="mockup no-break" style="margin-top:14px">
+    <div class="mockup-bar">
+      <span class="dot" style="background:#94a3b8"></span>
+      <span class="dot" style="background:#94a3b8"></span>
+      <span class="dot" style="background:#94a3b8"></span>
+      <span><b style="color:#f59e0b">ORDER SCHEDULE</b> — Daily Production Schedule</span>
+    </div>
+    <div class="mockup-body" style="padding:0">
+      <!-- Filter bar -->
+      <div style="background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:8px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="text" placeholder="🔍  Search type / code…" style="padding:4px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:8.5pt;width:140px;pointer-events:none" readonly>
+        <span style="font-size:8pt;color:#6b7280;font-weight:700">Family:</span>
+        <span style="padding:2px 10px;border-radius:12px;border:1px solid #1e3a5f;background:#1e3a5f;color:#fff;font-size:8pt;font-weight:700">WL</span>
+        <span style="padding:2px 10px;border-radius:12px;border:1px solid #cbd5e1;background:#f1f5f9;color:#374151;font-size:8pt;font-weight:700">IP</span>
+        <span style="padding:2px 10px;border-radius:12px;border:1px solid #cbd5e1;background:#f1f5f9;color:#374151;font-size:8pt;font-weight:700">WN</span>
+        <span style="font-size:8pt;color:#6b7280;font-weight:700">Status:</span>
+        <span style="padding:2px 10px;border-radius:12px;border:1px solid #cbd5e1;background:#f1f5f9;color:#374151;font-size:8pt;font-weight:700">Pending</span>
+        <span style="padding:2px 10px;border-radius:12px;border:1px solid #cbd5e1;background:#f1f5f9;color:#374151;font-size:8pt;font-weight:700">Cast</span>
+      </div>
+      <!-- Table header -->
+      <div class="mockup-row head" style="font-size:8pt">
+        <div class="cell" style="flex:1.2">Date</div>
+        <div class="cell">Table</div>
+        <div class="cell">Type</div>
+        <div class="cell">Building</div>
+        <div class="cell">Dim. (mm)</div>
+        <div class="cell">Weight</div>
+        <div class="cell">Mould</div>
+        <div class="cell" style="flex:1.6">Status</div>
+      </div>
+      <!-- Header sub-row -->
+      <div style="background:#f8fafc;border-bottom:1px solid #e5e7eb;padding:4px 8px;font-size:8pt;font-weight:700;color:#374151">
+        2026-05-05 · Monday
+      </div>
+      <!-- Row 1 — pending -->
+      <div class="mockup-row r1" style="font-size:8.5pt;border-bottom:1px solid #f1f5f9">
+        <div class="cell" style="flex:1.2"></div>
+        <div class="cell">T01</div>
+        <div class="cell" style="font-weight:700">GF-WL-01</div>
+        <div class="cell">Building 1</div>
+        <div class="cell">3200×500</div>
+        <div class="cell">1.24 t</div>
+        <div class="cell" style="color:#065f46;font-size:8pt">♻ reuse</div>
+        <div class="cell" style="flex:1.6">
+          <select style="padding:2px 4px;border:1px solid #e2e8f0;border-radius:4px;font-size:8pt;pointer-events:none">
+            <option>Pending</option>
+          </select>
+          <span style="margin-left:4px;padding:2px 5px;border:1px solid #e2e8f0;border-radius:4px;font-size:8.5pt">↻</span>
+        </div>
+      </div>
+      <!-- Row 2 — cast (highlighted) -->
+      <div class="mockup-row r2" style="font-size:8.5pt;background:#f0fdf4;border:2px solid #059669;border-radius:4px">
+        <div class="cell" style="flex:1.2"></div>
+        <div class="cell">T01</div>
+        <div class="cell" style="font-weight:700;color:#065f46">GF-WL-02</div>
+        <div class="cell">Building 1</div>
+        <div class="cell">3200×500</div>
+        <div class="cell">1.24 t</div>
+        <div class="cell" style="color:#065f46;font-size:8pt">♻ reuse</div>
+        <div class="cell" style="flex:1.6">
+          <select style="padding:2px 4px;border:1px solid #86efac;border-radius:4px;font-size:8pt;background:#f0fdf4;color:#065f46;font-weight:700;pointer-events:none">
+            <option>✓ Cast</option>
+          </select>
+          <span style="margin-left:4px;padding:2px 5px;border:1px solid #e2e8f0;border-radius:4px;font-size:8.5pt">↻</span>
+        </div>
+      </div>
+      <div style="padding:6px 12px;font-size:8pt;color:#6b7280;border-top:1px solid #f1f5f9">
+        ↑ GF-WL-02 changed to <b style="color:#065f46">✓ Cast</b> — row turns green immediately. Click Pending to revert.
+      </div>
+    </div>
+  </div>
+
+  <div class="callout info" style="margin-top:12px">
+    <div class="callout-icon">ℹ️</div>
+    <div class="callout-body"><p>If <strong>Hide Completed Days</strong> is turned on, fully-cast days collapse automatically. Use the filter bar to search for specific panel codes across all dates.</p></div>
+  </div>
+
+  <h2>3.4 Auto-Save</h2>
+  <p>Every click is <strong>saved automatically</strong> — there is no Save button needed. The status is stored in the project file. The next time you open the project, all statuses will be exactly as you left them.</p>
+
+  <div class="callout tip">
+    <div class="callout-icon">💡</div>
+    <div class="callout-body"><p>After marking panels, click <strong>💾 Save Patch</strong> in the top-right corner to sync your updates to the cloud. This ensures all team members see the latest status when they next open the project.</p></div>
+  </div>
+
+  <div class="doc-footer">
+    <span>Building-Wise Tracking Manual · Capriole Precast Engine v1.1</span>
+    <span>Page 4</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     PAGE 5 — REPORTS & EXPORT
+════════════════════════════════════════════════ -->
+<div class="page page-break">
+  <h1>4. Generating Reports</h1>
+
+  <h2>4.1 Print Report (PDF)</h2>
+  <p>Click the <strong>🖨 Print Report</strong> button in the top-right of the Building Tracking tab. A new window will open with a formatted report that includes:</p>
+  <ul>
+    <li>Capriole logo and project details in the header</li>
+    <li>Overall cast progress percentage</li>
+    <li>SVG donut charts — one per floor showing % completion</li>
+    <li>Horizontal bar chart showing progress per building</li>
+    <li>Full panel tracking table with colour-coded cells</li>
+  </ul>
+
+  <ol class="steps">
+    <li><div class="step-body">Click <strong>🖨 Print Report</strong>. A print preview window will open automatically.</div></li>
+    <li><div class="step-body">In your browser's print dialog, set <strong>Paper size: A3</strong> and <strong>Orientation: Landscape</strong>.</div></li>
+    <li><div class="step-body">Enable <strong>"Background graphics"</strong> (or "Print backgrounds") so the coloured cells print correctly.</div></li>
+    <li><div class="step-body">Select <strong>Save as PDF</strong> as the destination to generate a PDF file.</div></li>
+    <li><div class="step-body">Share the PDF with stakeholders via email or WhatsApp.</div></li>
+  </ol>
+
+  <div class="callout warn">
+    <div class="callout-icon">⚠️</div>
+    <div class="callout-body"><p>The report only shows the <strong>currently selected floor</strong>. If you need reports for both FF and GF, print once per floor by switching the floor tab between prints.</p></div>
+  </div>
+
+  <h2>4.2 Export CSV</h2>
+  <p>Click <strong>⬇ Export CSV</strong> to download a spreadsheet-compatible file containing:</p>
+
+  <table class="man">
+    <tr><th>Column</th><th>Content</th></tr>
+    <tr><td>S.NO</td><td>Row number</td></tr>
+    <tr><td>Element ID</td><td>Panel code</td></tr>
+    <tr><td>Family</td><td>Panel family (WL, IP, WN, PB)</td></tr>
+    <tr><td>Floor</td><td>Floor designation</td></tr>
+    <tr><td>Source</td><td>In-House or By Others</td></tr>
+    <tr><td>Total Qty</td><td>Number of buildings</td></tr>
+    <tr><td>Cast</td><td>Number of buildings cast</td></tr>
+    <tr><td>Balance</td><td>Remaining</td></tr>
+    <tr><td>B1 … Bn</td><td>1 = cast, blank = pending (both green ✓ and blue ✓ IH are counted as 1)</td></tr>
+  </table>
+
+  <div class="callout tip">
+    <div class="callout-icon">💡</div>
+    <div class="callout-body"><p>Open the CSV in Microsoft Excel or Google Sheets to apply your own formatting, create pivot tables, or send progress summaries to the client.</p></div>
+  </div>
+
+  <h2>4.3 Switching Between Floors</h2>
+  <p>Use the floor tabs (<code>FF</code> / <code>GF</code>) immediately below the title. The selected floor tab will be highlighted. The Print Report and Export CSV will use the currently active floor.</p>
+
+  <div class="doc-footer">
+    <span>Building-Wise Tracking Manual · Capriole Precast Engine v1.1</span>
+    <span>Page 5</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     PAGE 6 — QUICK REFERENCE
+════════════════════════════════════════════════ -->
+<div class="page page-break">
+  <h1>5. Quick Reference Card</h1>
+  <p style="margin-bottom:16px">Cut out or print this page as a desk reference for your team.</p>
+
+  <div style="border:3px solid #1e3a5f;border-radius:12px;padding:20px 24px;margin-bottom:20px">
+    <div style="font-size:13pt;font-weight:800;color:#1e3a5f;margin-bottom:14px;border-bottom:2px solid #e2e8f0;padding-bottom:6px">
+      🏗 Building Tracking — Status Guide
+    </div>
+
+    <table class="man">
+      <tr><th>Cell Colour</th><th>Label</th><th>Meaning</th><th>Who sets it?</th></tr>
+      <tr>
+        <td><span style="display:inline-block;width:20px;height:20px;background:#e2e8f0;border-radius:3px;vertical-align:middle"></span></td>
+        <td><strong>–</strong> (grey)</td>
+        <td>Pending — not yet cast</td>
+        <td>Default state</td>
+      </tr>
+      <tr>
+        <td><span style="display:inline-block;width:20px;height:20px;background:#1e40af;border-radius:3px;vertical-align:middle"></span></td>
+        <td><strong>✓ IH</strong> (blue)</td>
+        <td>Cast In-House by Capriole</td>
+        <td>Team clicks By Others cell (1st click)</td>
+      </tr>
+      <tr>
+        <td><span style="display:inline-block;width:20px;height:20px;background:#059669;border-radius:3px;vertical-align:middle"></span></td>
+        <td><strong>✓</strong> (green)</td>
+        <td>Cast by external contractor</td>
+        <td>Team clicks By Others cell (2nd click) or auto from Order Schedule</td>
+      </tr>
+    </table>
+
+    <div style="margin-top:16px;font-size:10.5pt;font-weight:700;color:#374151;margin-bottom:8px">Clicking Cycle (By Others cells only):</div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:10pt;flex-wrap:wrap">
+      <span style="padding:5px 12px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:6px">– Pending</span>
+      <span style="font-size:16pt;color:#1e3a5f">→</span>
+      <span style="padding:5px 12px;background:#1e40af;color:#fff;border-radius:6px;font-weight:700">✓ IH Cast In-House</span>
+      <span style="font-size:16pt;color:#1e3a5f">→</span>
+      <span style="padding:5px 12px;background:#059669;color:#fff;border-radius:6px;font-weight:700">✓ Cast by Others</span>
+      <span style="font-size:16pt;color:#1e3a5f">→</span>
+      <span style="padding:5px 12px;background:#f1f5f9;border:1.5px dashed #e2e8f0;border-radius:6px;opacity:.7">– Pending (reset)</span>
+    </div>
+  </div>
+
+  <div style="border:3px solid #f59e0b;border-radius:12px;padding:16px 24px;margin-bottom:20px;background:#fffbeb">
+    <div style="font-size:12pt;font-weight:800;color:#92400e;margin-bottom:10px">⚡ Daily Workflow Checklist</div>
+    <ol style="margin-left:18px;color:#374151;line-height:2">
+      <li>Open project from cloud or local file</li>
+      <li>Click <strong>Building Tracking</strong> tab</li>
+      <li>Select the correct floor (FF / GF)</li>
+      <li>For each confirmed cast — click the building cell once or twice</li>
+      <li>Verify <strong>Cast</strong> count matches your daily report</li>
+      <li>Click <strong>💾 Save Patch</strong> to sync to cloud</li>
+      <li>Print or export if a progress report is needed</li>
+    </ol>
+  </div>
+
+  <div style="border:3px solid #dc2626;border-radius:12px;padding:16px 24px;background:#fef2f2">
+    <div style="font-size:12pt;font-weight:800;color:#991b1b;margin-bottom:8px">🚫 Common Mistakes to Avoid</div>
+    <ul style="color:#374151;line-height:2;margin-left:18px">
+      <li>Marking a panel cast <strong>before physical confirmation</strong></li>
+      <li>Forgetting to <strong>Save Patch</strong> after updating (changes won't sync)</li>
+      <li>Clicking In-House cells (they are <strong>read-only</strong>)</li>
+      <li>Printing without switching to the correct <strong>floor tab</strong> first</li>
+    </ul>
+  </div>
+
+  <div class="doc-footer">
+    <span>Building-Wise Tracking Manual · Capriole Precast Engine v1.1</span>
+    <span>Page 6 — Quick Reference</span>
+  </div>
+</div>
+
+<script>
+  // Auto print prompt when opened
+  window.onload = () => {
+    if(window.location.search.includes('print')) window.print();
+  };
+</script>
+</body>
+</html>
