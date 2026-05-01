@@ -110,6 +110,12 @@
   .c-PB{background:linear-gradient(135deg,#dc2626,#991b1b)}
   .c-IP.last,.c-WL.last,.c-WN.last,.c-PB.last{box-shadow:inset -3px 0 0 #f59e0b}
   .gantt-cell:hover{outline:2px solid #f59e0b;outline-offset:-2px;z-index:5}
+  /* Cast status overlay on Gantt cells */
+  .gantt-cell.gc-cast{opacity:.45;filter:grayscale(.3)}
+  .gantt-cell.gc-cast::after{content:"✓";position:absolute;top:1px;right:3px;font-size:9px;font-weight:900;color:#fff;opacity:.9;line-height:1}
+  .gantt-cell.gc-inhouse{opacity:.55;filter:grayscale(.15)}
+  .gantt-cell.gc-inhouse::after{content:"IH";position:absolute;top:1px;right:2px;font-size:7.5px;font-weight:900;color:#bfdbfe;opacity:.95;line-height:1}
+  .gantt-cell.gc-partial::after{content:"◑";position:absolute;top:1px;right:3px;font-size:9px;font-weight:900;color:#fde68a;opacity:.9;line-height:1}
 
   /* Legend */
   .legend{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px;font-size:11px}
@@ -960,6 +966,16 @@ async function runEngine(){
     } else break;
   }
 
+  // DEMAND CAP: a family never needs more tables than its total casting
+  // cycles (demand). Extra tables would be permanently idle — shedding them
+  // frees physical tables for families that actually need more throughput
+  // and produces a shorter, cleaner schedule with no empty slots.
+  // ceil(demand) = the absolute max useful parallel positions: one per cycle.
+  famsActive.forEach(f=>{
+    const maxUseful = Math.max(1, Math.ceil(famDemand[f]));
+    if(famTableCount[f] > maxUseful) famTableCount[f] = maxUseful;
+  });
+
   // Pick physical tables for each family, in priority order: PB → WN → WL → IP
   // (smaller first so big IP doesn't grab them all). Each table reserved for one family this run.
   const tableFam = {};
@@ -1478,6 +1494,46 @@ async function runEngine(){
         // usedBuildings starts EMPTY — a building only counts as "used" once
         // the FULL template is cast on it (which happens in template-mode).
         slotTemplate[slot.slotId] = { types: newTypes, usedBuildings: new Set() };
+
+        // ── CROSS-FAMILY GUEST FILL ──────────────────────────────────────────
+        // After committing the primary lot and its template, use remaining
+        // table space to cast panels from OTHER families. Each panel has its
+        // own independent mould form that sits alongside the primary lot — no
+        // mould swap is needed, and the slot template type-set is unchanged.
+        // This is the key lever for merging small panels from different families
+        // onto the same physical table on the same day (e.g. IP + WL together).
+        if(lot.length > 0){
+          // Re-pack clones of the primary lot to obtain correct remaining
+          // free rects without overwriting the originals' layout coordinates.
+          const clones = lot.map(it=>({...it}));
+          clones.sort((a,b)=>(b.t.w*b.t.h)-(a.t.w*a.t.h));
+          const repacked = maxRectsRun(clones, L, W, params.shutter);
+          const guestFree = repacked._freeRects||[];
+          // Only attempt guest fill if meaningful slack remains (≥1 m usable side).
+          const hasSlack = guestFree.some(r=>
+            (r.w-params.shutter)>=1000 && (r.h-params.shutter)>=1000
+          );
+          if(hasSlack){
+            // Eligible guests: any queue item whose family is NOT already
+            // covered by this slot's allows list AND physically fits the table.
+            const gPool = globalQueue.filter(it=>
+              !allow.includes(it.fam) && fits(it.t)
+            );
+            if(gPool.length){
+              gPool.sort((a,b)=>(b.t.w*b.t.h)-(a.t.w*a.t.h));
+              const guests = maxRectsRun(gPool, L, W, params.shutter, guestFree);
+              if(guests.length){
+                lot = lot.concat(guests);
+                // Remove guest items from the global queue so they aren't
+                // scheduled again by another slot later the same day.
+                const gSet = new Set(guests);
+                for(let i=globalQueue.length-1;i>=0;i--){
+                  if(gSet.has(globalQueue[i])) globalQueue.splice(i,1);
+                }
+              }
+            }
+          }
+        }
       }
 
       // ── Weight limit: trim lot so total panel weight ≤ params.maxKg per table ──
@@ -1586,6 +1642,22 @@ async function runEngine(){
   }
   // Restore actual building count for KPI / UI / by-others reporting.
   BUILDINGS = userBuildings;
+
+  // PRUNE EMPTY SLOTS: remove any slot that ended up with zero panel cells
+  // (can happen when cross-family guest fill absorbed all its panels into a
+  // neighbouring slot). Empty slots add visual noise to the Gantt and Table
+  // Plan without contributing any output — dropping them keeps the schedule
+  // clean and only shows tables that are actually doing work.
+  {
+    const activeSlotIds = new Set(allCells.filter(c=>!c.isSwap).map(c=>c.slotId));
+    const pruned = slotAssignments.filter(s => activeSlotIds.has(s.slotId));
+    slotAssignments.length = 0;
+    pruned.forEach(s => slotAssignments.push(s));
+    // Remove orphaned slotTimeline entries
+    Object.keys(slotTimeline).forEach(id=>{
+      if(!activeSlotIds.has(+id)) delete slotTimeline[+id];
+    });
+  }
 
   // Mark isLast on the last cell of each type globally
   const lastIdxPerType = {};
@@ -3067,7 +3139,10 @@ function viewGantt(){
     <div class="legend">
       ${FAMILIES.map(f=>`<div class="lg-item"><div class="lg-sw c-${f}"></div><span><b>${f}</b> · ${FAM_NAMES[f]}</span></div>`).join("")}
       <div class="lg-item"><div class="lg-sw" style="background:repeating-linear-gradient(45deg,#f9fafb,#f9fafb 4px,#e5e7eb 4px,#e5e7eb 8px)"></div><span>Weekend</span></div>
-      <div class="lg-item"><div class="lg-sw" style="background:#f59e0b"></div><span>Last building (16) of a type</span></div>
+      <div class="lg-item"><div class="lg-sw" style="background:#f59e0b"></div><span>Last building of a type</span></div>
+      <div class="lg-item"><div class="lg-sw c-WL gc-cast" style="position:relative;font-size:9px;opacity:.5;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900">✓</div><span>Cast</span></div>
+      <div class="lg-item"><div class="lg-sw c-WL gc-inhouse" style="position:relative;font-size:8px;opacity:.55;display:flex;align-items:center;justify-content:center;color:#bfdbfe;font-weight:900">IH</div><span>Cast In-House</span></div>
+      <div class="lg-item"><div class="lg-sw c-WL gc-partial" style="position:relative;font-size:10px;opacity:.7;display:flex;align-items:center;justify-content:center;color:#fde68a;font-weight:900">◑</div><span>Partially Cast</span></div>
     </div>
     <div class="panel" style="padding:0">
       <div class="gantt-wrap">
@@ -3098,7 +3173,18 @@ function viewGantt(){
                 const types = [...new Set(panelCells.map(c=>c.type))].join(", ");
                 const totalKg = panelCells.reduce((sum,c)=>sum+c.kg,0);
                 const tip = `${types}|${labels}|${totalKg}|×${panelCells.length}|${d}`;
-                return `<div class="gantt-cell c-${fam} ${isLast?"last":""}"
+                // Cast status: check each panel cell and classify the lot
+                const statuses = panelCells.map(c => CAST_STATUS[`${c.type}|${c.b}`] || 'pending');
+                const castCount = statuses.filter(s=>s==='cast').length;
+                const ihCount   = statuses.filter(s=>s==='cast-inhouse').length;
+                const doneCount = castCount + ihCount;
+                let castCls = '';
+                if(doneCount === panelCells.length){
+                  castCls = ihCount > 0 && castCount === 0 ? 'gc-inhouse' : 'gc-cast';
+                } else if(doneCount > 0){
+                  castCls = 'gc-partial';
+                }
+                return `<div class="gantt-cell c-${fam} ${isLast?"last":""} ${castCls}"
                   data-tip="${esc(tip)}">
                   <span>${panelCells.length>1?`<b>×${panelCells.length}</b><br>`:""}${esc(types.split(",")[0].replace(/.*-/,""))}${panelCells.length>1?"…":"<br>B"+panelCells[0].b}</span>
                 </div>`;
@@ -4671,8 +4757,12 @@ function _pfTableViewHtml(patches){
       <td style="padding:9px 10px;font-size:11px;color:#374151;white-space:nowrap">${esc(dateRange)}</td>
       <td style="padding:9px 10px;font-size:11px;color:#374151;text-align:center">${p.totalConc!=null?p.totalConc.toFixed(1)+' m³':'—'}</td>
       <td style="padding:9px 14px;min-width:120px">${bar}</td>
-      <td style="padding:9px 10px"><button onclick="event.stopPropagation();_pfOpenCardEdit(${i})"
-        style="background:none;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;padding:2px 7px;font-size:10px;color:#64748b">✏️</button></td>
+      <td style="padding:9px 10px;white-space:nowrap">
+        <button onclick="event.stopPropagation();_pfOpenCardEdit(${i})"
+          style="background:none;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;padding:2px 7px;font-size:10px;color:#64748b">✏️</button>
+        <button onclick="event.stopPropagation();_pfDeleteFromCloud('${encodeURIComponent(p.url||'')}','${encodeURIComponent(p.name||'')}')"
+          style="background:none;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;padding:2px 7px;font-size:10px;color:#dc2626;margin-left:4px">🗑</button>
+      </td>
     </tr>
     <tr id="pf-edit-tr-${i}" style="display:none"><td colspan="11" style="padding:0">
       <div id="pf-edit-${i}" style="display:none;padding:14px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
@@ -4783,6 +4873,9 @@ function _pfCardHtml(p, idx){
         <button onclick="event.stopPropagation();_pfOpenCardEdit(${idx})"
           style="flex-shrink:0;background:none;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;padding:3px 7px;font-size:11px;color:#64748b"
           title="Edit details">✏️ Edit</button>
+        <button onclick="event.stopPropagation();_pfDeleteFromCloud('${encodeURIComponent(url)}','${encodeURIComponent(name)}')"
+          style="flex-shrink:0;background:none;border:1px solid #fca5a5;border-radius:6px;cursor:pointer;padding:3px 7px;font-size:11px;color:#dc2626"
+          title="Delete patch">🗑</button>
       </div>
       ${pillsHtml}
       ${progressHtml}
@@ -5301,8 +5394,11 @@ function _pfLoadFromCloud(url, name){
 window._pfLoadFromCloud=_pfLoadFromCloud;
 
 // ---- Cloud delete ----
-function _pfDeleteFromCloud(url, name){
-  if(!confirm(`Delete "${name}" from cloud?\nThis cannot be undone.`)) return;
+function _pfDeleteFromCloud(encodedUrl, encodedName){
+  const url  = decodeURIComponent(encodedUrl);
+  const name = decodeURIComponent(encodedName);
+  const title = name.replace(/\.pfproj$/i,'');
+  if(!confirm(`Delete "${title}" from cloud?\n\nThis cannot be undone.`)) return;
   _pfLoad(); const cfg=window._pfConfig;
   fetch(_pfWrap(url),{method:"DELETE",headers:{"Authorization":_pfAuth(cfg)}})
     .then(r=>{ if(r.ok||r.status===204||r.status===404) return; throw new Error("HTTP "+r.status); })
@@ -5312,7 +5408,11 @@ function _pfDeleteFromCloud(url, name){
         return _pfPutIndex(cfg, list.filter(p=>p.url!==url));
       }).catch(()=>{}); // index update failure is non-fatal
     })
-    .then(()=>{ _pfToast("✓ Deleted: "+name,"ok"); _pfRefresh(); })
+    .then(()=>{
+      _pfToast("✓ Deleted: "+title,"ok");
+      _pfRefresh();
+      _pfRefreshHome();
+    })
     .catch(e=>_pfToast("✗ "+e.message,"err"));
 }
 
