@@ -294,8 +294,8 @@
       <div class="sb-h">Engine Parameters</div>
       <div class="sb-row"><label>Start date</label><input type="date" id="pStart" value="2026-04-28"></div>
       <div class="sb-row"><label>Buildings</label><input type="number" id="pBuildings" value="16" min="1" max="16" title="Run optimization on this many buildings (max 16)"></div>
-      <div class="sb-row"><label>Work weekends</label>
-        <select id="pWeekend"><option value="0">No</option><option value="1">Yes</option></select>
+      <div class="sb-row"><label>Work Sundays</label>
+        <select id="pWeekend"><option value="0">No (Sun off)</option><option value="1">Yes</option></select>
       </div>
       <div class="sb-row"><label>Shuttering (mm)</label><input type="number" id="pShutter" value="300" min="0" max="1000" step="50"></div>
       <div class="sb-row"><label>Max table load (t)</label><input type="number" id="pMaxKg" value="7" min="1" max="100" step="0.5" title="Maximum total panel weight per table per day (tonnes)"></div>
@@ -788,7 +788,7 @@ function $(s,r=document){return r.querySelector(s)}
 function $$(s,r=document){return Array.from(r.querySelectorAll(s))}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function fmt(n,d=0){return Number(n).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d})}
-function isWeekend(d){const w=d.getDay();return w===0||w===6}
+function isWeekend(d){const w=d.getDay();return w===0} // Sunday only
 function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
 function isoDate(d){return d.toISOString().slice(0,10)}
 function dayLabel(d){return d.toLocaleDateString(undefined,{day:"2-digit",month:"short"})}
@@ -3041,7 +3041,7 @@ function viewOverview(){
         <tbody>
           <tr><td>Strategy</td><td><b>${esc({batch:"Batch by type (min changeovers)",round:"Round-robin",floor:"By Floor (GF → FF → RF)"}[s.params.strat])}</b></td>
               <td>Buildings</td><td>${s.params.buildings||BUILDINGS}</td></tr>
-          <tr><td>Weekends</td><td>${s.params.weekend?"Working":"Off"}</td>
+          <tr><td>Sundays</td><td>${s.params.weekend?"Working":"Off"}</td>
               <td>Max parallel</td><td>${s.params.parallel}</td></tr>
           <tr><td>Slots used</td><td>${s.slotAssignments.length} (across ${s.activeTables?.length||0} tables)</td>
               <td>Shuttering allowance</td><td>+${s.params.shutter} mm</td></tr>
@@ -3219,7 +3219,7 @@ function rescheduleCell(c){
   // Find next working day
   const nextDt = new Date(oldIso+"T00:00:00");
   do { nextDt.setDate(nextDt.getDate()+1); }
-  while(!weekend && (nextDt.getDay()===0 || nextDt.getDay()===6));
+  while(!weekend && nextDt.getDay()===0);
   const niso = isoDate(nextDt);
 
   // Remove from old day's slot bucket
@@ -3538,13 +3538,13 @@ function _pfCompactSlots(sched, startIso){
 
     // Re-date cells consecutively from startIso, no gaps
     const d = new Date(startIso+'T00:00:00');
-    if(!weekend) while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()+1);
+    if(!weekend) while(d.getDay()===0) d.setDate(d.getDate()+1);
     let ci=0;
     groups.forEach(count=>{
       const iso = d.toISOString().split('T')[0];
       for(let i=0;i<count;i++){ cells[ci].dateIso=iso; ci++; }
       d.setDate(d.getDate()+1);
-      if(!weekend) while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()+1);
+      if(!weekend) while(d.getDay()===0) d.setDate(d.getDate()+1);
     });
   });
 
@@ -3563,7 +3563,7 @@ function _nextWorkDay(dateStr){
   const weekend = schedule && schedule.params && schedule.params.weekend;
   const d = new Date(dateStr+'T00:00:00');
   d.setDate(d.getDate()+1);
-  if(!weekend){ while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()+1); }
+  if(!weekend){ while(d.getDay()===0) d.setDate(d.getDate()+1); }
   return d.toISOString().split('T')[0];
 }
 
