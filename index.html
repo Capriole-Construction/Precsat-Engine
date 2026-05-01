@@ -4763,19 +4763,88 @@ function _pfRenderDash(){
       </div>
     </div>`).join('');
 
+  // Group patches by project number (from _pfMeta)
+  const byProject = new Map(); // projNo|'' → [{p, i}]
+  patches.forEach((p, i) => {
+    const key = ((window._pfMeta||{})[p.name]||{}).projNo || '';
+    if(!byProject.has(key)) byProject.set(key, []);
+    byProject.get(key).push({p, i});
+  });
+  // Named projects first (alphabetical), ungrouped last
+  const sortedProjects = [...byProject.entries()].sort(([a],[b])=>{
+    if(!a && b) return 1; if(a && !b) return -1;
+    return a.localeCompare(b,undefined,{sensitivity:'base'});
+  });
+  const projectCount = [...byProject.keys()].filter(Boolean).length;
+
+  // Update status to reflect project grouping
+  const statEl2 = $("#pfHomeCloudStatus");
+  if(statEl2 && patches.length && projectCount){
+    statEl2.innerHTML = `✓ <strong>${projectCount}</strong> project${projectCount!==1?'s':''} &nbsp;·&nbsp; <strong>${patches.length}</strong> patch${patches.length!==1?'es':''}`;
+  }
+
   // Render card or table view
   if(window._pfHomeView==='table'){
     listEl.style.display = 'block';
-    listEl.innerHTML = _pfTableViewHtml(patches);
+    listEl.innerHTML = _pfTableViewHtml(patches, sortedProjects);
   } else {
     listEl.style.display = 'grid';
-    listEl.innerHTML = patches.map((p,i)=>_pfCardHtml(p,i)).join('');
+    let html = '';
+    for(const [proj, items] of sortedProjects){
+      if(proj){
+        const totP  = items.reduce((s,{p})=>s+(p.totalPieces||0),0);
+        const castP = items.reduce((s,{p})=>s+(p.castPieces||0),0);
+        const pct   = totP>0 ? Math.round(castP/totP*100) : null;
+        const barC  = pct===null?'#93c5fd':pct>=80?'#4ade80':pct>=40?'#fbbf24':'#60a5fa';
+        html += `<div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;
+          padding:9px 16px;background:linear-gradient(135deg,#1e3a5f,#1d4ed8);
+          border-radius:10px;margin-top:6px;box-shadow:0 2px 6px rgba(30,58,95,.25)">
+          <span style="font-size:14px">📁</span>
+          <span style="font-size:13px;font-weight:800;color:#fff;letter-spacing:.3px">${esc(proj)}</span>
+          <span style="font-size:11px;color:#bfdbfe;font-weight:600">${items.length} patch${items.length!==1?'es':''}</span>
+          ${totP?`<span style="font-size:11px;color:#bfdbfe">· ${totP} pieces</span>`:''}
+          ${pct!==null?`<div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+            <div style="width:80px;height:5px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:${pct}%;background:${barC};border-radius:3px"></div>
+            </div>
+            <span style="font-size:11px;font-weight:800;color:${barC}">${pct}% cast</span>
+          </div>`:'<span style="margin-left:auto"></span>'}
+        </div>`;
+      }
+      html += items.map(({p,i})=>_pfCardHtml(p,i)).join('');
+    }
+    listEl.innerHTML = html;
   }
 }
 
-function _pfTableViewHtml(patches){
+function _pfTableViewHtml(patches, sortedProjects){
   if(!patches.length) return '<div style="padding:28px;text-align:center;color:#94a3b8;font-size:12px">No patches loaded.</div>';
-  const rows = patches.map((p,i)=>{
+  // Build rows grouped by project
+  const groups = sortedProjects || [['',[...patches.map((p,i)=>({p,i}))]]];
+  let rows = '';
+  for(const [proj, items] of groups){
+    if(proj){
+      const totP  = items.reduce((s,{p})=>s+(p.totalPieces||0),0);
+      const castP = items.reduce((s,{p})=>s+(p.castPieces||0),0);
+      const pct   = totP>0 ? Math.round(castP/totP*100) : null;
+      const barC  = pct===null?'#3b82f6':pct>=80?'#059669':pct>=40?'#f59e0b':'#3b82f6';
+      rows += `<tr style="background:linear-gradient(135deg,#1e3a5f,#1d4ed8)">
+        <td colspan="11" style="padding:7px 14px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:12px;font-weight:800;color:#fff">📁 ${esc(proj)}</span>
+            <span style="font-size:10px;color:#bfdbfe">${items.length} patch${items.length!==1?'es':''}</span>
+            ${totP?`<span style="font-size:10px;color:#bfdbfe">· ${totP} pieces</span>`:''}
+            ${pct!==null?`<div style="display:flex;align-items:center;gap:5px;margin-left:auto">
+              <div style="width:70px;height:4px;background:rgba(255,255,255,.2);border-radius:2px;overflow:hidden">
+                <div style="height:100%;width:${pct}%;background:${barC};border-radius:2px"></div>
+              </div>
+              <span style="font-size:10px;font-weight:700;color:${barC===('#059669')?'#4ade80':barC==='#f59e0b'?'#fbbf24':'#93c5fd'}">${pct}% cast</span>
+            </div>`:''}
+          </div>
+        </td>
+      </tr>`;
+    }
+    rows += items.map(({p, i})=>{
     const m = (window._pfMeta||{})[p.name]||{};
     const title = (p.name||'').replace(/\.pfproj$/i,'');
     const pct   = p.totalPieces>0 ? Math.round(p.castPieces/p.totalPieces*100) : null;
@@ -4830,7 +4899,8 @@ function _pfTableViewHtml(patches){
         </div>
       </div>
     </td></tr>`;
-  }).join('');
+    }).join('');
+  } // end for(groups)
   return `<table style="width:100%;border-collapse:collapse;font-size:12px">
     <thead><tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
       <th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;white-space:nowrap">Patch</th>
@@ -5492,6 +5562,17 @@ function _pfDoSave(){
   }
   _pfLoad();
   const cfg=window._pfConfig;
+  // Ask for project name on first save (if not already assigned)
+  const metaKey = name+'.pfproj';
+  if(!((window._pfMeta||{})[metaKey]||{}).projNo){
+    const proj = (prompt("Project name (groups this patch with related patches):\n\nLeave blank to save without a project.") || "").trim();
+    if(proj){
+      if(!window._pfMeta) window._pfMeta = {};
+      if(!window._pfMeta[metaKey]) window._pfMeta[metaKey] = {};
+      window._pfMeta[metaKey].projNo = proj;
+      if(cfg.ocUser&&cfg.ocPass) _pfPutMeta(cfg, window._pfMeta);
+    }
+  }
   if(cfg.ocUser&&cfg.ocPass){ _pfSaveToCloud(name); }
   else { _pfDownloadLocal(name); _pfToast("Saved as local file (sign in to save to cloud)","ok"); }
   if($("#cfgName")) $("#cfgName").value="";
