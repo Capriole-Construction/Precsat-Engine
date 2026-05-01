@@ -4341,26 +4341,33 @@ ${filterParts.length?`<div class="filter-bar"><strong>Filtered by:</strong>${fil
     SRC_OVR = {}; saveSrcOverrides(); refreshSidebarCounts(); render();
   });
   if($("#pnlExportBtn")) $("#pnlExportBtn").onclick = ()=>{
-    const cols = ["Code","Family","Floor","Width_mm","Height_mm","Thick_mm","M2","KG","Openings","MEP","In-House","Source","Supplier"];
+    const BOM = '\uFEFF';
+    const headers = [
+      'Panel Code','Family (IP/WL/WN/PB)','Floor','Width (mm)','Height (mm)',
+      'Thickness (mm)','Weight (kg)',
+      'Opening 1 Type (win/door)','Opening 1 Width (mm)','Opening 1 Length (mm)',
+      'Opening 2 Type (win/door)','Opening 2 Width (mm)','Opening 2 Length (mm)',
+      'Opening 3 Type (win/door)','Opening 3 Width (mm)','Opening 3 Length (mm)',
+      'MEP (1=yes 0=no)'
+    ];
+    const q = v => '"'+String(v??'').replace(/"/g,'""')+'"';
     const rows = TYPES.map(t=>{
-      const openings = [
-        t.wins  ? t.wins +" Win"  : "",
-        t.doors ? t.doors+" Door" : "",
-        t.louv  ? t.louv +" Louv" : ""
-      ].filter(Boolean).join("; ") || "—";
+      const meta = (window.TYPE_META||{})[t.code] || {};
+      const opns = meta.openings || [];
+      // Pad to 3 opening slots
+      const o = [0,1,2].map(i => opns[i] || {type:'',w:'',l:''});
       return [
-        t.code, t.fam, t.fl||"", t.w, t.h, t.thk||250,
-        (t.m2||((t.w/1000)*(t.h/1000))).toFixed(2),
-        t.kg||"",
-        openings,
-        t.mep ? "Yes" : "No",
-        isInHouse(t) ? "In-House" : "By Others",
-        isByOthers(t) && t.supplier ? t.supplier : ""
-      ].map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(",");
+        t.code, t.fam, t.fl||'GF',
+        t.w, t.h, t.t||t.thk||250, t.kg||0,
+        o[0].type, o[0].w||'', o[0].l||'',
+        o[1].type, o[1].w||'', o[1].l||'',
+        o[2].type, o[2].w||'', o[2].l||'',
+        meta.mep ? 1 : 0
+      ].map(q).join(',');
     });
-    const csv = [cols.join(","), ...rows].join("\r\n");
+    const csv = BOM + [headers.map(q).join(','), ...rows].join('\r\n');
     const projName = ($("#cfgName")?.value||"Precast").trim();
-    dl(new Blob([csv],{type:"text/csv"}), `${projName}_panel-list_${isoDate(new Date())}.csv`);
+    dl(new Blob([csv],{type:'text/csv;charset=utf-8'}), `${projName}_panel-list_${isoDate(new Date())}.csv`);
     _pfToast("✓ Exported "+TYPES.length+" panels","ok");
   };
   if($("#dlJson")) $("#dlJson").onclick = ()=>{
