@@ -1604,32 +1604,57 @@ async function runEngine(){
     let outDayIdx = 0;
     for(const iso of sortedDays){
       const dayCells = cellsByDate[iso];
-      for(let b=1; b<=userBuildings; b++){
+
+      // A pure-swap day has only swap cells across all slots — no panel casting.
+      // It occupies exactly 1 calendar day regardless of building count: the
+      // mould change happens once on site, not once per building. Advancing
+      // outDayIdx once per building would insert (N-1) phantom empty days.
+      const allSlotCells = Object.values(dayCells).flat();
+      const isPureSwapDay = allSlotCells.length > 0 && allSlotCells.every(c => c.isSwap);
+
+      if(isPureSwapDay){
         let dt = addDays(startDate, outDayIdx);
         while(!params.weekend && isWeekend(dt)){ outDayIdx++; dt = addDays(startDate, outDayIdx); }
         const outIso = isoDate(dt);
         if(!newCellsByDate[outIso]) newCellsByDate[outIso] = {};
         for(const slotId of Object.keys(dayCells)){
-          const cells = dayCells[slotId];
           if(!newCellsByDate[outIso][slotId]) newCellsByDate[outIso][slotId] = [];
-          for(const c of cells){
-            if(c.isSwap){
-              // Swap cells must not be replicated per building — keep exactly one per slot-day
-              if(b === 1){
-                const nc = { ...c, dayIdx: outDayIdx, dateIso: outIso, dt: new Date(dt) };
-                newCellsByDate[outIso][slotId].push(nc);
-                (newSlotTimeline[slotId] = newSlotTimeline[slotId] || []).push(nc);
-                newAllCells.push(nc);
-              }
-              continue;
-            }
-            const nc = { ...c, b, dayIdx: outDayIdx, dateIso: outIso, dt: new Date(dt), isLast: false };
+          for(const c of dayCells[slotId]){
+            const nc = { ...c, dayIdx: outDayIdx, dateIso: outIso, dt: new Date(dt) };
             newCellsByDate[outIso][slotId].push(nc);
             (newSlotTimeline[slotId] = newSlotTimeline[slotId] || []).push(nc);
             newAllCells.push(nc);
           }
         }
-        outDayIdx++;
+        outDayIdx++;   // consume exactly 1 day for the swap
+      } else {
+        for(let b=1; b<=userBuildings; b++){
+          let dt = addDays(startDate, outDayIdx);
+          while(!params.weekend && isWeekend(dt)){ outDayIdx++; dt = addDays(startDate, outDayIdx); }
+          const outIso = isoDate(dt);
+          if(!newCellsByDate[outIso]) newCellsByDate[outIso] = {};
+          for(const slotId of Object.keys(dayCells)){
+            const cells = dayCells[slotId];
+            if(!newCellsByDate[outIso][slotId]) newCellsByDate[outIso][slotId] = [];
+            for(const c of cells){
+              if(c.isSwap){
+                // Mixed day (some slots casting, some swapping): swap emitted once only
+                if(b === 1){
+                  const nc = { ...c, dayIdx: outDayIdx, dateIso: outIso, dt: new Date(dt) };
+                  newCellsByDate[outIso][slotId].push(nc);
+                  (newSlotTimeline[slotId] = newSlotTimeline[slotId] || []).push(nc);
+                  newAllCells.push(nc);
+                }
+                continue;
+              }
+              const nc = { ...c, b, dayIdx: outDayIdx, dateIso: outIso, dt: new Date(dt), isLast: false };
+              newCellsByDate[outIso][slotId].push(nc);
+              (newSlotTimeline[slotId] = newSlotTimeline[slotId] || []).push(nc);
+              newAllCells.push(nc);
+            }
+          }
+          outDayIdx++;
+        }
       }
     }
     // Replace in place so KPIs/UI see the expanded schedule.
