@@ -3066,7 +3066,7 @@ function viewOverview(){
     ${lockedBanner}
     <div class="kpis">
       <div class="kpi gold"><div class="l">In-House Pieces</div><div class="v">${fmt(s.totalPieces)}</div><div class="s">scheduled across ${s.params.buildings||BUILDINGS} buildings</div></div>
-      <div class="kpi"><div class="l">Mould Slots</div><div class="v">${s.slotAssignments.length}</div><div class="s">parallel positions</div></div>
+      <div class="kpi"><div class="l">Nos of Tables</div><div class="v">${s.slotAssignments.length}</div><div class="s">parallel positions</div></div>
       <div class="kpi green"><div class="l">Working Days</div><div class="v">${s.totalDays}</div><div class="s">${s.calendarDays} calendar days</div></div>
       <div class="kpi"><div class="l">Start</div><div class="v" style="font-size:18px">${esc(s.firstDate)}</div><div class="s">${dayLabel(new Date(s.firstDate))}</div></div>
       <div class="kpi red"><div class="l">Completion</div><div class="v" style="font-size:18px">${esc(s.lastDate)}</div><div class="s">${dayLabel(new Date(s.lastDate))}</div></div>
