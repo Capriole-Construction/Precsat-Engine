@@ -1601,59 +1601,54 @@ async function runEngine(){
     const newSlotTimeline = {};
     slotAssignments.forEach(s => newSlotTimeline[s.slotId] = []);
     const newAllCells = [];
-    let outDayIdx = 0;
+
+    // PER-SLOT INDEPENDENT REPLICATION
+    // Each slot gets its own output day counter so that a mould-swap on one
+    // slot consumes exactly 1 calendar day while other slots advance normally
+    // through their N buildings. The old single-counter approach caused every
+    // swap to waste (N-1) phantom empty days on the swapping slot.
+    const slotOutDay = {};
+    slotAssignments.forEach(s => { slotOutDay[s.slotId] = 0; });
+
+    const nextWorkDay = (slotId)=>{
+      let d = slotOutDay[slotId];
+      let dt = addDays(startDate, d);
+      while(!params.weekend && isWeekend(dt)){ d++; dt = addDays(startDate, d); }
+      slotOutDay[slotId] = d;
+      return { d, dt, iso: isoDate(dt) };
+    };
+
     for(const iso of sortedDays){
       const dayCells = cellsByDate[iso];
+      for(const slotId of Object.keys(dayCells)){
+        const cells = dayCells[slotId];
+        if(!cells || cells.length === 0) continue;
+        const sid = +slotId;
 
-      // A pure-swap day has only swap cells across all slots — no panel casting.
-      // It occupies exactly 1 calendar day regardless of building count: the
-      // mould change happens once on site, not once per building. Advancing
-      // outDayIdx once per building would insert (N-1) phantom empty days.
-      const allSlotCells = Object.values(dayCells).flat();
-      const isPureSwapDay = allSlotCells.length > 0 && allSlotCells.every(c => c.isSwap);
-
-      if(isPureSwapDay){
-        let dt = addDays(startDate, outDayIdx);
-        while(!params.weekend && isWeekend(dt)){ outDayIdx++; dt = addDays(startDate, outDayIdx); }
-        const outIso = isoDate(dt);
-        if(!newCellsByDate[outIso]) newCellsByDate[outIso] = {};
-        for(const slotId of Object.keys(dayCells)){
-          if(!newCellsByDate[outIso][slotId]) newCellsByDate[outIso][slotId] = [];
-          for(const c of dayCells[slotId]){
-            const nc = { ...c, dayIdx: outDayIdx, dateIso: outIso, dt: new Date(dt) };
-            newCellsByDate[outIso][slotId].push(nc);
-            (newSlotTimeline[slotId] = newSlotTimeline[slotId] || []).push(nc);
-            newAllCells.push(nc);
-          }
-        }
-        outDayIdx++;   // consume exactly 1 day for the swap
-      } else {
-        for(let b=1; b<=userBuildings; b++){
-          let dt = addDays(startDate, outDayIdx);
-          while(!params.weekend && isWeekend(dt)){ outDayIdx++; dt = addDays(startDate, outDayIdx); }
-          const outIso = isoDate(dt);
+        if(cells[0].isSwap){
+          // Swap: 1 physical mould-change — occupies exactly 1 calendar day.
+          const { d, dt, iso: outIso } = nextWorkDay(sid);
+          const nc = { ...cells[0], dayIdx: d, dateIso: outIso, dt: new Date(dt) };
           if(!newCellsByDate[outIso]) newCellsByDate[outIso] = {};
-          for(const slotId of Object.keys(dayCells)){
-            const cells = dayCells[slotId];
-            if(!newCellsByDate[outIso][slotId]) newCellsByDate[outIso][slotId] = [];
+          if(!newCellsByDate[outIso][sid]) newCellsByDate[outIso][sid] = [];
+          newCellsByDate[outIso][sid].push(nc);
+          (newSlotTimeline[sid] = newSlotTimeline[sid] || []).push(nc);
+          newAllCells.push(nc);
+          slotOutDay[sid]++;
+        } else {
+          // Panel lot: replicate for each building on consecutive work days.
+          for(let b=1; b<=userBuildings; b++){
+            const { d, dt, iso: outIso } = nextWorkDay(sid);
+            if(!newCellsByDate[outIso]) newCellsByDate[outIso] = {};
+            if(!newCellsByDate[outIso][sid]) newCellsByDate[outIso][sid] = [];
             for(const c of cells){
-              if(c.isSwap){
-                // Mixed day (some slots casting, some swapping): swap emitted once only
-                if(b === 1){
-                  const nc = { ...c, dayIdx: outDayIdx, dateIso: outIso, dt: new Date(dt) };
-                  newCellsByDate[outIso][slotId].push(nc);
-                  (newSlotTimeline[slotId] = newSlotTimeline[slotId] || []).push(nc);
-                  newAllCells.push(nc);
-                }
-                continue;
-              }
-              const nc = { ...c, b, dayIdx: outDayIdx, dateIso: outIso, dt: new Date(dt), isLast: false };
-              newCellsByDate[outIso][slotId].push(nc);
-              (newSlotTimeline[slotId] = newSlotTimeline[slotId] || []).push(nc);
+              const nc = { ...c, b, dayIdx: d, dateIso: outIso, dt: new Date(dt), isLast: false };
+              newCellsByDate[outIso][sid].push(nc);
+              (newSlotTimeline[sid] = newSlotTimeline[sid] || []).push(nc);
               newAllCells.push(nc);
             }
+            slotOutDay[sid]++;
           }
-          outDayIdx++;
         }
       }
     }
