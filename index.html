@@ -5716,12 +5716,17 @@ function _btrackPrintReport(){
   const floorSummaries = floors.map(fl=>{
     const ft = TYPES.filter(t=>(t.fl||'')===fl);
     let tot=ft.length*B, cast=0;
-    ft.forEach(t=>{ for(let b=1;b<=B;b++) if((CAST_STATUS[`${t.code}|${b}`]||'pending')==='cast') cast++; });
+    ft.forEach(t=>{ for(let b=1;b<=B;b++){
+      const st=CAST_STATUS[`${t.code}|${b}`]||'pending';
+      if(st==='cast'||st==='cast-inhouse') cast++;
+    }});
     grandTotal+=tot; grandCast+=cast;
     const pct=tot>0?Math.round(cast/tot*100):0;
     const barColor=pct>=80?'#059669':pct>=40?'#f59e0b':'#dc2626';
     return {fl,tot,cast,pct,barColor};
   });
+  const grandPct   = grandTotal>0?Math.round(grandCast/grandTotal*100):0;
+  const grandColor = grandPct>=80?'#059669':grandPct>=40?'#f59e0b':'#dc2626';
 
   // Build the selected floor table
   const floorTypes = TYPES.filter(t=>(t.fl||'')===activeFloor);
@@ -5818,7 +5823,7 @@ function _btrackPrintReport(){
     return `<svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">${bars}</svg>`;
   }
 
-  const overallColor=grandPct>=80?'#059669':grandPct>=40?'#f59e0b':'#dc2626';
+  const overallColor=grandColor;
   const summarySection = `
     <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;margin-bottom:20px">
       <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
@@ -5830,9 +5835,6 @@ function _btrackPrintReport(){
         ${_svgBuildingBars(totalCastByBuilding, totalPanelsByBuilding, B)}
       </div>
     </div>`;
-
-  const grandPct = grandTotal>0?Math.round(grandCast/grandTotal*100):0;
-  const grandColor = grandPct>=80?'#059669':grandPct>=40?'#f59e0b':'#dc2626';
 
   const html = `<!DOCTYPE html><html><head>
   <meta charset="utf-8">
