@@ -5454,7 +5454,11 @@ function _pfDoSave(){
   if(!name && window._pfProjectSource && window._pfProjectSource.name){
     name=window._pfProjectSource.name.replace(/\.pfproj$/i,"");
   }
-  if(!name){ alert("Please enter a patch name."); return; }
+  if(!name){
+    const entered = (prompt("Enter a name for this patch:") || "").trim();
+    if(!entered) return;
+    name = entered;
+  }
   _pfLoad();
   const cfg=window._pfConfig;
   if(cfg.ocUser&&cfg.ocPass){ _pfSaveToCloud(name); }
