@@ -5081,7 +5081,11 @@ window._pfHomeOpenProject = function(encUrl, encName){
   }
   _pfToast("⏳ Opening "+shortName+"…","info");
   fetch(_pfWrap(url),{headers:{"Authorization":_pfAuth(cfg)}})
-    .then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+    .then(r=>{
+      if(r.status===404) throw new Error("File not found on cloud (404). It was likely renamed or moved. Please delete this card and re-upload the renamed file.");
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      return r.json();
+    })
     .then(snap=>{
       if(restoreProjectSnapshot(snap)){
         window._pfProjectSource = {type:"cloud", url, name};
@@ -5395,7 +5399,11 @@ function _pfLoadFromCloud(url, name){
   _pfLoad(); const cfg=window._pfConfig;
   _pfToast("⏳ Loading "+name+"…","info");
   fetch(_pfWrap(url),{headers:{"Authorization":_pfAuth(cfg)}})
-    .then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); })
+    .then(r=>{
+      if(r.status===404) throw new Error("File not found on cloud (404). It may have been renamed or moved on the server.");
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      return r.json();
+    })
     .then(snap=>{
       if(!confirm(`Load project "${snap.name||name}"?\nThis will replace all current data.`)) return;
       if(restoreProjectSnapshot(snap)){
