@@ -2748,8 +2748,7 @@ function _pfPrintTablePlan(){
   const sectionsHtml = activeTables.map(tab=>{
     const sl = slotsByTable[tab.id];
     if(!sl){
-      return `<div class="tpage">
-        ${pageHdrFor(tab, "")}
+      return `<table class="tpage"><thead><tr><td>${pageHdrFor(tab, "")}</td></tr></thead><tbody><tr><td>
         <div class="tcard idle">
           <div class="thead">
             <span class="t-id">${esc(tab.id)}</span>
@@ -2759,7 +2758,7 @@ function _pfPrintTablePlan(){
           </div>
           <div class="tbody idle-body">No panels were allocated to this table by the optimiser.</div>
         </div>
-      </div>`;
+      </td></tr></tbody></table>`;
     }
     const tl = s.slotTimeline[sl.slotId]||[];
     if(!tl.length) return "";
@@ -2810,8 +2809,7 @@ function _pfPrintTablePlan(){
       </div>`;
     }).join("");
 
-    return `<div class="tpage">
-      ${pageHdrFor(tab, fam)}
+    return `<table class="tpage"><thead><tr><td>${pageHdrFor(tab, fam)}</td></tr></thead><tbody><tr><td>
       <div class="tcard" style="border-left:5px solid ${fc}">
         <div class="thead" style="background:${fl}">
           <span class="t-id" style="color:${fc}">${esc(tab.id)}</span>
@@ -2826,7 +2824,7 @@ function _pfPrintTablePlan(){
         </div>
         <div class="tbody">${dayRowsHtml}</div>
       </div>
-    </div>`;
+    </td></tr></tbody></table>`;
   }).join("");
 
   const html=`<!doctype html><html><head><meta charset="utf-8">
@@ -2852,7 +2850,7 @@ function _pfPrintTablePlan(){
   .toc{padding:8px 18px;background:#fafbfc;border-bottom:1px solid #e5e7eb;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
   .toc-lbl{font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;margin-right:4px}
   /* ── Table cards ── */
-  .tcard{background:#fff;border:1px solid #e3e8ef;border-radius:6px;margin:10px 14px;page-break-inside:avoid;overflow:hidden}
+  .tcard{background:#fff;border:1px solid #e3e8ef;border-radius:6px;margin:10px 14px;overflow:hidden}
   .tcard.idle{border-left:5px solid #cbd5e1}
   .thead{padding:8px 12px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .t-id{font-size:13px;font-weight:800}
@@ -2880,8 +2878,13 @@ function _pfPrintTablePlan(){
   .tsketch{flex:0 0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:4px;display:block}
   /* ── Footer ── */
   .page-footer{position:fixed;bottom:0;left:0;right:0;padding:4px 18px;background:#f8fafc;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:8.5px;color:#9ca3af}
-  /* ── Per-table page header (repeats with each table) ── */
-  .tpage{page-break-before:always;padding:0 0 8px}
+  /* ── Per-table page header (repeats on EVERY printed page of the table) ── */
+  /* Trick: wrap each table-section in a real <table>; thead is repeated by browsers when the table breaks across pages. */
+  table.tpage{width:100%;border-collapse:collapse;border-spacing:0;page-break-before:always;table-layout:fixed}
+  table.tpage > thead{display:table-header-group}
+  table.tpage > tbody{display:table-row-group}
+  table.tpage > thead > tr > td,
+  table.tpage > tbody > tr > td{padding:0;border:0;vertical-align:top}
   .tpage-hdr{display:flex;align-items:center;gap:14px;padding:10px 18px 8px;border-top:4px solid #1e3a5f;border-bottom:3px solid #f59e0b;background:#fff;margin-bottom:6px}
   .tph-left{display:flex;align-items:center;gap:10px;flex:0 0 auto}
   .tph-logo{height:38px;width:auto}
@@ -3666,6 +3669,16 @@ function viewOrders(){
   // Status counts for header
   let castCount=0, pendCount=0;
   s.allCells.forEach(c=>{ if(getStatus(c)==="cast") castCount++; else pendCount++; });
+  // Default redistribute-from date: day after latest cast, else today
+  let _redistDefault;
+  {
+    const _castIsos = s.allCells.filter(c=>getStatus(c)==='cast').map(c=>c.dateIso).sort();
+    if(_castIsos.length){
+      _redistDefault = _nextWorkDay(_castIsos[_castIsos.length-1]);
+    } else {
+      _redistDefault = new Date().toISOString().split('T')[0];
+    }
+  }
   return `
     <div class="panel">
       <h2>Daily Production Schedule</h2>
@@ -3675,7 +3688,8 @@ function viewOrders(){
           <b style="color:#065f46">${castCount}</b> cast ·
           <b style="color:#92400e">${pendCount}</b> pending
         </span>
-        ${pendCount>0?`<button class="btn sm primary" id="redistBtn" title="Re-optimise all pending panels starting from the day after the last cast panel">🔄 Redistribute Pending (${pendCount})</button>`:''}
+        ${pendCount>0?`<label style="font-size:11px;color:#475569;display:inline-flex;align-items:center;gap:4px" title="Redistribution will start from this date">From: <input type="date" id="redistFromDate" class="inp sm" value="${_redistDefault}" style="padding:2px 6px;font-size:12px"></label>
+        <button class="btn sm primary" id="redistBtn" title="Re-optimise all pending panels starting from the chosen 'From' date">🔄 Redistribute Pending (${pendCount})</button>`:''}
         <button class="btn sm" id="resetStatusBtn" title="Clear all cast/pending statuses">Reset Status</button>
         <button class="btn sm${hideCompleted?' primary':''}" id="hideCompletedBtn" title="Toggle visibility of fully-cast days">${hideCompleted?'✓ ':''}Hide Completed Days${hiddenDayCount>0?' ('+hiddenDayCount+')':''}</button>
       </div>
@@ -3736,7 +3750,11 @@ function bindOrders(){
     CAST_STATUS = {}; saveCastStatus(); render();
   };
   const redist = $("#redistBtn");
-  if(redist) redist.onclick = ()=> redistributePendingCells();
+  if(redist) redist.onclick = ()=>{
+    const dEl = $("#redistFromDate");
+    const chosen = dEl && dEl.value ? dEl.value : null;
+    redistributePendingCells(chosen);
+  };
   const hideBtn = $("#hideCompletedBtn");
   if(hideBtn) hideBtn.onclick = ()=>{
     window._ordersHideCompleted = window._ordersHideCompleted === false ? true : false;
@@ -3862,7 +3880,7 @@ function _nextWorkDay(dateStr){
   return d.toISOString().split('T')[0];
 }
 
-async function redistributePendingCells(){
+async function redistributePendingCells(chosenStartDate){
   if(!schedule){ _pfToast('No schedule loaded','info'); return; }
 
   const castCells    = schedule.allCells.filter(c => getStatus(c)==='cast');
@@ -3883,9 +3901,12 @@ async function redistributePendingCells(){
   // BUILDINGS = max pending-building count so engine creates enough slots per type
   const maxPendingCount = Math.max(...Object.values(pendingByType).map(a=>a.length));
 
-  // Start: day after latest cast date, or today
+  // Start: caller-supplied date if valid, else day after latest cast, else today
   let startDate;
-  if(castCells.length){
+  const _isoOk = (x)=> typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x);
+  if(_isoOk(chosenStartDate)){
+    startDate = chosenStartDate;
+  } else if(castCells.length){
     const latestCast = castCells.map(c=>c.dateIso).sort().pop();
     startDate = _nextWorkDay(latestCast);
   } else {
