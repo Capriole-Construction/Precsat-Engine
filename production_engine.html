@@ -784,12 +784,44 @@ function loadCastStatus(){ try{ return JSON.parse(localStorage.getItem("pe_statu
 function saveCastStatus(){ try{ localStorage.setItem("pe_status_v1", JSON.stringify(CAST_STATUS)); }catch(e){} }
 let CAST_STATUS = loadCastStatus();
 
+// Planned date — the panel's first-ever scheduled date. Survives reschedules / redistributes.
+function loadPlannedDates(){ try{ return JSON.parse(localStorage.getItem("pe_planned_v1")||"{}"); }catch(e){ return {}; } }
+function savePlannedDates(){ try{ localStorage.setItem("pe_planned_v1", JSON.stringify(PLANNED_DATES)); }catch(e){} }
+let PLANNED_DATES = loadPlannedDates();
+
+// Actual finish date — captured when the user marks a panel ✓ Cast.
+function loadActualFinish(){ try{ return JSON.parse(localStorage.getItem("pe_actual_v1")||"{}"); }catch(e){ return {}; } }
+function saveActualFinish(){ try{ localStorage.setItem("pe_actual_v1", JSON.stringify(ACTUAL_FINISH)); }catch(e){} }
+let ACTUAL_FINISH = loadActualFinish();
+
 function statusKey(c){ return `${c.type}|${c.b}`; }
 function getStatus(c){ return CAST_STATUS[statusKey(c)] || "pending"; }
+function getPlanned(c){ return PLANNED_DATES[statusKey(c)] || ""; }
+function setPlannedIfMissing(c){
+  const k = statusKey(c);
+  if(!PLANNED_DATES[k] && c.dateIso){ PLANNED_DATES[k] = c.dateIso; return true; }
+  return false;
+}
+function getActualFinish(c){ return ACTUAL_FINISH[statusKey(c)] || ""; }
 function setStatus(c, val){
-  if(val==="pending") delete CAST_STATUS[statusKey(c)];
-  else CAST_STATUS[statusKey(c)] = val;
+  const k = statusKey(c);
+  if(val==="pending"){
+    delete CAST_STATUS[k];
+    delete ACTUAL_FINISH[k];
+  } else {
+    CAST_STATUS[k] = val;
+    if(val==="cast" && !ACTUAL_FINISH[k]){
+      ACTUAL_FINISH[k] = new Date().toISOString().split('T')[0];
+    }
+  }
   saveCastStatus();
+  saveActualFinish();
+}
+function setActualFinishManual(c, iso){
+  const k = statusKey(c);
+  if(iso) ACTUAL_FINISH[k] = iso;
+  else delete ACTUAL_FINISH[k];
+  saveActualFinish();
 }
 
 // ============================================================
@@ -1646,12 +1678,31 @@ async function runEngine(){
     slotAssignments.forEach(s => { slotOutDay[s.slotId] = 0; });
     const slotLastTypes = {}; // slotId → Set<typeCode> from previous committed group
 
+    // Track which (tableId, outIso) pairs are already occupied by another slot's
+    // emit. Two slots assigned to the same table cannot share the same day —
+    // otherwise their layouts would overlap and their lot weights would stack
+    // beyond the per-table-day weight cap.
+    const tableDayBusy = {}; // `${tableId}|${iso}` → true
+    const slotToTable = {};
+    slotAssignments.forEach(s => { slotToTable[s.slotId] = s.tableId; });
+
     const nextWorkDay = (slotId)=>{
+      const tableId = slotToTable[slotId];
       let d = slotOutDay[slotId];
       let dt = addDays(startDate, d);
       while(!params.weekend && isWeekend(dt)){ d++; dt = addDays(startDate, d); }
+      // Skip any day on which this slot's table is already occupied by another slot
+      while(tableId && tableDayBusy[`${tableId}|${isoDate(dt)}`]){
+        d++; dt = addDays(startDate, d);
+        while(!params.weekend && isWeekend(dt)){ d++; dt = addDays(startDate, d); }
+      }
       slotOutDay[slotId] = d;
       return { d, dt, iso: isoDate(dt) };
+    };
+
+    const markTableDay = (slotId, iso)=>{
+      const tableId = slotToTable[slotId];
+      if(tableId) tableDayBusy[`${tableId}|${iso}`] = true;
     };
 
     const emitSwapCell = (sid, slotLabel)=>{
@@ -1667,6 +1718,7 @@ async function runEngine(){
       newCellsByDate[outIso][sid].push(swapCell);
       (newSlotTimeline[sid] = newSlotTimeline[sid] || []).push(swapCell);
       newAllCells.push(swapCell);
+      markTableDay(sid, outIso);
       slotOutDay[sid]++;
     };
 
@@ -1753,6 +1805,7 @@ async function runEngine(){
               newAllCells.push(nc);
             });
           }
+          markTableDay(sid, outIso);
           slotOutDay[sid]++;
         }
       }
@@ -3561,6 +3614,11 @@ function rescheduleCell(c){
 
 function viewOrders(){
   const s = schedule;
+  // Capture planned dates on first sight (survives later reschedules/redistributes).
+  // Each (type|b) gets its initial dateIso saved once.
+  let _plannedAdded = false;
+  s.allCells.forEach(c=>{ if(!c.isSwap && setPlannedIfMissing(c)) _plannedAdded = true; });
+  if(_plannedAdded) savePlannedDates();
   // Group cells by date
   const byDate = {};
   s.allCells.forEach(c=>{
@@ -3628,7 +3686,7 @@ function viewOrders(){
     const pendHere = cells.filter(c=>getStatus(c)!=='cast').length;
     const castHere = cells.length - pendHere;
     const daySuffix = castHere>0 ? ` · <span style="color:#065f46;font-weight:600">${castHere} cast</span>` : '';
-    rows += `<tr class="ord-date-hdr" data-date="${esc(d)}" style="background:#f8fafc"><td colspan="8"><b>${esc(d)}</b> · ${dayLabel(new Date(d))} <span style="float:right;color:#6b7280">${pendHere} pending${daySuffix}</span></td></tr>`;
+    rows += `<tr class="ord-date-hdr" data-date="${esc(d)}" style="background:#f8fafc"><td colspan="10"><b>${esc(d)}</b> · ${dayLabel(new Date(d))} <span style="float:right;color:#6b7280">${pendHere} pending${daySuffix}</span></td></tr>`;
     cells.forEach((c,idx)=>{
       const st = getStatus(c);
       const rowBg = st==="cast" ? 'background:#f0fdf4' : '';
@@ -3640,6 +3698,10 @@ function viewOrders(){
       if(f === 'reuse') mouldCell = `<span title="Mould kept from yesterday — no shutter swap" style="color:#065f46;font-weight:600">♻ reuse</span>`;
       else if(f === 'swap') mouldCell = `<span title="New mould installed today — shutter swap" style="color:#b45309;font-weight:600">🔄 swap</span>`;
       else mouldCell = `<span title="First use of this slot" style="color:#6b7280">— new</span>`;
+      const planned = c.isSwap ? "" : (getPlanned(c) || c.dateIso);
+      const actual  = c.isSwap ? "" : getActualFinish(c);
+      const plannedCell = planned ? `<span style="color:#1e3a5f">${esc(planned)}</span>` : `<span style="color:#9ca3af">—</span>`;
+      const actualInput = c.isSwap ? '' : `<input type="date" class="inp xs actual-finish" data-ckey="${esc(ckey)}" value="${esc(actual)}" style="width:130px;font-size:11px;padding:2px 4px" title="Actual finish date for casting">`;
       rows += `<tr class="ord-panel-row" style="${rowBg}" data-ckey="${esc(ckey)}" data-date="${esc(d)}" data-table="${esc(tableId)}" data-fam="${esc(famCode)}" data-type="${esc(c.type||'')}" data-b="${c.b}" data-status="${st}">
         <td></td>
         <td>${esc(tableId)}</td>
@@ -3648,6 +3710,8 @@ function viewOrders(){
         <td class="num">${c.w}×${c.h} mm</td>
         <td class="num">${fmt(c.kg)} kg</td>
         <td class="ctr">${mouldCell}</td>
+        <td class="ctr">${plannedCell}</td>
+        <td class="ctr">${actualInput}</td>
         <td class="ctr" style="white-space:nowrap">
           <select class="inp xs status-sel" data-ckey="${esc(ckey)}" style="width:96px;margin-right:4px">
             <option value="pending"${st==="pending"?" selected":""}>Pending</option>
@@ -3714,7 +3778,7 @@ function viewOrders(){
         <span style="color:#b45309"><b>🔄 swap</b></span> = mould dim changed.
       </p>
       <table class="tbl">
-        <thead><tr><th>Date</th><th>Table</th><th>Type</th><th>Building</th><th class="num">Dimensions</th><th class="num">Weight</th><th class="ctr">Mould</th><th class="ctr">Status</th></tr></thead>
+        <thead><tr><th>Date</th><th>Table</th><th>Type</th><th>Building</th><th class="num">Dimensions</th><th class="num">Weight</th><th class="ctr">Mould</th><th class="ctr" title="Original scheduled date — locked at first run, survives reschedules">Planned Date</th><th class="ctr" title="Date the panel was actually finished casting">Actual Finish</th><th class="ctr">Status</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -3732,6 +3796,25 @@ function bindOrders(){
       if(tr) tr.style.background = sel.value==="cast" ? "#f0fdf4" : "";
     };
   });
+  $$("#view .actual-finish").forEach(inp=>{
+    inp.onchange = ()=>{
+      const ck = inp.dataset.ckey;
+      const c = schedule.allCells.find(x=>`${x.dateIso}|${x.slotId}|${x.type}|${x.b}`===ck);
+      if(!c) return;
+      setActualFinishManual(c, inp.value || null);
+      // If user typed an actual date, also flip status to cast (intuitive UX).
+      if(inp.value && getStatus(c) !== 'cast'){
+        setStatus(c, 'cast');
+        const tr = inp.closest('tr');
+        if(tr){
+          tr.style.background = '#f0fdf4';
+          tr.dataset.status = 'cast';
+          const sel = tr.querySelector('.status-sel');
+          if(sel) sel.value = 'cast';
+        }
+      }
+    };
+  });
   $$("#view .reschedule-btn").forEach(btn=>{
     btn.onclick = ()=>{
       const ck = btn.dataset.ckey;
@@ -3747,7 +3830,9 @@ function bindOrders(){
   });
   const reset = $("#resetStatusBtn");
   if(reset) reset.onclick = ()=>{
-    CAST_STATUS = {}; saveCastStatus(); render();
+    CAST_STATUS = {}; saveCastStatus();
+    ACTUAL_FINISH = {}; saveActualFinish();
+    render();
   };
   const redist = $("#redistBtn");
   if(redist) redist.onclick = ()=>{
