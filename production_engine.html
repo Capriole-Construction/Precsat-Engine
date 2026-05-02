@@ -1831,12 +1831,24 @@ async function runEngine(){
     famStats[f] = {pieces:fc.length, kg:fc.reduce((s,c)=>s+c.kg,0), slots:famSlots, types:typesByFam[f].length};
   });
 
+  // Mould swaps counted as TABLE swap-time: distinct (tableId, dateIso) pairs
+  // where a SWAP cell exists. If multiple slots share one table and both swap
+  // on the same day, the table only swaps once that calendar day.
+  const _tableSwapKeys = new Set();
+  allCells.forEach(c=>{
+    if(!c.isSwap) return;
+    const sl = slotAssignments.find(s => s.slotId === c.slotId);
+    const tid = sl ? sl.tableId : c.slotId;
+    _tableSwapKeys.add(tid + '|' + c.dateIso);
+  });
+  const tableSwaps = _tableSwapKeys.size;
+
   schedule = {
     params, slotAssignments, slotTimeline, cellsByDate, allCells, allDates,
     firstDate, lastDate, totalDays, calendarDays, totalKg, totalM3, utilization, famStats,
     m3ByDate, avgM3PerDay, peakM3PerDay, peakM3Date,
     totalPieces: panelCells.length,
-    shutterChanges,
+    shutterChanges, tableSwaps,
     unfit: [...new Set(unfit.map(t=>t.code))].map(c=>TYPES.find(t=>t.code===c)),
     activeTables: activeTables.map(t=>({id:t.id,name:t.name,L:t.L,W:t.W})),
     byOthers: byOthersTypes.map(t=>({code:t.code, fam:t.fam, w:t.w, h:t.h, kg:t.kg, pieces:((TYPE_META[t.code]||{}).qty||1)*BUILDINGS})),
@@ -3172,7 +3184,7 @@ function viewOverview(){
       <div class="kpi red"><div class="l">Completion</div><div class="v" style="font-size:18px">${esc(s.lastDate)}</div><div class="s">${dayLabel(new Date(s.lastDate))}</div></div>
       <div class="kpi"><div class="l">Total Concrete</div><div class="v">${fmt(s.totalM3||0,1)}</div><div class="s">m³</div></div>
       <div class="kpi green"><div class="l">Utilization</div><div class="v">${fmt(s.utilization,0)}%</div><div class="s">avg slot use</div></div>
-      <div class="kpi"><div class="l">Mould Swaps</div><div class="v">${fmt(s.shutterChanges||0)}</div><div class="s">slot-days where mould dim changed</div></div>
+      <div class="kpi"><div class="l">Mould Swaps</div><div class="v">${fmt(s.tableSwaps!=null?s.tableSwaps:(s.shutterChanges||0))}</div><div class="s">table-days with a mould swap</div></div>
     </div>
 
     <div class="panel">
