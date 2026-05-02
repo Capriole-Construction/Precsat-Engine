@@ -2674,11 +2674,52 @@ function _pfPrintTablePlan(){
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
   const timeStr = now.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
-  const projName = (window._pfProjectSource && window._pfProjectSource.name
-    ? window._pfProjectSource.name.replace(/\.pfproj$/i,"") : "Precast Project");
+  const projSrcName = (window._pfProjectSource && window._pfProjectSource.name) || "";
+  const projName = projSrcName ? projSrcName.replace(/\.pfproj$/i,"") : "Precast Project";
+
+  // Patch details from cloud metadata
+  const meta = (window._pfMeta && window._pfMeta[projSrcName]) || {};
+  const mProjNo  = meta.projNo || "";
+  const mBuildNo = meta.buildingNo || "";
+  const mNosB    = meta.nosOfBuildings || "";
+  const mFloorNo = meta.floorNo || "";
+
+  const LOGO_URL = "https://capriole-construction.github.io/KnowledgeBase/Books%20and%20References/capriole-platform/logo.png";
 
   const FAM_COLOR = {IP:"#1e3a5f", WL:"#059669", WN:"#7c3aed", PB:"#dc2626"};
   const FAM_LIGHT = {IP:"rgba(30,58,95,.08)", WL:"rgba(5,150,105,.08)", WN:"rgba(124,58,237,.08)", PB:"rgba(220,38,38,.08)"};
+
+  // Per-table page header: logo + Table No + patch details. Repeats on every printed page.
+  const pageHdrFor = (tab, fam) => {
+    const fc = FAM_COLOR[fam] || "#1e3a5f";
+    const detailPills = [
+      mProjNo  && `<span class="pd"><span class="pd-l">PROJECT</span><span class="pd-v">${esc(mProjNo)}</span></span>`,
+      mBuildNo && `<span class="pd"><span class="pd-l">BUILDING</span><span class="pd-v">${esc(mBuildNo)}</span></span>`,
+      mNosB    && `<span class="pd"><span class="pd-l">NOS OF BLDG</span><span class="pd-v">${esc(mNosB)}</span></span>`,
+      mFloorNo && `<span class="pd"><span class="pd-l">FLOOR</span><span class="pd-v">${esc(mFloorNo)}</span></span>`,
+    ].filter(Boolean).join("");
+    return `<div class="tpage-hdr">
+      <div class="tph-left">
+        <img class="tph-logo" src="${LOGO_URL}" onerror="this.style.display='none'">
+        <div class="tph-div"></div>
+        <div class="tph-title-wrap">
+          <div class="tph-title">Table Plan</div>
+          <div class="tph-sub">${esc(projName)} · Capriole Construction</div>
+        </div>
+      </div>
+      <div class="tph-mid">
+        <div class="tph-tbox" style="border-color:${fc};color:${fc}">
+          <div class="tph-tbox-l">TABLE</div>
+          <div class="tph-tbox-v">${esc(tab.id)}</div>
+        </div>
+        ${fam ? `<span class="tph-fam" style="background:${fc}">${fam}</span>` : ""}
+      </div>
+      <div class="tph-right">
+        <div class="tph-pd-row">${detailPills || '<span class="tph-noPd">No project details set</span>'}</div>
+        <div class="tph-print">Printed: ${dateStr} ${timeStr}</div>
+      </div>
+    </div>`;
+  };
 
   const activeTables = TABLES.filter(t=>t.active!==false);
   const slotsByTable = {};
@@ -2703,18 +2744,21 @@ function _pfPrintTablePlan(){
     return `<span style="display:inline-block;padding:4px 11px;border-radius:14px;background:${bg};color:#fff;font-size:9.5px;font-weight:700;margin:2px">${esc(tab.id)} · ${fam}</span>`;
   }).join("");
 
-  // ── Per-table sections ──
+  // ── Per-table sections — each table is its own page, headed with logo + table no + patch details
   const sectionsHtml = activeTables.map(tab=>{
     const sl = slotsByTable[tab.id];
     if(!sl){
-      return `<div class="tcard idle">
-        <div class="thead">
-          <span class="t-id">${esc(tab.id)}</span>
-          <span class="t-name">${esc(tab.name)}</span>
-          <span class="t-dim">${tab.L}×${tab.W} mm</span>
-          <span class="t-stat idle-lbl">⏸ Idle this run</span>
+      return `<div class="tpage">
+        ${pageHdrFor(tab, "")}
+        <div class="tcard idle">
+          <div class="thead">
+            <span class="t-id">${esc(tab.id)}</span>
+            <span class="t-name">${esc(tab.name)}</span>
+            <span class="t-dim">${tab.L}×${tab.W} mm</span>
+            <span class="t-stat idle-lbl">⏸ Idle this run</span>
+          </div>
+          <div class="tbody idle-body">No panels were allocated to this table by the optimiser.</div>
         </div>
-        <div class="tbody idle-body">No panels were allocated to this table by the optimiser.</div>
       </div>`;
     }
     const tl = s.slotTimeline[sl.slotId]||[];
@@ -2766,19 +2810,22 @@ function _pfPrintTablePlan(){
       </div>`;
     }).join("");
 
-    return `<div class="tcard" style="border-left:5px solid ${fc}">
-      <div class="thead" style="background:${fl}">
-        <span class="t-id" style="color:${fc}">${esc(tab.id)}</span>
-        <span class="pill" style="background:${fc}">${fam}</span>
-        <span class="t-name">${esc(tab.name)}</span>
-        <span class="t-dim">${tab.L}×${tab.W} mm · +${s.params.shutter} mm shutter</span>
-        <span class="t-stat">${totalDays} days</span>
-        <span class="t-stat">${totalCasts} casts</span>
-        <span class="t-stat">avg ${avgPD}/day</span>
-        <span class="t-stat">${fmt(totalKg/1000,1)} t</span>
-        <span class="t-stat" style="margin-left:auto">${esc(first)} → ${esc(last)}</span>
+    return `<div class="tpage">
+      ${pageHdrFor(tab, fam)}
+      <div class="tcard" style="border-left:5px solid ${fc}">
+        <div class="thead" style="background:${fl}">
+          <span class="t-id" style="color:${fc}">${esc(tab.id)}</span>
+          <span class="pill" style="background:${fc}">${fam}</span>
+          <span class="t-name">${esc(tab.name)}</span>
+          <span class="t-dim">${tab.L}×${tab.W} mm · +${s.params.shutter} mm shutter</span>
+          <span class="t-stat">${totalDays} days</span>
+          <span class="t-stat">${totalCasts} casts</span>
+          <span class="t-stat">avg ${avgPD}/day</span>
+          <span class="t-stat">${fmt(totalKg/1000,1)} t</span>
+          <span class="t-stat" style="margin-left:auto">${esc(first)} → ${esc(last)}</span>
+        </div>
+        <div class="tbody">${dayRowsHtml}</div>
       </div>
-      <div class="tbody">${dayRowsHtml}</div>
     </div>`;
   }).join("");
 
@@ -2833,6 +2880,26 @@ function _pfPrintTablePlan(){
   .tsketch{flex:0 0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:4px;display:block}
   /* ── Footer ── */
   .page-footer{position:fixed;bottom:0;left:0;right:0;padding:4px 18px;background:#f8fafc;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:8.5px;color:#9ca3af}
+  /* ── Per-table page header (repeats with each table) ── */
+  .tpage{page-break-before:always;padding:0 0 8px}
+  .tpage-hdr{display:flex;align-items:center;gap:14px;padding:10px 18px 8px;border-top:4px solid #1e3a5f;border-bottom:3px solid #f59e0b;background:#fff;margin-bottom:6px}
+  .tph-left{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+  .tph-logo{height:38px;width:auto}
+  .tph-div{width:1px;height:30px;background:#d1d5db}
+  .tph-title{font-size:14px;font-weight:800;color:#1e3a5f;letter-spacing:.3px;line-height:1.1}
+  .tph-sub{font-size:8.5px;color:#6b7280;text-transform:uppercase;letter-spacing:.7px;margin-top:2px}
+  .tph-mid{display:flex;align-items:center;gap:8px;margin:0 6px}
+  .tph-tbox{border:2.5px solid #1e3a5f;border-radius:6px;padding:3px 12px;text-align:center;line-height:1.05;background:#fff}
+  .tph-tbox-l{font-size:7.5px;font-weight:700;letter-spacing:1px;opacity:.75}
+  .tph-tbox-v{font-size:20px;font-weight:900;letter-spacing:.5px}
+  .tph-fam{display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:800;color:#fff;letter-spacing:.5px}
+  .tph-right{margin-left:auto;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+  .tph-pd-row{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end}
+  .pd{display:inline-flex;align-items:center;gap:6px;background:#f0f4ff;border:1px solid #dbe4f5;border-radius:5px;padding:3px 8px;font-size:9px;color:#1e3a5f}
+  .pd-l{font-weight:700;color:#6b7280;letter-spacing:.5px;text-transform:uppercase;font-size:8px}
+  .pd-v{font-weight:700;color:#1e3a5f}
+  .tph-noPd{font-size:9px;color:#9ca3af;font-style:italic}
+  .tph-print{font-size:8px;color:#9ca3af;letter-spacing:.4px}
   @page{size:A3 landscape;margin:8mm 8mm 16mm}
   @media print{.page-footer{position:fixed;bottom:0}}
 </style></head><body>
