@@ -3849,15 +3849,16 @@ function _pfCompactSlots(sched, startIso){
     });
     if(prevD!==null) groups.push(cnt);
 
-    // Re-date cells consecutively from startIso, no gaps
-    const d = new Date(startIso+'T00:00:00');
-    if(!weekend) while(d.getDay()===0) d.setDate(d.getDate()+1);
+    // Re-date cells consecutively from startIso, no gaps.
+    // Use UTC math so toISOString() does not drift to the previous day in non-UTC time zones.
+    const d = new Date(startIso+'T00:00:00Z');
+    if(!weekend) while(d.getUTCDay()===0) d.setUTCDate(d.getUTCDate()+1);
     let ci=0;
     groups.forEach(count=>{
       const iso = d.toISOString().split('T')[0];
       for(let i=0;i<count;i++){ cells[ci].dateIso=iso; ci++; }
-      d.setDate(d.getDate()+1);
-      if(!weekend) while(d.getDay()===0) d.setDate(d.getDate()+1);
+      d.setUTCDate(d.getUTCDate()+1);
+      if(!weekend) while(d.getUTCDay()===0) d.setUTCDate(d.getUTCDate()+1);
     });
   });
 
@@ -3874,9 +3875,10 @@ function _pfCompactSlots(sched, startIso){
 
 function _nextWorkDay(dateStr){
   const weekend = schedule && schedule.params && schedule.params.weekend;
-  const d = new Date(dateStr+'T00:00:00');
-  d.setDate(d.getDate()+1);
-  if(!weekend){ while(d.getDay()===0) d.setDate(d.getDate()+1); }
+  // Use UTC-based math so toISOString() agrees with the local intent (no off-by-one across time zones)
+  const d = new Date(dateStr+'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate()+1);
+  if(!weekend){ while(d.getUTCDay()===0) d.setUTCDate(d.getUTCDate()+1); }
   return d.toISOString().split('T')[0];
 }
 
@@ -3969,10 +3971,10 @@ async function redistributePendingCells(chosenStartDate){
       if(occ.length){
         nextDate = _nextWorkDay(occ[occ.length-1]);
       } else {
-        // align to first work-day at-or-after startDate
+        // Align to first work-day at-or-after startDate. Use UTC math to avoid time-zone drift.
         const wk = schedule.params && schedule.params.weekend;
-        const d = new Date(startDate+'T00:00:00');
-        if(!wk) while(d.getDay()===0) d.setDate(d.getDate()+1);
+        const d = new Date(startDate+'T00:00:00Z');
+        if(!wk) while(d.getUTCDay()===0) d.setUTCDate(d.getUTCDate()+1);
         nextDate = d.toISOString().split('T')[0];
       }
       list.sort((a,b)=>a.dateIso.localeCompare(b.dateIso)||a.b-b.b);
