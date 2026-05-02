@@ -1386,8 +1386,11 @@ async function runEngine(){
           const O = TABLE_EDGE_OFFSET;
           return (t.w + params.shutter) <= (L - 2*O) && (t.h + params.shutter) <= (W - 2*O);
         };
+        // Primary pack: slot's own assigned family only — prevents other slots
+        // from consuming panels meant for this slot's family. Cross-family
+        // fill is handled separately by the guest-fill pass below.
         const eligible = globalQueue.filter(it =>
-          (!allow || !it.fam || allow.includes(it.fam)) && fits(it.t) &&
+          it.fam === slot.fam && (!allow || allow.includes(it.fam)) && fits(it.t) &&
           floorRank(it.t.fl||'') === _floorFence
         );
         if(eligible.length === 0) continue;
