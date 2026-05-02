@@ -1021,22 +1021,37 @@ async function runEngine(){
     // single floor whenever possible so floor-restricted optimisation runs
     // produce visually coherent slot layouts.
     const famSlots = slotAssignments.filter(s=>s.fam===fam);
-    typesByFam[fam].forEach(t=>{
+    // LPT (Longest Processing Time) assignment: estimate casting days per type
+    // using weight-limited co-packing, then assign heaviest types first to the
+    // slot with the lightest current load → minimises makespan across slots.
+    const estDays = (t) => {
+      const qty = (TYPE_META[t.code]||{}).qty || 1;
+      const panels = qty * BUILDINGS;
+      const wCap = (params.maxKg > 0 && t.kg > 0) ? Math.floor(params.maxKg / t.kg) : panels;
+      return Math.ceil(panels / Math.max(1, wCap));
+    };
+    const slotLoad = {}; // slotId → total estimated days
+    famSlots.forEach(s => slotLoad[s.slotId] = 0);
+    // Sort descending by estimated days so the biggest jobs are placed first
+    const lptTypes = typesByFam[fam].slice().sort((a,b) => estDays(b) - estDays(a));
+    lptTypes.forEach(t=>{
       const fitSlots = famSlots.filter(s=>{
         const tab = activeTables.find(x=>x.id===s.tableId);
         return fitsTable(t,tab,params.shutter);
       });
       if(fitSlots.length===0){ unfit.push(t); return; }
       fitSlots.sort((a,b)=>{
-        // 1) prefer slot already containing this floor (no new floor added)
+        // 1) assign to lightest-loaded slot (LPT makespan minimisation)
+        const loadDiff = slotLoad[a.slotId] - slotLoad[b.slotId];
+        if(loadDiff !== 0) return loadDiff;
+        // 2) tie-break: prefer slot already containing this floor
         const aHas = a.floors.has(t.fl) ? 0 : 1;
         const bHas = b.floors.has(t.fl) ? 0 : 1;
-        if(aHas !== bHas) return aHas - bHas;
-        // 2) then by lowest current type count (load balance)
-        return a.types.length - b.types.length;
+        return aHas - bHas;
       });
       fitSlots[0].types.push(t);
       if(t.fl) fitSlots[0].floors.add(t.fl);
+      slotLoad[fitSlots[0].slotId] += estDays(t);
     });
     // Append floor tag to each slot's label for the views: e.g. "WL-01 · T05 · GF".
     famSlots.forEach(s=>{
@@ -1389,10 +1404,18 @@ async function runEngine(){
         // Primary pack: slot's own assigned family only — prevents other slots
         // from consuming panels meant for this slot's family. Cross-family
         // fill is handled separately by the guest-fill pass below.
-        const eligible = globalQueue.filter(it =>
-          it.fam === slot.fam && (!allow || allow.includes(it.fam)) && fits(it.t) &&
-          floorRank(it.t.fl||'') === _floorFence
+        let eligible = globalQueue.filter(it =>
+          it.fam === slot.fam && fits(it.t) && floorRank(it.t.fl||'') === _floorFence
         );
+        // Idle-helper: own family exhausted → help any allowed family within
+        // the current floor fence. Keeps tables casting every day instead of
+        // sitting idle while other slots still have work to do.
+        const isHelper = eligible.length === 0;
+        if(isHelper){
+          eligible = globalQueue.filter(it =>
+            allow.includes(it.fam) && fits(it.t) && floorRank(it.t.fl||'') === _floorFence
+          );
+        }
         if(eligible.length === 0) continue;
 
         const prevSet = (tpl && tpl.types) ? tpl.types : new Set();
@@ -1493,14 +1516,20 @@ async function runEngine(){
         const isRealSwap = prevTypes && prevTypes.size > 0 &&
           [...newTypes].some(t => !prevTypes.has(t));
 
-        if(prevTypes){
-          for(const t of newTypes){ if(!prevTypes.has(t)) shutterChanges++; }
-        } else {
-          shutterChanges += newTypes.size; // initial install
+        if(!isHelper){
+          if(prevTypes){
+            for(const t of newTypes){ if(!prevTypes.has(t)) shutterChanges++; }
+          } else {
+            shutterChanges += newTypes.size; // initial install
+          }
         }
         // usedBuildings starts EMPTY — a building only counts as "used" once
         // the FULL template is cast on it (which happens in template-mode).
-        slotTemplate[slot.slotId] = { types: newTypes, usedBuildings: new Set() };
+        // In helper mode don't update the template — helper work belongs to
+        // another slot's family, so it should not trigger SWAP days on this slot.
+        if(!isHelper){
+          slotTemplate[slot.slotId] = { types: newTypes, usedBuildings: new Set() };
+        }
 
         // ── CROSS-FAMILY GUEST FILL ──────────────────────────────────────────
         // After committing the primary lot and its template, use remaining
