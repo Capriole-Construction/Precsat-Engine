@@ -3951,6 +3951,38 @@ async function redistributePendingCells(chosenStartDate){
   // this step shifts subsequent cells forward to fill those gaps immediately.
   _pfCompactSlots(schedule, startDate);
 
+  // Strict guard: no pending cell may land before the chosen startDate.
+  // Push any violators forward, per slot, using the next available work-day after the
+  // slot's existing valid (>= startDate) timeline.
+  {
+    const earlyBySlot = {};
+    schedule.allCells.forEach(c=>{
+      if(c.dateIso < startDate){
+        (earlyBySlot[c.slotId] = earlyBySlot[c.slotId] || []).push(c);
+      }
+    });
+    Object.entries(earlyBySlot).forEach(([sid, list])=>{
+      const occ = schedule.allCells
+        .filter(c=>c.slotId===sid && c.dateIso >= startDate)
+        .map(c=>c.dateIso).sort();
+      let nextDate;
+      if(occ.length){
+        nextDate = _nextWorkDay(occ[occ.length-1]);
+      } else {
+        // align to first work-day at-or-after startDate
+        const wk = schedule.params && schedule.params.weekend;
+        const d = new Date(startDate+'T00:00:00');
+        if(!wk) while(d.getDay()===0) d.setDate(d.getDate()+1);
+        nextDate = d.toISOString().split('T')[0];
+      }
+      list.sort((a,b)=>a.dateIso.localeCompare(b.dateIso)||a.b-b.b);
+      list.forEach(c=>{
+        c.dateIso = nextDate;
+        nextDate = _nextWorkDay(nextDate);
+      });
+    });
+  }
+
   // Remove any pending cell whose (type, b) key matches a cast cell — safety dedup
   const castKeySet = new Set(_cast.map(c=>`${c.type}|${c.b}`));
   schedule.allCells = schedule.allCells.filter(c=>!castKeySet.has(`${c.type}|${c.b}`));
