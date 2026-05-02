@@ -1660,16 +1660,63 @@ async function runEngine(){
         }
         slotLastTypes[sid] = curTypes;
 
-        // Replicate for each building on consecutive working days.
-        for(let b=1; b<=userBuildings; b++){
+        // Co-packing: compute how many buildings' copies fit on the table simultaneously.
+        const copakSlot = slotAssignments.find(s => s.slotId === sid);
+        const copakTab = copakSlot ? activeTables.find(t => t.id === copakSlot.tableId) : null;
+        let batchSize = 1;
+        if(copakTab && cells.length > 0 && cells.every(c => c.w > 0 && c.h > 0)){
+          const L = Math.max(copakTab.L, copakTab.W);
+          const W = Math.min(copakTab.L, copakTab.W);
+          const sh = params.shutter;
+          const items1 = cells.map((c,ci) => ({ t:{w:c.w, h:c.h}, _ci:ci }));
+          let freeRects = null;
+          let n = 0;
+          while(n < userBuildings){
+            const placed = maxRectsRun(
+              items1.map(x => ({...x})),
+              L, W, sh,
+              freeRects ? freeRects.map(r=>({...r})) : undefined
+            );
+            if(placed.length < items1.length) break;
+            n++;
+            freeRects = placed._freeRects;
+            if(!freeRects || freeRects.length === 0) break;
+          }
+          batchSize = Math.max(1, n);
+        }
+
+        // Replicate for each building in batches (co-packing groups buildings onto the same day).
+        for(let b=1; b<=userBuildings; b+=batchSize){
+          const thisBatch = Math.min(batchSize, userBuildings - b + 1);
           const { d, dt, iso: outIso } = nextWorkDay(sid);
           if(!newCellsByDate[outIso]) newCellsByDate[outIso] = {};
           if(!newCellsByDate[outIso][sid]) newCellsByDate[outIso][sid] = [];
-          for(const c of cells){
-            const nc = { ...c, b, dayIdx: d, dateIso: outIso, dt: new Date(dt), isLast: false };
-            newCellsByDate[outIso][sid].push(nc);
-            (newSlotTimeline[sid] = newSlotTimeline[sid] || []).push(nc);
-            newAllCells.push(nc);
+
+          // Re-run layout for the whole batch so positions don't overlap.
+          let batchLayouts = null;
+          if(copakTab && thisBatch > 1){
+            const L = Math.max(copakTab.L, copakTab.W);
+            const W = Math.min(copakTab.L, copakTab.W);
+            const batchItems = [];
+            for(let bi=0; bi<thisBatch; bi++){
+              cells.forEach((c,ci) => batchItems.push({ t:{w:c.w,h:c.h}, _b:bi, _ci:ci }));
+            }
+            const placed = maxRectsRun(batchItems, L, W, params.shutter);
+            batchLayouts = {};
+            for(const p of placed){
+              if(p.layout) batchLayouts[`${p._b}_${p._ci}`] = p.layout;
+            }
+          }
+
+          for(let bi=0; bi<thisBatch; bi++){
+            const bldg = b + bi;
+            cells.forEach((c, ci) => {
+              const layout = batchLayouts ? (batchLayouts[`${bi}_${ci}`] || c.layout) : c.layout;
+              const nc = { ...c, b: bldg, dayIdx: d, dateIso: outIso, dt: new Date(dt), isLast: false, layout };
+              newCellsByDate[outIso][sid].push(nc);
+              (newSlotTimeline[sid] = newSlotTimeline[sid] || []).push(nc);
+              newAllCells.push(nc);
+            });
           }
           slotOutDay[sid]++;
         }
