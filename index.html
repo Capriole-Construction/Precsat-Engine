@@ -5335,16 +5335,26 @@ function _pfEnterpriseTableGanttHtml(ledger){
   });
   const maxPanels = Math.max(1, ...Object.values(totalPanelsByDay));
 
-  // Histogram bars + number labels — one per casting day
+  // Histogram: separate bars layer and labels layer so labels are never clipped
   const barWPct = Math.max(0.5, (86400000 / spanMs * 100));
-  const histBars = Object.entries(totalPanelsByDay).sort(([a],[b])=>a<b?-1:1).map(([iso, cnt]) => {
+  const sortedDays = Object.entries(totalPanelsByDay).sort(([a],[b])=>a<b?-1:1);
+  const histBars = sortedDays.map(([iso, cnt]) => {
     const xPct = ((new Date(iso).getTime() - ms0) / spanMs * 100);
     if(xPct < 0 || xPct > 100) return '';
-    const hPct = Math.max(12, Math.round(cnt / maxPanels * 100));
+    const hPct = Math.max(8, Math.round(cnt / maxPanels * 100));
     const color = panelColorByDay[iso];
-    const x = xPct.toFixed(3), w = barWPct.toFixed(3);
-    return `<div title="${iso}: ${cnt} panel${cnt!==1?'s':''}" style="position:absolute;left:${x}%;bottom:0;width:${w}%;height:${hPct}%;background:${color};opacity:.8;border-radius:2px 2px 0 0;display:flex;flex-direction:column;justify-content:flex-start;align-items:center;overflow:visible;box-sizing:border-box">
-      <span style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:8.5px;font-weight:800;color:#1e3a5f;white-space:nowrap;line-height:1">${cnt}</span>
+    return `<div title="${iso}: ${cnt} panel${cnt!==1?'s':''}" style="position:absolute;left:${xPct.toFixed(3)}%;bottom:0;width:${barWPct.toFixed(3)}%;height:${hPct}%;background:${color};opacity:.8;border-radius:2px 2px 0 0"></div>`;
+  }).join('');
+  // Labels: date on top, count below — rendered in a separate overflow:visible layer
+  const histLabels = sortedDays.map(([iso, cnt]) => {
+    const xPct = ((new Date(iso).getTime() - ms0) / spanMs * 100);
+    if(xPct < 0 || xPct > 100) return '';
+    const dt = new Date(iso);
+    const dayNum = dt.getDate();
+    const color = panelColorByDay[iso];
+    return `<div title="${iso}: ${cnt} panel${cnt!==1?'s':''}" style="position:absolute;left:${xPct.toFixed(3)}%;width:${barWPct.toFixed(3)}%;top:0;display:flex;flex-direction:column;align-items:center;gap:0;pointer-events:none">
+      <span style="font-size:7.5px;font-weight:600;color:#94a3b8;line-height:1.2">${dayNum}</span>
+      <span style="font-size:9px;font-weight:900;color:${color};line-height:1.1">${cnt}</span>
     </div>`;
   }).join('');
 
@@ -5375,15 +5385,20 @@ function _pfEnterpriseTableGanttHtml(ledger){
     </div>
     <!-- Σ Panels / day histogram -->
     <div style="display:flex;align-items:stretch;border-top:2px solid #e2e8f0;background:#f8fafc">
-      <div style="width:46px;flex-shrink:0;padding:0 4px;font-size:9px;font-weight:700;color:#64748b;background:#f1f5f9;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid #e2e8f0;text-align:center;line-height:1.3;gap:1px">
-        <span style="font-size:10px">Σ</span>
+      <div style="width:46px;flex-shrink:0;padding:0 4px;background:#f1f5f9;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid #e2e8f0;text-align:center;line-height:1.3;gap:1px">
+        <span style="font-size:10px;font-weight:700;color:#64748b">Σ</span>
         <span style="font-size:8px;color:#94a3b8">panels<br>/day</span>
       </div>
-      <div style="flex:1;position:relative;height:62px;overflow:visible;padding-top:18px;box-sizing:border-box">
-        <div style="position:absolute;left:0;right:0;top:18px;bottom:0;overflow:hidden">
+      <div style="flex:1;position:relative;height:68px;">
+        <!-- labels: day number + count, never clipped -->
+        <div style="position:absolute;left:0;right:0;top:2px;height:32px;overflow:visible">
+          ${histLabels}
+        </div>
+        <!-- bars: bottom 34px, clipped to container -->
+        <div style="position:absolute;left:0;right:0;top:34px;bottom:0;overflow:hidden">
           ${histBars}
         </div>
-        <div style="position:absolute;bottom:3px;right:6px;font-size:8px;color:#cbd5e1;pointer-events:none">peak: ${maxPanels} panels/day</div>
+        <div style="position:absolute;bottom:3px;right:6px;font-size:8px;color:#cbd5e1;pointer-events:none">peak: ${maxPanels}/day</div>
       </div>
     </div>
     <!-- today marker overlay -->
