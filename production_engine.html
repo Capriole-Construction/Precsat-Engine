@@ -5359,10 +5359,9 @@ function _pfEnterpriseTableGanttHtml(ledger){
     </div>`;
   }).join('');
 
-  // Aggregate panelsByDay across all patches
-  // Fall back to counting occupied table-keys per day when panelsByDay not yet in ledger
-  const totalPanelsByDay = {};
-  const panelColorByDay  = {};
+  // Aggregate panelsByDay (planned) and actualByDay across all patches
+  const totalPanelsByDay = {}, panelColorByDay = {};
+  const totalActualByDay = {}, actualColorByDay = {};
   patches.forEach((pname, ci) => {
     const d = ledger[pname];
     const color = PATCH_COLORS[ci % PATCH_COLORS.length];
@@ -5372,15 +5371,21 @@ function _pfEnterpriseTableGanttHtml(ledger){
         if(!panelColorByDay[iso]) panelColorByDay[iso] = color;
       });
     } else {
-      // Fallback: count table-days per calendar day from keys array
       (d.keys || []).forEach(k => {
         const iso = k.split('|')[1]; if(!iso) return;
         totalPanelsByDay[iso] = (totalPanelsByDay[iso] || 0) + 1;
         if(!panelColorByDay[iso]) panelColorByDay[iso] = color;
       });
     }
+    if(d.actualByDay){
+      Object.entries(d.actualByDay).forEach(([iso, cnt]) => {
+        totalActualByDay[iso] = (totalActualByDay[iso] || 0) + cnt;
+        if(!actualColorByDay[iso]) actualColorByDay[iso] = color;
+      });
+    }
   });
   const maxPanels = Math.max(1, ...Object.values(totalPanelsByDay));
+  const maxActual = Math.max(1, ...Object.values(totalActualByDay).concat([0]));
 
   // Histogram bars with count label inside (or above for very short bars)
   const BAR_AREA_H = 52; // px — total bar area height
@@ -5403,6 +5408,25 @@ function _pfEnterpriseTableGanttHtml(ledger){
       : `<span style="position:absolute;top:-14px;left:0;right:0;text-align:center;font-size:9px;font-weight:900;color:${color};line-height:1;pointer-events:none">${cnt}</span>`;
     return `<div title="${tooltip}" style="position:absolute;left:${xPct.toFixed(3)}%;bottom:0;width:${barWPct.toFixed(3)}%;height:${hPct}%;background:${color};opacity:.85;border-radius:2px 2px 0 0;overflow:visible">${cntSpan}</div>`;
   }).join('');
+  // Actual finish bars
+  const ACT_BAR_H = 36;
+  const sortedActual = Object.entries(totalActualByDay).sort(([a],[b])=>a<b?-1:1);
+  const actualBars = sortedActual.map(([iso, cnt]) => {
+    const xPct = ((new Date(iso).getTime() - ms0) / spanMs * 100);
+    if(xPct < 0 || xPct > 100) return '';
+    const hPct = Math.max(10, Math.round(cnt / maxActual * 100));
+    const barPx = Math.round(hPct / 100 * ACT_BAR_H);
+    const color = actualColorByDay[iso] || '#059669';
+    const dt = new Date(iso);
+    const dateLabel = `${dt.getDate()} ${MON[dt.getMonth()]}`;
+    const tooltip = `Actual ${dateLabel}: ${cnt} panel${cnt!==1?'s':''} cast`;
+    const insideBar = barPx >= 14;
+    const cntSpan = insideBar
+      ? `<span style="position:absolute;bottom:3px;left:0;right:0;text-align:center;font-size:8px;font-weight:900;color:rgba(255,255,255,.95);line-height:1;pointer-events:none">${cnt}</span>`
+      : `<span style="position:absolute;top:-12px;left:0;right:0;text-align:center;font-size:8px;font-weight:900;color:${color};line-height:1;pointer-events:none">${cnt}</span>`;
+    return `<div title="${tooltip}" style="position:absolute;left:${xPct.toFixed(3)}%;bottom:0;width:${barWPct.toFixed(3)}%;height:${hPct}%;background:${color};opacity:.9;border-radius:2px 2px 0 0;overflow:visible">${cntSpan}</div>`;
+  }).join('');
+
   // Date strip: day number in tiny text below bars, overflow:visible so labels can breathe
   const histLabels = sortedDays.map(([iso]) => {
     const xPct = ((new Date(iso).getTime() - ms0) / spanMs * 100);
@@ -5438,22 +5462,34 @@ function _pfEnterpriseTableGanttHtml(ledger){
     <div>
       ${rows}
     </div>
-    <!-- Σ Panels / day histogram -->
+    <!-- Plan histogram row -->
     <div style="display:flex;align-items:stretch;border-top:2px solid #e2e8f0;background:#f8fafc">
       <div style="width:46px;flex-shrink:0;padding:0 4px;background:#f1f5f9;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid #e2e8f0;text-align:center;line-height:1.3;gap:1px">
-        <span style="font-size:10px;font-weight:700;color:#64748b">Σ</span>
-        <span style="font-size:8px;color:#94a3b8">panels<br>/day</span>
+        <span style="font-size:8px;font-weight:700;color:#64748b">PLAN</span>
+        <span style="font-size:7px;color:#94a3b8">panels<br>/day</span>
       </div>
       <div style="flex:1;position:relative;height:68px;">
-        <!-- bars fill top 52px, with counts inside/above -->
         <div style="position:absolute;left:0;right:0;top:0;height:52px;overflow:visible">
           ${histBars}
         </div>
-        <!-- date strip: tiny day numbers below bars -->
         <div style="position:absolute;left:0;right:0;top:52px;bottom:0;overflow:visible">
           ${histLabels}
         </div>
         <div style="position:absolute;bottom:3px;right:6px;font-size:8px;color:#cbd5e1;pointer-events:none">peak: ${maxPanels}/day</div>
+      </div>
+    </div>
+    <!-- Actual finish histogram row -->
+    <div style="display:flex;align-items:stretch;border-top:1px solid #e2e8f0;background:#f0fdf4">
+      <div style="width:46px;flex-shrink:0;padding:0 4px;background:#dcfce7;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:1px solid #bbf7d0;text-align:center;line-height:1.3;gap:1px">
+        <span style="font-size:8px;font-weight:700;color:#15803d">ACTUAL</span>
+        <span style="font-size:7px;color:#4ade80">panels<br>/day</span>
+      </div>
+      <div style="flex:1;position:relative;height:52px;">
+        <div style="position:absolute;left:0;right:0;top:0;height:${ACT_BAR_H}px;overflow:visible">
+          ${actualBars}
+        </div>
+        ${Object.keys(totalActualByDay).length===0?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#86efac;font-style:italic">No actual dates recorded yet</div>`:''}
+        <div style="position:absolute;bottom:3px;right:6px;font-size:8px;color:#86efac;pointer-events:none">${Object.keys(totalActualByDay).length?`peak: ${maxActual}/day`:''}</div>
       </div>
     </div>
     <!-- today marker overlay -->
@@ -6128,11 +6164,11 @@ function _pfBookingsUrl(cfg){ return _pfFolderUrl(cfg) + "_pf_bookings.json"; }
 // Compute the set of table-day keys occupied by the current schedule,
 // plus the last casting date per table (used by successor patches).
 function _pfCurrentBookingKeys(){
-  if(!schedule) return { keys: [], lastByTable: {}, firstByTable: {}, panelsByDay: {} };
+  if(!schedule) return { keys: [], lastByTable: {}, firstByTable: {}, panelsByDay: {}, actualByDay: {} };
   const slotToTab = {};
   (schedule.slotAssignments || []).forEach(s => { if(s.tableId) slotToTab[s.slotId] = s.tableId; });
   const keysSet = new Set();
-  const lastByTable = {}, firstByTable = {}, panelsByDay = {};
+  const lastByTable = {}, firstByTable = {}, panelsByDay = {}, actualByDay = {};
   (schedule.allCells || []).forEach(c => {
     if(c.isSwap) return;
     const tid = slotToTab[c.slotId];
@@ -6140,12 +6176,14 @@ function _pfCurrentBookingKeys(){
     keysSet.add(`${tid}|${c.dateIso}`);
     if(!lastByTable[tid]  || c.dateIso > lastByTable[tid])  lastByTable[tid]  = c.dateIso;
     if(!firstByTable[tid] || c.dateIso < firstByTable[tid]) firstByTable[tid] = c.dateIso;
-    // Use PLANNED DATE (frozen first-ever date) for the histogram, matching what the
-    // Order Schedule "Planned Date" column shows — survives redistribution.
+    // Planned date (frozen first-ever date) — matches Order Schedule "Planned Date" column
     const plannedIso = (PLANNED_DATES && PLANNED_DATES[`${c.type}|${c.b}`]) || c.dateIso;
     panelsByDay[plannedIso] = (panelsByDay[plannedIso] || 0) + 1;
+    // Actual finish date — entered by user in Order Schedule "Actual Finish" column
+    const actualIso = ACTUAL_FINISH && ACTUAL_FINISH[`${c.type}|${c.b}`];
+    if(actualIso) actualByDay[actualIso] = (actualByDay[actualIso] || 0) + 1;
   });
-  return { keys: [...keysSet], lastByTable, firstByTable, panelsByDay };
+  return { keys: [...keysSet], lastByTable, firstByTable, panelsByDay, actualByDay };
 }
 
 // Read ledger — only apply the direct predecessor's bookings.
@@ -6182,7 +6220,7 @@ async function _pfWriteBookingsLedger(cfg, fileName){
     const r = await fetch(_pfWrap(_pfBookingsUrl(cfg)), {headers: {"Authorization": _pfAuth(cfg)}});
     if(r.ok) ledger = await r.json().catch(() => ({}));
     const _bk = _pfCurrentBookingKeys();
-    ledger[fileName] = { keys: _bk.keys, lastByTable: _bk.lastByTable, firstByTable: _bk.firstByTable, panelsByDay: _bk.panelsByDay, lastDate: schedule ? schedule.lastDate : null };
+    ledger[fileName] = { keys: _bk.keys, lastByTable: _bk.lastByTable, firstByTable: _bk.firstByTable, panelsByDay: _bk.panelsByDay, actualByDay: _bk.actualByDay, lastDate: schedule ? schedule.lastDate : null };
     await fetch(_pfWrap(_pfBookingsUrl(cfg)), {
       method: "PUT",
       headers: {"Authorization": _pfAuth(cfg), "Content-Type": "application/json"},
