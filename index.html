@@ -5313,14 +5313,25 @@ function _pfEnterpriseTableGanttHtml(ledger){
   }).join('');
 
   // Aggregate panelsByDay across all patches
+  // Fall back to counting occupied table-keys per day when panelsByDay not yet in ledger
   const totalPanelsByDay = {};
   const panelColorByDay  = {};
   patches.forEach((pname, ci) => {
-    const pbd = ledger[pname].panelsByDay || {};
-    Object.entries(pbd).forEach(([iso, cnt]) => {
-      totalPanelsByDay[iso] = (totalPanelsByDay[iso] || 0) + cnt;
-      panelColorByDay[iso]  = panelColorByDay[iso] || PATCH_COLORS[ci % PATCH_COLORS.length];
-    });
+    const d = ledger[pname];
+    const color = PATCH_COLORS[ci % PATCH_COLORS.length];
+    if(d.panelsByDay && Object.keys(d.panelsByDay).length){
+      Object.entries(d.panelsByDay).forEach(([iso, cnt]) => {
+        totalPanelsByDay[iso] = (totalPanelsByDay[iso] || 0) + cnt;
+        if(!panelColorByDay[iso]) panelColorByDay[iso] = color;
+      });
+    } else {
+      // Fallback: count table-days per calendar day from keys array
+      (d.keys || []).forEach(k => {
+        const iso = k.split('|')[1]; if(!iso) return;
+        totalPanelsByDay[iso] = (totalPanelsByDay[iso] || 0) + 1;
+        if(!panelColorByDay[iso]) panelColorByDay[iso] = color;
+      });
+    }
   });
   const maxPanels = Math.max(1, ...Object.values(totalPanelsByDay));
 
