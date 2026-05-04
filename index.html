@@ -5898,9 +5898,11 @@ async function _pfLoadBookingsLedger(cfg){
   if(r.status === 404) return; // no ledger yet
   if(!r.ok) return;
   const ledger = await r.json();
-  const currentFile = ((window._pfProjectSource && window._pfProjectSource.name) || "").toLowerCase();
-  const currentMeta = (window._pfMeta || {})[currentFile] || {};
-  const predFile    = (currentMeta.predecessor || "").toLowerCase();
+  const currentFile = (window._pfProjectSource && window._pfProjectSource.name) || "";
+  const _allMeta    = window._pfMeta || {};
+  const currentMeta = _allMeta[currentFile] ||
+    (Object.entries(_allMeta).find(([k]) => k.toLowerCase() === currentFile.toLowerCase()) || [,{}])[1];
+  const predFile    = currentMeta.predecessor || "";
   if(!predFile) return; // no predecessor declared → no constraints
   // Find the predecessor's entry (case-insensitive)
   const entry = Object.entries(ledger).find(([k]) => k.toLowerCase() === predFile);
