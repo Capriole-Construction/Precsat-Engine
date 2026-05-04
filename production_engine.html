@@ -4455,8 +4455,8 @@ function bindData(){
         const cells=tr.querySelectorAll('td');
         if(cells.length<4){tr.style.display='';return;}
         const rowCode=(cells[1].textContent||'').toLowerCase();
-        const rowFam=(cells[2].textContent||'').trim();
-        const rowFl=(cells[3].textContent||'').trim();
+        const rowFam=(cells[3].textContent||'').trim();
+        const rowFl=(cells[4].textContent||'').trim();
         const rowSrc=(cells[cells.length-2].textContent||'').trim();
         const matchCode=!code||rowCode.includes(code);
         const matchFam=chipSel.fam.size===0||chipSel.fam.has(rowFam);
