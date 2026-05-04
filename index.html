@@ -4452,12 +4452,14 @@ function bindData(){
       const rows=$$('#view .tbl tbody tr');
       let vis=0;
       rows.forEach(tr=>{
-        const cells=tr.querySelectorAll('td');
+        // Use :scope > td so nested <td>s inside the openings panel don't pollute cells
+        const cells=tr.querySelectorAll(':scope > td');
         if(cells.length<4){tr.style.display='';return;}
+        // Fixed column indices: 0=#, 1=Code, 2=Qty(input), 3=Family, 4=Floor, 13=Source, 14=Delete
         const rowCode=(cells[1].textContent||'').toLowerCase();
         const rowFam=(cells[3].textContent||'').trim();
         const rowFl=(cells[4].textContent||'').trim();
-        const rowSrc=(cells[cells.length-2].textContent||'').trim();
+        const rowSrc=(cells[13] ? cells[13].textContent : '').trim();
         const matchCode=!code||rowCode.includes(code);
         const matchFam=chipSel.fam.size===0||chipSel.fam.has(rowFam);
         const matchFl=chipSel.fl.size===0||chipSel.fl.has(rowFl);
