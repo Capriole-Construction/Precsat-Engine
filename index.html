@@ -2778,7 +2778,7 @@ function bindTablePlan(){
     const orig = btn.textContent;
     btn.textContent = "Preparing…";
     btn.disabled = true;
-    try { _pfPrintTablePlan(); }
+    try { _pfPrintTablePlan(activeFl); }
     catch(e){ console.error("Table Plan print failed:", e); }
     finally { btn.textContent = orig; btn.disabled = false; }
   };
@@ -2818,7 +2818,7 @@ function bindTablePlan(){
   applyTplanFloor(); // initialise (All selected)
 }
 
-function _pfPrintTablePlan(){
+function _pfPrintTablePlan(filterFl){
   const s = schedule;
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"});
@@ -2924,7 +2924,13 @@ function _pfPrintTablePlan(){
     const fc = FAM_COLOR[fam]||"#1e3a5f";
     const fl = FAM_LIGHT[fam]||"rgba(30,58,95,.08)";
 
-    const dayRowsHtml = days.map((d,i)=>{
+    // When floor filter active, keep only days that contain at least one cell of that floor
+    const filteredDays = filterFl
+      ? days.filter(d => byDay[d].some(c=>(TYPES.find(x=>x.code===c.type)||{}).fl===filterFl))
+      : days;
+    if(filterFl && !filteredDays.length) return ""; // skip table entirely if no matching days
+
+    const dayRowsHtml = filteredDays.map((d,i)=>{
       const cells = byDay[d];
       const dt = new Date(d);
       const tabArea = tab.L*tab.W;
@@ -2976,8 +2982,9 @@ function _pfPrintTablePlan(){
     </td></tr></tbody></table>`;
   }).join("");
 
+  const flLabel = filterFl ? ` · Floor ${filterFl}` : "";
   const html=`<!doctype html><html><head><meta charset="utf-8">
-<title>Table Plan — ${projName}</title>
+<title>Table Plan${flLabel} — ${projName}</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:"Century Gothic","Segoe UI",Arial,sans-serif;font-size:11px;color:#1f2937;background:#fff}
@@ -3074,6 +3081,7 @@ function _pfPrintTablePlan(){
   <div class="sbl"><span class="sbl-v">${s.params.shutter} mm</span><span class="sbl-l">Shutter Gap</span></div>
   <div class="sbl"><span class="sbl-v">${fmt(s.totalPieces)}</span><span class="sbl-l">Total Pieces</span></div>
   <div class="sbl"><span class="sbl-v">${s.totalDays}</span><span class="sbl-l">Schedule Days</span></div>
+  ${filterFl ? `<div class="sbl" style="background:#fff8e1"><span class="sbl-v" style="color:#92400e">${esc(filterFl)}</span><span class="sbl-l">Floor Filter</span></div>` : ""}
 </div>
 <div class="toc"><span class="toc-lbl">Tables:</span>${tocHtml}</div>
 ${sectionsHtml}
