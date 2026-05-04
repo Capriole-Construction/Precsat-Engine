@@ -340,6 +340,18 @@
       </div>
     </div>
 
+    <!-- CROSS-PATCH SYNC -->
+    <div class="sb-section" id="crossPatchSection">
+      <div class="sb-h">Cross-Patch Sync</div>
+      <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;line-height:1.4">Block table-days already booked by other cloud patches before scheduling.</div>
+      <div class="sb-row">
+        <label>Enable</label>
+        <input type="checkbox" id="pCrossPatchSync" style="width:auto;cursor:pointer">
+      </div>
+      <div id="crossPatchStatus" style="font-size:10px;color:#64748b;margin-top:5px;padding:4px 6px;background:#1f2937;border-radius:4px;min-height:20px"></div>
+      <button id="crossPatchSyncBtn" onclick="_pfSyncCrossPatch()" style="width:100%;margin-top:6px;padding:6px;background:#0369a1;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">↺ Sync Now</button>
+    </div>
+
     <!-- RESCHEDULE PENDING -->
     <div class="sb-section" id="reschedSection">
       <div class="sb-h">🔄 Reschedule Pending</div>
@@ -778,6 +790,7 @@ let activeTab = "overview";
 let schedule = null;     // optimization output
 let params = {};
 let tipEl = null;
+window._pfExternalBookings = {}; // keyed `${tableId}|${iso}` → patch name
 
 // Cast/skip status persistence — keyed by type|building since dates shift on reschedule.
 function loadCastStatus(){ try{ return JSON.parse(localStorage.getItem("pe_status_v1")||"{}"); }catch(e){ return {}; } }
@@ -889,6 +902,18 @@ async function runEngine(){
   $("#runBtn").disabled = true;
   $("#runner").classList.add("show");
   await sleep(50);
+
+  // Cross-patch sync: pre-populate external bookings before scheduling
+  if($("#pCrossPatchSync")?.checked){
+    _pfLoad();
+    const _xpCfg = window._pfConfig;
+    if(_xpCfg.ocUser && _xpCfg.ocPass){
+      setStep("☁ Syncing cross-patch bookings…", 2);
+      await _pfFetchOtherPatchBookings();
+    }
+  } else {
+    window._pfExternalBookings = {};
+  }
 
   // Step 1: Build orders for In-House panels only (By Others are excluded
   // from production scheduling). Floor filter from sidebar restricts which
@@ -1692,7 +1717,8 @@ async function runEngine(){
       let dt = addDays(startDate, d);
       while(!params.weekend && isWeekend(dt)){ d++; dt = addDays(startDate, d); }
       // Skip any day on which this slot's table is already occupied by another slot
-      while(tableId && tableDayBusy[`${tableId}|${isoDate(dt)}`]){
+      // or externally booked by another cloud patch (cross-patch sync).
+      while(tableId && (tableDayBusy[`${tableId}|${isoDate(dt)}`] || window._pfExternalBookings[`${tableId}|${isoDate(dt)}`])){
         d++; dt = addDays(startDate, d);
         while(!params.weekend && isWeekend(dt)){ d++; dt = addDays(startDate, d); }
       }
@@ -5681,6 +5707,68 @@ window._pfOpenSettings=_pfOpenSettings;
 window._pfCloseSettings=_pfCloseSettings;
 window._pfSaveSettings=_pfSaveSettings;
 window._pfTest=_pfTest;
+
+// ============================================================
+// CROSS-PATCH SYNC
+// Fetches all other patches from the index, reads their schedule,
+// and populates window._pfExternalBookings with occupied table-days.
+// ============================================================
+async function _pfFetchOtherPatchBookings(){
+  window._pfExternalBookings = {};
+  const statusEl = $("#crossPatchStatus");
+  try {
+    _pfLoad();
+    const cfg = window._pfConfig;
+    if(!cfg.ocUser || !cfg.ocPass){
+      if(statusEl) statusEl.textContent = "Not signed in";
+      return;
+    }
+    if(statusEl) statusEl.textContent = "⏳ Fetching…";
+    const list = await _pfGetIndex(cfg);
+    // Identify current patch to skip it
+    const currentName = ((window._pfProjectSource && window._pfProjectSource.name) || $("#cfgName")?.value || "")
+      .toLowerCase().replace(/\.pfproj$/i, "");
+    const others = list.filter(p => {
+      const n = (p.name || "").toLowerCase().replace(/\.pfproj$/i, "");
+      return n !== currentName;
+    });
+    let totalBlocked = 0;
+    await Promise.all(others.map(p =>
+      fetch(_pfWrap(p.url), {headers: {"Authorization": _pfAuth(cfg)}})
+        .then(r => r.ok ? r.json() : null)
+        .then(snap => {
+          if(!snap) return;
+          const sch = snap.schedule;
+          if(!sch || !Array.isArray(sch.allCells)) return;
+          // Build slotId → tableId lookup from this patch's slotAssignments
+          const slotToTab = {};
+          (sch.slotAssignments || []).forEach(s => { if(s.tableId) slotToTab[s.slotId] = s.tableId; });
+          const patchName = (p.name || "").replace(/\.pfproj$/i, "");
+          sch.allCells.forEach(c => {
+            if(c.isSwap) return;
+            const tableId = slotToTab[c.slotId];
+            if(!tableId || !c.dateIso) return;
+            const key = `${tableId}|${c.dateIso}`;
+            if(!window._pfExternalBookings[key]){
+              window._pfExternalBookings[key] = patchName;
+              totalBlocked++;
+            }
+          });
+        })
+        .catch(() => {})
+    ));
+    const booked = Object.keys(window._pfExternalBookings).length;
+    if(statusEl) statusEl.textContent = `✓ ${others.length} other patch${others.length !== 1 ? "es" : ""} · ${booked} blocked day${booked !== 1 ? "s" : ""}`;
+  } catch(e) {
+    if(statusEl) statusEl.textContent = `✗ ${e.message}`;
+  }
+}
+window._pfSyncCrossPatch = async function(){
+  const btn = $("#crossPatchSyncBtn");
+  if(btn){ btn.disabled = true; btn.textContent = "⏳ Syncing…"; }
+  await _pfFetchOtherPatchBookings();
+  if(btn){ btn.disabled = false; btn.textContent = "↺ Sync Now"; }
+};
 
 // ---- Index-file approach (no PROPFIND needed — only GET/PUT/DELETE) ----
 var _pfIndexCache = null; // {list, ts} — in-memory cache to avoid redundant GET
