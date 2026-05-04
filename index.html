@@ -5112,6 +5112,104 @@ window._pfToggleView = function(mode){
   });
 };
 
+// ── Home screen relationship Gantt ───────────────────────────
+function _pfHomeGanttHtml(items){
+  const meta = window._pfMeta || {};
+  // Only patches with enriched schedule dates
+  const sch = items.filter(({p}) => p.startDate && p.endDate);
+  if(sch.length === 0) return '';
+
+  // Overall date span
+  const t0 = sch.reduce((m,{p}) => p.startDate < m ? p.startDate : m, sch[0].p.startDate);
+  const t1 = sch.reduce((m,{p}) => p.endDate   > m ? p.endDate   : m, sch[0].p.endDate);
+  const ms0 = new Date(t0).getTime(), ms1 = new Date(t1).getTime();
+  const totalMs = Math.max(ms1 - ms0, 86400000); // at least 1 day
+
+  // Sort by predecessor chain: root first, then follow successor links
+  const nameSet = new Set(sch.map(({p}) => p.name));
+  const visited = new Set();
+  const ordered = [];
+  const roots = sch.filter(({p}) => {
+    const pred = (meta[p.name]||{}).predecessor || '';
+    return !pred || !nameSet.has(pred);
+  });
+  const queue = [...roots];
+  while(queue.length){
+    const item = queue.shift();
+    if(visited.has(item.p.name)) continue;
+    visited.add(item.p.name);
+    ordered.push(item);
+    const succ = sch.find(({p}) => !visited.has(p.name) && (meta[p.name]||{}).predecessor === item.p.name);
+    if(succ) queue.unshift(succ);
+  }
+  sch.forEach(item => { if(!visited.has(item.p.name)) ordered.push(item); });
+
+  // Month tick marks for header
+  const monthTicks = [];
+  const mCur = new Date(t0); mCur.setDate(1);
+  if(mCur.getTime() < ms0) mCur.setMonth(mCur.getMonth()+1);
+  while(mCur.getTime() <= ms1){
+    const pct = (mCur.getTime() - ms0) / totalMs * 100;
+    monthTicks.push({pct, label: mCur.toLocaleDateString('en-GB',{month:'short',year:'2-digit'})});
+    mCur.setMonth(mCur.getMonth()+1);
+  }
+  const tickHtml = monthTicks.map(t =>
+    `<div style="position:absolute;left:${t.pct.toFixed(1)}%;transform:translateX(-50%);white-space:nowrap;font-size:9px;color:rgba(255,255,255,.7);font-weight:600;top:0">${t.label}</div>`
+  ).join('');
+  const gridLines = monthTicks.map(t =>
+    `<div style="position:absolute;left:${t.pct.toFixed(1)}%;top:0;bottom:0;width:1px;background:#e2e8f0;pointer-events:none;z-index:0"></div>`
+  ).join('');
+
+  const COLORS = ['#2563eb','#7c3aed','#0891b2','#059669','#d97706','#dc2626','#0369a1','#6d28d9'];
+  const rows = ordered.map(({p}, idx) => {
+    const s  = (new Date(p.startDate).getTime() - ms0) / totalMs * 100;
+    const w  = Math.max((new Date(p.endDate).getTime() - new Date(p.startDate).getTime()) / totalMs * 100, 0.8);
+    const castPct = p.totalPieces > 0 ? Math.round(p.castPieces / p.totalPieces * 100) : null;
+    const barBase = COLORS[idx % COLORS.length];
+    const title = p.name.replace(/\.pfproj$/i,'');
+    const hasPred = !!(meta[p.name]||{}).predecessor && nameSet.has((meta[p.name]||{}).predecessor);
+    const isSuccOf = ordered[idx-1] && (meta[p.name]||{}).predecessor === ordered[idx-1].p.name;
+    const indent = hasPred ? (isSuccOf ? 12 : 6) : 0;
+    // connector line from previous bar end to this bar start
+    const connectorHtml = isSuccOf ? (() => {
+      const prevItem = ordered[idx-1];
+      const prevEnd = (new Date(prevItem.p.endDate).getTime() - ms0) / totalMs * 100;
+      const thisStart = s;
+      if(thisStart > prevEnd + 0.5){
+        const left = prevEnd.toFixed(1), width = (thisStart - prevEnd).toFixed(1);
+        return `<div style="position:absolute;left:${left}%;width:${width}%;top:50%;height:2px;background:repeating-linear-gradient(90deg,#94a3b8 0,#94a3b8 4px,transparent 4px,transparent 8px);transform:translateY(-50%);z-index:0"></div>
+                <div style="position:absolute;left:calc(${thisStart.toFixed(1)}% - 5px);top:50%;transform:translateY(-50%);color:#64748b;font-size:10px;z-index:1">▶</div>`;
+      }
+      return '';
+    })() : '';
+    return `
+    <div style="display:grid;grid-template-columns:150px 1fr;min-height:36px;border-bottom:1px solid #f1f5f9">
+      <div style="padding:0 8px 0 ${8+indent}px;font-size:10.5px;font-weight:600;color:#1e3a5f;display:flex;align-items:center;gap:4px;overflow:hidden">
+        ${hasPred?`<span style="color:#94a3b8;font-size:10px">↳</span>`:''}
+        <span onclick="_pfHomeOpenProject('${encodeURIComponent(p.url||'')}','${encodeURIComponent(p.name||'')}')"
+          style="cursor:pointer;color:#1e3a5f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(title)}">${esc(title)}</span>
+      </div>
+      <div style="position:relative;overflow:hidden">
+        ${gridLines}
+        ${connectorHtml}
+        <div onclick="_pfHomeOpenProject('${encodeURIComponent(p.url||'')}','${encodeURIComponent(p.name||'')}')"
+          style="position:absolute;left:${s.toFixed(1)}%;width:${w.toFixed(1)}%;top:5px;height:26px;background:${barBase};border-radius:5px;cursor:pointer;z-index:1;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.18)">
+          ${castPct!==null ? `<div style="position:absolute;left:0;top:0;height:100%;width:${castPct}%;background:rgba(255,255,255,.25);border-radius:5px 0 0 5px"></div>` : ''}
+          <span style="position:relative;font-size:9px;font-weight:700;color:#fff;white-space:nowrap;padding:0 4px">${castPct!==null?castPct+'%':''}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `<div style="grid-column:1/-1;background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:6px;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+    <div style="display:grid;grid-template-columns:150px 1fr;background:linear-gradient(135deg,#1e3a5f,#1d4ed8)">
+      <div style="padding:8px 10px;font-size:10px;font-weight:700;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.5px">Patch</div>
+      <div style="position:relative;height:28px;padding:8px 0">${tickHtml}</div>
+    </div>
+    ${rows}
+  </div>`;
+}
+
 function _pfRenderDash(){
   const patches = window._pfPatches||[];
   const kpiEl   = document.getElementById('pfDashKpi');
@@ -5194,6 +5292,7 @@ function _pfRenderDash(){
           </div>`:'<span style="margin-left:auto"></span>'}
         </div>`;
       }
+      html += _pfHomeGanttHtml(items);
       html += items.map(({p,i})=>_pfCardHtml(p,i)).join('');
     }
     listEl.innerHTML = html;
