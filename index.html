@@ -293,54 +293,117 @@
     .main{padding:10px}
   }
 
+  /* ── Sidebar overlay (mobile drawer backdrop) ───────────── */
+  #sidebarOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:39;backdrop-filter:blur(2px)}
+  #sidebarOverlay.open{display:block}
+
+  /* ── Mobile params toggle button ────────────────────────── */
+  #mobParamsBtn{display:none;background:#1e3a5f;color:#f59e0b;border:none;border-radius:6px;padding:6px 10px;font-size:17px;cursor:pointer;line-height:1;flex-shrink:0;z-index:1;touch-action:manipulation}
+
   /* ── Mobile / PWA ─────────────────────────────────────────── */
   @media(max-width:768px){
-    .header{padding:10px 14px;gap:10px}
-    .header h1{font-size:15px}
+    /* Header */
+    .header{padding:8px 12px;gap:8px}
+    .header h1{font-size:14px}
     .header .sub{display:none}
-    .tabs{gap:2px;padding:0 6px}
-    .tab{padding:8px 10px;font-size:11px}
-    .tab .tab-icon{font-size:14px}
-    .panel{padding:12px 10px}
-    .kpis{grid-template-columns:1fr 1fr}
+    .header .badge{font-size:9px;padding:2px 6px}
+    #mobParamsBtn{display:flex;align-items:center;justify-content:center}
+
+    /* App layout: single column, sidebar becomes drawer */
+    .app{display:block;padding-bottom:env(safe-area-inset-bottom)}
+
+    /* Sidebar: fixed slide-in drawer */
+    .sidebar{
+      position:fixed;top:0;left:0;bottom:0;width:285px;
+      z-index:40;overflow-y:auto;
+      transform:translateX(-100%);
+      transition:transform .25s cubic-bezier(.4,0,.2,1);
+      padding-top:calc(env(safe-area-inset-top) + 56px);
+      box-shadow:4px 0 24px rgba(0,0,0,.55)
+    }
+    .sidebar.mob-open{transform:translateX(0)}
+    .app.home-mode .sidebar{display:none}
+
+    /* Tab bar */
+    #pfTabBar{padding:0 6px;gap:1px;min-height:32px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    #pfTabBar::-webkit-scrollbar{display:none}
+    .pf-tab{padding:5px 9px;font-size:10px;gap:3px;white-space:nowrap}
+    .pf-tab-active{padding-bottom:7px}
+
+    /* .tabs (inner tab bars within views) */
+    .tabs{gap:1px;padding:0 4px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
+    .tabs::-webkit-scrollbar{display:none}
+    .tab{padding:7px 10px;font-size:11px;white-space:nowrap}
+
+    /* Main content */
+    .main{padding:10px 8px}
+    .panel{padding:10px 8px}
+    .panel h2{font-size:11px}
+
+    /* KPIs: 2-col */
+    .kpis{grid-template-columns:1fr 1fr;gap:8px}
+    .kpi{padding:10px}
+    .kpi .v{font-size:20px}
+
+    /* Toolbar */
     .toolbar{flex-wrap:wrap;gap:6px}
-    .toolbar .btn{padding:7px 12px;font-size:12px;min-height:38px}
-    /* Order schedule table: hide less-critical cols on small screens */
-    table.ord th:nth-child(6),table.ord td:nth-child(6),
-    table.ord th:nth-child(7),table.ord td:nth-child(7){display:none}
-    /* Gantt chart: make scrollable horizontally */
-    #ganttWrap,#ganttContainer{overflow-x:auto;-webkit-overflow-scrolling:touch}
-    /* Prevent double-tap zoom on buttons */
-    button,.btn,.tab{touch-action:manipulation}
-    /* Safe area insets for notched phones */
-    .app{padding-bottom:env(safe-area-inset-bottom)}
-    /* Home screen: collapse two-column grid to single column */
+    .toolbar .btn{padding:7px 10px;font-size:11px;min-height:36px}
+
+    /* Order Schedule: hide Dimensions, Weight, Mould, Planned Date (cols 5-8) */
+    .tbl th:nth-child(5),.tbl td:nth-child(5),
+    .tbl th:nth-child(6),.tbl td:nth-child(6),
+    .tbl th:nth-child(7),.tbl td:nth-child(7),
+    .tbl th:nth-child(8),.tbl td:nth-child(8){display:none}
+    /* Actual finish input: narrower on mobile */
+    input.actual-finish{width:110px !important}
+
+    /* Table Plan: compact */
+    .tplan-card{margin-bottom:10px}
+    .tplan-head{padding:8px 10px;gap:6px}
+    .tplan-head h3{font-size:12px}
+    .tplan-body{padding:8px 8px}
+    .dayrow{grid-template-columns:1fr;gap:3px}
+    .dayrow-h{flex-direction:row;align-items:center;gap:8px;flex-wrap:wrap}
+    .tsketch{display:none !important}
+    .dlots{min-width:0;gap:4px}
+    .dlot{min-width:0;flex:1 1 130px}
+
+    /* Gantt: horizontal scroll */
+    .gantt-wrap,#ganttWrap,#ganttContainer{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+    /* Data view horizontal scroll */
+    #view .panel{overflow-x:auto}
+
+    /* Touch targets */
+    button,.btn,.tab,.pf-tab{touch-action:manipulation}
+
+    /* Home screen: single column */
     #pfHomeScreen>[style*="grid-template-columns"]{
-      grid-template-columns:1fr !important;
-      overflow:visible !important;
+      grid-template-columns:1fr !important;overflow:visible !important;
     }
-    /* Right sidebar (capabilities) hidden on mobile — content is accessible via the app */
-    #pfHomeScreen>[style*="grid-template-columns"]>div:last-child{
-      display:none !important;
-    }
-    /* Brand strip: tighter padding */
-    #pfHomeScreen>[style*="gradient"]{padding:20px 18px 16px !important}
-    /* Action buttons: stack vertically */
+    #pfHomeScreen>[style*="grid-template-columns"]>div:last-child{display:none !important}
+    #pfHomeScreen>[style*="gradient"]{padding:20px 16px 14px !important}
     #pfHomeScreen>[style*="gradient"] [style*="display:flex"][style*="gap:12px"]{
       flex-direction:column !important;gap:8px !important;
     }
   }
   @media(max-width:480px){
-    .kpis{grid-template-columns:1fr}
-    .tabs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-    .tabs::-webkit-scrollbar{display:none}
-    .panel h2{font-size:14px}
-    /* Stack toolbar items vertically on very small screens */
+    .kpis{grid-template-columns:1fr 1fr}
+    .kpi{padding:8px}
+    .kpi .v{font-size:17px}
+    .header h1{font-size:12px}
+    .main{padding:8px 6px}
+    .panel h2{font-size:11px}
     .toolbar>span{width:100%}
+    .tplan-fl-chip{padding:5px 10px;font-size:11px}
+    input.actual-finish{width:100px !important}
   }
 </style>
 </head>
 <body class="home-screen">
+
+<!-- Mobile sidebar backdrop -->
+<div id="sidebarOverlay" onclick="closeMobSidebar()"></div>
 
 <div class="header">
   <img src="https://capriole-construction.github.io/KnowledgeBase/Books%20and%20References/capriole-platform/logo.png"
@@ -353,6 +416,7 @@
     <h1 id="hdrTitle">Precast Production Engine</h1>
   </div>
   <div class="spacer"></div>
+  <button id="mobParamsBtn" onclick="toggleMobSidebar()" title="Engine Parameters">⚙</button>
   <span class="badge">v1.1</span>
 </div>
 
@@ -4937,6 +5001,21 @@ window._pfClosePatchTab = function(){
   window._pfProjectSource = null;
   pfShowHome();
 };
+/* ── Mobile sidebar drawer ───────────────────────────────── */
+function toggleMobSidebar(){
+  const sb = document.querySelector(".sidebar");
+  const ov = $("#sidebarOverlay");
+  if(!sb) return;
+  const open = sb.classList.toggle("mob-open");
+  if(ov){ ov.classList.toggle("open", open); }
+}
+function closeMobSidebar(){
+  const sb = document.querySelector(".sidebar");
+  const ov = $("#sidebarOverlay");
+  if(sb) sb.classList.remove("mob-open");
+  if(ov) ov.classList.remove("open");
+}
+
 function pfShowHome(){
   const home = $("#pfHomeScreen"), app = $("#pfAppScreen");
   const appWrap = document.querySelector(".app");
@@ -4944,6 +5023,7 @@ function pfShowHome(){
   if(app)  app.style.display  = "none";
   if(appWrap) appWrap.classList.add("home-mode");
   document.body.classList.add("home-screen");
+  closeMobSidebar();
   _pfSetActiveTab("home");
   _pfRefreshHome();
 }
@@ -4997,6 +5077,8 @@ function pfHomeLoadFile(file){
 window.pfShowHome = pfShowHome;
 window.pfShowApp  = pfShowApp;
 window.pfHomeLoadFile = pfHomeLoadFile;
+window.toggleMobSidebar = toggleMobSidebar;
+window.closeMobSidebar  = closeMobSidebar;
 
 // ── Panel Import / Export ─────────────────────────────────────
 window._pfDownloadTemplate = function(){
@@ -6075,7 +6157,7 @@ window._pfHomeOpenProject = function(encUrl, encName){
 // ============================================================
 // Wire tabs only within the app screen
 $$(".tab[data-tab]").forEach(b=>{
-  b.onclick = ()=>{ activeTab = b.dataset.tab; renderTabs(); render(); };
+  b.onclick = ()=>{ activeTab = b.dataset.tab; closeMobSidebar(); renderTabs(); render(); };
 });
 $("#runBtn").onclick = runEngine;
 // Hydrate buildings input from localStorage and keep BUILDINGS + counts in sync as user edits it
