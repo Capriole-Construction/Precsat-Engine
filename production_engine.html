@@ -330,10 +330,13 @@
     .pf-tab{padding:5px 9px;font-size:10px;gap:3px;white-space:nowrap}
     .pf-tab-active{padding-bottom:7px}
 
-    /* .tabs (inner tab bars within views) */
-    .tabs{gap:1px;padding:0 4px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
+    /* Inner tab bar: icon-only on mobile */
+    .tabs{gap:0;padding:0 2px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
     .tabs::-webkit-scrollbar{display:none}
-    .tab{padding:7px 10px;font-size:11px;white-space:nowrap}
+    .tab{padding:8px 10px;font-size:15px;white-space:nowrap;letter-spacing:0}
+    .tab-lbl{display:none}
+    #engineSaveBtn{padding:5px 8px !important;font-size:11px !important;margin:4px 4px 4px 0 !important}
+    #engineSaveBtn .tab-lbl{display:none}
 
     /* Main content */
     .main{padding:10px 8px}
@@ -617,16 +620,16 @@
     <!-- APP SCREEN (tabs + view, hidden until opened) -->
     <div id="pfAppScreen" style="flex:1;display:none;flex-direction:column;overflow:hidden">
       <div class="tabs">
-        <button class="tab-home" onclick="pfShowHome()" title="Back to Home" style="padding:8px 14px;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-size:18px;color:#94a3b8" title="Home">🏠</button>
-        <button class="tab active" data-tab="overview">📊 Overview</button>
-        <button class="tab" data-tab="gantt">📅 Gantt Schedule</button>
-        <button class="tab" data-tab="orders">📋 Order Schedule</button>
-        <button class="tab" data-tab="plan">📐 Table Plan</button>
-        <button class="tab" data-tab="tables">🪵 Casting Tables</button>
-        <button class="tab" data-tab="tracking">📊 Building Tracking</button>
-        <button class="tab" data-tab="data">💾 Data</button>
+        <button class="tab-home" onclick="pfShowHome()" title="Back to Home" style="padding:8px 12px;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-size:17px;color:#94a3b8;flex-shrink:0">🏠</button>
+        <button class="tab active" data-tab="overview" title="Overview">📊 <span class="tab-lbl">Overview</span></button>
+        <button class="tab" data-tab="gantt" title="Gantt Schedule">📅 <span class="tab-lbl">Gantt</span></button>
+        <button class="tab" data-tab="orders" title="Order Schedule">📋 <span class="tab-lbl">Orders</span></button>
+        <button class="tab" data-tab="plan" title="Table Plan">📐 <span class="tab-lbl">Table Plan</span></button>
+        <button class="tab" data-tab="tables" title="Casting Tables">🪵 <span class="tab-lbl">Tables</span></button>
+        <button class="tab" data-tab="tracking" title="Building Tracking">📊 <span class="tab-lbl">Tracking</span></button>
+        <button class="tab" data-tab="data" title="Data">💾 <span class="tab-lbl">Data</span></button>
         <span style="flex:1"></span>
-        <button id="engineSaveBtn" title="Save patch to cloud" style="margin:4px 8px 4px 0;padding:5px 14px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:5px">💾 Save Patch</button>
+        <button id="engineSaveBtn" title="Save patch to cloud" style="margin:4px 8px 4px 0;padding:5px 14px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:5px;flex-shrink:0">💾 <span class="tab-lbl">Save Patch</span></button>
       </div>
       <div id="view" style="flex:1;overflow-y:auto"></div>
     </div>
