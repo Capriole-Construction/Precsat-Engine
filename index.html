@@ -5651,8 +5651,8 @@ function _pfRefreshHome(){
           const sch = snap.schedule;
           if(sch){
             p.workingDays  = sch.workingDays || (sch.days ? sch.days.length : null);
-            p.startDate    = sch.startDate   || (sch.days&&sch.days[0]?sch.days[0].date:'');
-            p.endDate      = sch.endDate     || (sch.days&&sch.days.length?sch.days[sch.days.length-1].date:'');
+            p.startDate    = sch.startDate   || sch.firstDate || (sch.days&&sch.days[0]?sch.days[0].date:'');
+            p.endDate      = sch.endDate     || sch.lastDate  || (sch.days&&sch.days.length?sch.days[sch.days.length-1].date:'');
             p.totalConc    = sch.totalConcrete || sch.totalConc || null;
             // Progress: count cast vs total from the stored CAST_STATUS + allCells
             const cells    = (sch.allCells||[]).filter(c=>!c.isSwap);
