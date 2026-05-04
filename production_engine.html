@@ -395,7 +395,7 @@
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;min-width:220px">
-            <button id="newPatchBtn" onclick="document.getElementById('newPatchForm').style.display=document.getElementById('newPatchForm').style.display==='none'?'flex':'none'" style="cursor:pointer;padding:11px 22px;border-radius:8px;background:#fff;color:#1e3a5f;font-size:12px;font-weight:700;border:none;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.2)">＋ Create New Patch</button>
+            <button id="newPatchBtn" onclick="(function(){const f=document.getElementById('newPatchForm');f.style.display=f.style.display==='none'?'flex':'none';if(f.style.display==='flex')_pfPopulatePredSelect('np_predecessor');})()" style="cursor:pointer;padding:11px 22px;border-radius:8px;background:#fff;color:#1e3a5f;font-size:12px;font-weight:700;border:none;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.2)">＋ Create New Patch</button>
             <!-- New Patch inline form -->
             <div id="newPatchForm" style="display:none;flex-direction:column;gap:8px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.3);border-radius:10px;padding:14px;backdrop-filter:blur(8px)">
               <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:#7dd3fc;margin-bottom:2px">NEW PATCH DETAILS</div>
@@ -406,6 +406,9 @@
                 <input id="np_nosBuilds" placeholder="No. of Buildings" style="padding:7px 10px;border-radius:6px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:11px;outline:none">
                 <input id="np_floorNo"   placeholder="Floor No." style="padding:7px 10px;border-radius:6px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:11px;outline:none">
               </div>
+              <select id="np_predecessor" style="padding:7px 10px;border-radius:6px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:11px;outline:none;width:100%">
+                <option value="">No predecessor (first in chain)</option>
+              </select>
               <button onclick="window._pfCreateNewPatch()" style="padding:8px;border-radius:7px;background:#f59e0b;color:#1e3a5f;font-size:12px;font-weight:800;border:none;font-family:inherit;cursor:pointer;margin-top:2px">▶ Open Engine</button>
             </div>
             <label style="cursor:pointer;padding:10px 22px;border-radius:8px;background:rgba(255,255,255,.15);color:#fff;border:1.5px solid rgba(255,255,255,.3);font-size:12px;font-weight:600;font-family:inherit;text-align:center;backdrop-filter:blur(6px)">
@@ -892,8 +895,9 @@ async function runEngine(){
   await sleep(50);
 
   // Cross-patch awareness: silently load the shared bookings ledger so
-  // nextWorkDay() avoids table-days already owned by other cloud patches.
+  // nextWorkDay() avoids table-days already owned by the predecessor patch.
   window._pfExternalBookings = {};
+  window._pfPredecessorLastDate = null;
   try {
     _pfLoad();
     const _xpCfg = window._pfConfig;
@@ -901,6 +905,15 @@ async function runEngine(){
       await _pfLoadBookingsLedger(_xpCfg);
     }
   } catch(_){ /* non-fatal — run proceeds without cross-patch data */ }
+  // Auto-advance start date past the predecessor's last casting day
+  if(window._pfPredecessorLastDate && window._pfPredecessorLastDate >= params.start){
+    let nextDt = addDays(new Date(window._pfPredecessorLastDate), 1);
+    if(!params.weekend) while(isWeekend(nextDt)) nextDt = addDays(nextDt, 1);
+    const nextIso = isoDate(nextDt);
+    params.start = nextIso;
+    if($("#pStart")) $("#pStart").value = nextIso;
+    _pfToast(`▶ Start advanced to ${nextIso} (after predecessor)`, "info");
+  }
 
   // Step 1: Build orders for In-House panels only (By Others are excluded
   // from production scheduling). Floor filter from sidebar restricts which
@@ -4968,15 +4981,32 @@ document.addEventListener('click', e=>{
   if(e.target && e.target.id==='pnlTemplateBtn') window._pfDownloadTemplate();
 });
 
+// Populate a <select> element with all known patches (for predecessor picker).
+function _pfPopulatePredSelect(selectId){
+  const sel = document.getElementById(selectId);
+  if(!sel) return;
+  const current = sel.value;
+  while(sel.options.length > 1) sel.remove(1); // keep the "None" option
+  (window._pfPatches||[]).forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.name;
+    const m = (window._pfMeta||{})[p.name]||{};
+    opt.textContent = p.name.replace(/\.pfproj$/i,'') + (m.projNo ? ' — '+m.projNo : '');
+    if(p.name === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
 // ---- Create New Patch from home-screen form ----
 window._pfCreateNewPatch = function(){
   const nameEl = document.getElementById('np_patchName');
   const name   = (nameEl&&nameEl.value||'').trim();
   if(!name){ if(nameEl) nameEl.style.borderColor='#f87171'; return; }
-  const projNo    = ((document.getElementById('np_projNo')||{}).value||'').trim();
-  const buildNo   = ((document.getElementById('np_buildNo')||{}).value||'').trim();
-  const nosBuilds = ((document.getElementById('np_nosBuilds')||{}).value||'').trim();
-  const floorNo   = ((document.getElementById('np_floorNo')||{}).value||'').trim();
+  const projNo      = ((document.getElementById('np_projNo')||{}).value||'').trim();
+  const buildNo     = ((document.getElementById('np_buildNo')||{}).value||'').trim();
+  const nosBuilds   = ((document.getElementById('np_nosBuilds')||{}).value||'').trim();
+  const floorNo     = ((document.getElementById('np_floorNo')||{}).value||'').trim();
+  const predecessor = ((document.getElementById('np_predecessor')||{}).value||'').trim();
 
   // ── Reset all engine state for a blank patch ──────────────
   TYPES.length = 0;                                          // no panels
@@ -4989,7 +5019,7 @@ window._pfCreateNewPatch = function(){
 
   // Store patch metadata locally
   if(!window._pfMeta) window._pfMeta = {};
-  window._pfMeta[name+'.pfproj'] = { projNo, buildingNo:buildNo, nosOfBuildings:nosBuilds, floorNo };
+  window._pfMeta[name+'.pfproj'] = { projNo, buildingNo:buildNo, nosOfBuildings:nosBuilds, floorNo, predecessor };
   try{ localStorage.setItem(PF_META_LS_KEY, JSON.stringify(window._pfMeta)); } catch(e){}
   // Set as active project (type:"new" = not yet saved to cloud)
   window._pfProjectSource = { type:'new', name: name+'.pfproj' };
@@ -5245,6 +5275,11 @@ function _pfTableViewHtml(patches, sortedProjects){
             <input id="pf-ed-nosB-${i}" value="${esc(m.nosOfBuildings||'')}" placeholder="e.g. 16" type="number" min="1" style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:inherit"></div>
           <div><div style="font-size:9.5px;font-weight:600;color:#64748b;margin-bottom:3px;text-transform:uppercase">Floor No.</div>
             <input id="pf-ed-floorNo-${i}" value="${esc(m.floorNo||'')}" placeholder="e.g. GF+FF" style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:inherit"></div>
+          <div style="grid-column:1/-1"><div style="font-size:9.5px;font-weight:600;color:#64748b;margin-bottom:3px;text-transform:uppercase">Predecessor Patch</div>
+            <select id="pf-ed-pred-${i}" style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:inherit;background:#fff">
+              <option value="">None (first in chain)</option>
+              ${(window._pfPatches||[]).filter(q=>q.name!==p.name).map(q=>`<option value="${esc(q.name)}"${((m.predecessor||'')=== q.name)?' selected':''}>${esc(q.name.replace(/\.pfproj$/i,''))}${((window._pfMeta||{})[q.name]||{}).projNo?' — '+esc(((window._pfMeta||{})[q.name]||{}).projNo):''}</option>`).join('')}
+            </select></div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
           <button onclick="_pfCloseCardEdit(${i})" style="padding:5px 12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;font-size:11px;cursor:pointer;font-family:inherit">Cancel</button>
@@ -5280,10 +5315,14 @@ function _pfCardHtml(p, idx){
   if(p.modified){ try{ modStr = new Date(p.modified).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }catch(e){} }
 
   const m = window._pfMeta[name]||{};
-  const projNo   = m.projNo||'';
-  const buildNo  = m.buildingNo||'';
-  const nosB     = m.nosOfBuildings||'';
-  const floorNo  = m.floorNo||'';
+  const projNo      = m.projNo||'';
+  const buildNo     = m.buildingNo||'';
+  const nosB        = m.nosOfBuildings||'';
+  const floorNo     = m.floorNo||'';
+  const predecessor = m.predecessor||'';
+  // Derive successor: any patch whose predecessor is this one
+  const successorEntry = (window._pfPatches||[]).find(q => ((window._pfMeta||{})[q.name]||{}).predecessor === name);
+  const successor = successorEntry ? successorEntry.name.replace(/\.pfproj$/i,'') : '';
 
   const bld   = p.BUILDINGS||'—';
   const types = p.typeCount!=null ? p.typeCount : '—';
@@ -5317,7 +5356,12 @@ function _pfCardHtml(p, idx){
     nosB    && `<span style="background:#fefce8;color:#854d0e;padding:2px 7px;border-radius:10px;font-size:9.5px;font-weight:600">× ${esc(nosB)} Bldgs</span>`,
     floorNo && `<span style="background:#fdf4ff;color:#6b21a8;padding:2px 7px;border-radius:10px;font-size:9.5px;font-weight:600">⬆ Fl ${esc(floorNo)}</span>`,
   ].filter(Boolean);
-  const pillsHtml = pills.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${pills.join('')}</div>` : '';
+  const chainHtml = (predecessor||successor) ? `<div style="display:flex;align-items:center;gap:4px;font-size:9.5px;font-weight:600;margin-bottom:5px;flex-wrap:wrap">
+    ${predecessor ? `<span style="background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:10px">← ${esc(predecessor.replace(/\.pfproj$/i,''))}</span><span style="color:#94a3b8">▶</span>` : ''}
+    <span style="background:#1e3a5f;color:#fff;padding:2px 8px;border-radius:10px">${esc(title)}</span>
+    ${successor ? `<span style="color:#94a3b8">▶</span><span style="background:#fef3c7;color:#92400e;padding:2px 7px;border-radius:10px">${esc(successor)} →</span>` : ''}
+  </div>` : '';
+  const pillsHtml = (pills.length||chainHtml) ? `<div style="margin-bottom:8px">${chainHtml}${pills.length?`<div style="display:flex;flex-wrap:wrap;gap:4px">${pills.join('')}</div>`:''}</div>` : '';
 
   // Progress bar
   const totalP = p.totalPieces||0, castP = p.castPieces||0;
@@ -5378,6 +5422,13 @@ function _pfCardHtml(p, idx){
           <input id="pf-ed-floorNo-${idx}" value="${esc(floorNo)}" placeholder="e.g. GF+FF"
             style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:inherit">
         </div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:9.5px;font-weight:600;color:#64748b;margin-bottom:3px;text-transform:uppercase">Predecessor Patch</div>
+          <select id="pf-ed-pred-${idx}" style="width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:11px;font-family:inherit;background:#fff">
+            <option value="">None (first in chain)</option>
+            ${(window._pfPatches||[]).filter(q=>q.name!==name).map(q=>`<option value="${esc(q.name)}"${(predecessor===q.name)?' selected':''}>${esc(q.name.replace(/\.pfproj$/i,''))}${((window._pfMeta||{})[q.name]||{}).projNo?' — '+esc(((window._pfMeta||{})[q.name]||{}).projNo):''}</option>`).join('')}
+          </select>
+        </div>
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button onclick="_pfCloseCardEdit(${idx})"
@@ -5409,7 +5460,8 @@ window._pfSaveCardMeta = function(idx, encName){
     projNo:         g('pf-ed-projNo-'+idx).trim(),
     buildingNo:     g('pf-ed-buildNo-'+idx).trim(),
     nosOfBuildings: g('pf-ed-nosB-'+idx).trim(),
-    floorNo:        g('pf-ed-floorNo-'+idx).trim()
+    floorNo:        g('pf-ed-floorNo-'+idx).trim(),
+    predecessor:    g('pf-ed-pred-'+idx).trim()
   };
   _pfLoad(); const cfg = window._pfConfig;
   window._pfMeta[name] = entry;
@@ -5717,29 +5769,36 @@ function _pfCurrentBookingKeys(){
   return [...keys];
 }
 
-// Read ledger, exclude current patch, populate window._pfExternalBookings.
+// Read ledger — only apply the direct predecessor's bookings.
+// Stores window._pfPredecessorLastDate for start-date auto-advance in runEngine().
 async function _pfLoadBookingsLedger(cfg){
+  window._pfPredecessorLastDate = null;
   const r = await fetch(_pfWrap(_pfBookingsUrl(cfg)), {headers: {"Authorization": _pfAuth(cfg)}});
-  if(r.status === 404) return; // no ledger yet — first patch
+  if(r.status === 404) return; // no ledger yet
   if(!r.ok) return;
   const ledger = await r.json();
   const currentFile = ((window._pfProjectSource && window._pfProjectSource.name) || "").toLowerCase();
-  Object.entries(ledger).forEach(([file, keys]) => {
-    if(file.toLowerCase() === currentFile) return; // skip own entries
-    const patchName = file.replace(/\.pfproj$/i, "");
-    (keys || []).forEach(k => {
-      if(!window._pfExternalBookings[k]) window._pfExternalBookings[k] = patchName;
-    });
-  });
+  const currentMeta = (window._pfMeta || {})[currentFile] || {};
+  const predFile    = (currentMeta.predecessor || "").toLowerCase();
+  if(!predFile) return; // no predecessor declared → no constraints
+  // Find the predecessor's entry (case-insensitive)
+  const entry = Object.entries(ledger).find(([k]) => k.toLowerCase() === predFile);
+  if(!entry) return;
+  const [predName, data] = entry;
+  const keys     = Array.isArray(data) ? data : (data.keys || []); // backward compat
+  const lastDate = Array.isArray(data) ? null  : (data.lastDate || null);
+  const label    = predName.replace(/\.pfproj$/i, "");
+  keys.forEach(k => { if(!window._pfExternalBookings[k]) window._pfExternalBookings[k] = label; });
+  window._pfPredecessorLastDate = lastDate;
 }
 
-// Write current patch's bookings into the ledger (called after a successful save).
+// Write current patch's bookings + lastDate into the ledger (fire-and-forget after save).
 async function _pfWriteBookingsLedger(cfg, fileName){
   try {
     let ledger = {};
     const r = await fetch(_pfWrap(_pfBookingsUrl(cfg)), {headers: {"Authorization": _pfAuth(cfg)}});
     if(r.ok) ledger = await r.json().catch(() => ({}));
-    ledger[fileName] = _pfCurrentBookingKeys();
+    ledger[fileName] = { keys: _pfCurrentBookingKeys(), lastDate: schedule ? schedule.lastDate : null };
     await fetch(_pfWrap(_pfBookingsUrl(cfg)), {
       method: "PUT",
       headers: {"Authorization": _pfAuth(cfg), "Content-Type": "application/json"},
