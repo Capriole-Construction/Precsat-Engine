@@ -2782,6 +2782,40 @@ function bindTablePlan(){
     catch(e){ console.error("Table Plan print failed:", e); }
     finally { btn.textContent = orig; btn.disabled = false; }
   };
+
+  // Floor filter chips
+  let activeFl = ""; // "" = All
+  const flChips = $$(".tplan-fl-chip");
+  function applyTplanFloor(){
+    flChips.forEach(c=>{
+      const sel = c.dataset.fl === activeFl;
+      c.style.background    = sel ? "#1e3a5f" : "";
+      c.style.color         = sel ? "#fff"    : "";
+      c.style.borderColor   = sel ? "#1e3a5f" : "";
+    });
+    // Show/hide day rows
+    $$(".tplan-dayrow").forEach(row=>{
+      const fl = row.dataset.fl || "";
+      if(!activeFl){
+        row.style.display = "";
+      } else if(fl === "__swap__"){
+        row.style.display = ""; // always show swap rows
+      } else {
+        row.style.display = fl === activeFl ? "" : "none";
+      }
+    });
+    // Hide entire card if all its cast day rows are hidden
+    $$(".tplan-card").forEach(card=>{
+      if(!activeFl){ card.style.display = ""; return; }
+      const castRows = card.querySelectorAll(".tplan-dayrow:not([data-fl='__swap__'])");
+      const anyVis = [...castRows].some(r => r.style.display !== "none");
+      card.style.display = anyVis ? "" : "none";
+    });
+  }
+  flChips.forEach(chip=>{
+    chip.onclick = ()=>{ activeFl = chip.dataset.fl; applyTplanFloor(); };
+  });
+  applyTplanFloor(); // initialise (All selected)
 }
 
 function _pfPrintTablePlan(){
@@ -3118,7 +3152,7 @@ function viewTablePlan(){
       const dayLabel3 = `${dayLabel(dt)} <span style="opacity:.6">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt.getDay()]}</span>`;
       // Swap day
       if(swapDays.has(d) && !byDay[d]){
-        return `<div class="dayrow" style="background:#fffbeb;border-color:#fde68a">
+        return `<div class="dayrow tplan-dayrow" data-fl="__swap__" style="background:#fffbeb;border-color:#fde68a">
           <div class="dayrow-h">
             <div class="dayrow-num" style="color:#92400e">🔄 Swap</div>
             <div class="dayrow-date">${dayLabel3}</div>
@@ -3146,7 +3180,8 @@ function viewTablePlan(){
         </div>`;
       }).join("");
       const sketch = renderTableSketch(tab, cells, s.params.shutter);
-      return `<div class="dayrow">
+      const rowFl = (TYPES.find(x=>x.code===cells[0].type)||{}).fl || '';
+      return `<div class="dayrow tplan-dayrow" data-fl="${esc(rowFl)}">
         <div class="dayrow-h">
           <div class="dayrow-num">Day ${castDayNum}</div>
           <div class="dayrow-date">${dayLabel3}</div>
@@ -3188,6 +3223,10 @@ function viewTablePlan(){
     return sum + Object.values(byDay).filter(arr=>arr.length>1).length;
   },0);
 
+  const tplanFloors = [...new Set(TYPES.map(t=>t.fl).filter(Boolean))].sort();
+  const flChips = tplanFloors.map(f=>
+    `<button class="btn sm tplan-fl-chip" data-fl="${esc(f)}" style="border-radius:10px;padding:2px 10px;font-weight:700">${esc(f)}</button>`
+  ).join('');
   return `
     <div class="panel">
       <h2>Per-Table Day-by-Day Plan</h2>
@@ -3199,6 +3238,11 @@ function viewTablePlan(){
           shuttering <b>+${s.params.shutter} mm</b> ·
           <b>${fmt(s.totalPieces)}</b> pieces over <b>${s.totalDays}</b> days
         </span>
+        <div style="display:flex;align-items:center;gap:6px;margin-left:16px;flex-wrap:wrap">
+          <span style="font-size:11px;color:#6b7280;font-weight:600">Floor:</span>
+          <button class="btn sm tplan-fl-chip" data-fl="" style="border-radius:10px;padding:2px 10px;font-weight:700;background:#1e3a5f;color:#fff;border-color:#1e3a5f">All</button>
+          ${flChips}
+        </div>
         <button class="btn" style="margin-left:auto" id="tplanPrint">🖨 Print</button>
       </div>
       <div class="tplan-toc">${toc}</div>
