@@ -1,0 +1,48 @@
+{
+  "name": "Precast Production Engine",
+  "short_name": "Precast",
+  "description": "Schedule precast panels, optimise casting tables and track mould cycles across buildings.",
+  "start_url": "/Precsat-Engine/",
+  "scope": "/Precsat-Engine/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#1e3a5f",
+  "background_color": "#0f172a",
+  "categories": ["productivity", "business"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='80' fill='%231e3a5f'/%3E%3Ctext x='256' y='340' font-size='300' text-anchor='middle' fill='%23f59e0b'%3E%F0%9F%8F%97%3C/text%3E%3C/svg%3E",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Order Schedule",
+      "short_name": "Schedule",
+      "description": "Mark panels as cast and track actual finish dates",
+      "url": "/Precsat-Engine/#orders",
+      "icons": [{"src": "icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Table Plan",
+      "short_name": "Tables",
+      "description": "Per-table day-by-day casting plan",
+      "url": "/Precsat-Engine/#plan",
+      "icons": [{"src": "icon-192.png", "sizes": "192x192"}]
+    }
+  ]
+}

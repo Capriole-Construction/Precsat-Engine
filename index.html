@@ -2,9 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>🏗 Precast Production Engine — NAHEEL CAMP G+1</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗</text></svg>">
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e3a5f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Precast">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script>
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () =>
+      navigator.serviceWorker.register('sw.js').catch(()=>{})
+    );
+  }
+</script>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;font-family:"Century Gothic","Segoe UI",Arial,sans-serif;color:#1f2937;background:#0f172a}
@@ -276,6 +291,37 @@
     .sidebar,.run-btn,.tabs,.toolbar,.runner{display:none!important}
     .app{grid-template-columns:1fr}
     .main{padding:10px}
+  }
+
+  /* ── Mobile / PWA ─────────────────────────────────────────── */
+  @media(max-width:768px){
+    .header{padding:10px 14px;gap:10px}
+    .header h1{font-size:15px}
+    .header .sub{display:none}
+    .tabs{gap:2px;padding:0 6px}
+    .tab{padding:8px 10px;font-size:11px}
+    .tab .tab-icon{font-size:14px}
+    .panel{padding:12px 10px}
+    .kpis{grid-template-columns:1fr 1fr}
+    .toolbar{flex-wrap:wrap;gap:6px}
+    .toolbar .btn{padding:7px 12px;font-size:12px;min-height:38px}
+    /* Order schedule table: hide less-critical cols on small screens */
+    table.ord th:nth-child(6),table.ord td:nth-child(6),
+    table.ord th:nth-child(7),table.ord td:nth-child(7){display:none}
+    /* Gantt chart: make scrollable horizontally */
+    #ganttWrap,#ganttContainer{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    /* Prevent double-tap zoom on buttons */
+    button,.btn,.tab{touch-action:manipulation}
+    /* Safe area insets for notched phones */
+    .app{padding-bottom:env(safe-area-inset-bottom)}
+  }
+  @media(max-width:480px){
+    .kpis{grid-template-columns:1fr}
+    .tabs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .tabs::-webkit-scrollbar{display:none}
+    .panel h2{font-size:14px}
+    /* Stack toolbar items vertically on very small screens */
+    .toolbar>span{width:100%}
   }
 </style>
 </head>
