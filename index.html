@@ -6140,7 +6140,10 @@ function _pfCurrentBookingKeys(){
     keysSet.add(`${tid}|${c.dateIso}`);
     if(!lastByTable[tid]  || c.dateIso > lastByTable[tid])  lastByTable[tid]  = c.dateIso;
     if(!firstByTable[tid] || c.dateIso < firstByTable[tid]) firstByTable[tid] = c.dateIso;
-    panelsByDay[c.dateIso] = (panelsByDay[c.dateIso] || 0) + 1;
+    // Use PLANNED DATE (frozen first-ever date) for the histogram, matching what the
+    // Order Schedule "Planned Date" column shows — survives redistribution.
+    const plannedIso = (PLANNED_DATES && PLANNED_DATES[`${c.type}|${c.b}`]) || c.dateIso;
+    panelsByDay[plannedIso] = (panelsByDay[plannedIso] || 0) + 1;
   });
   return { keys: [...keysSet], lastByTable, firstByTable, panelsByDay };
 }
