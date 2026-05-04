@@ -340,18 +340,6 @@
       </div>
     </div>
 
-    <!-- CROSS-PATCH SYNC -->
-    <div class="sb-section" id="crossPatchSection">
-      <div class="sb-h">Cross-Patch Sync</div>
-      <div style="font-size:10px;color:#9ca3af;margin-bottom:6px;line-height:1.4">Block table-days already booked by other cloud patches before scheduling.</div>
-      <div class="sb-row">
-        <label>Enable</label>
-        <input type="checkbox" id="pCrossPatchSync" style="width:auto;cursor:pointer">
-      </div>
-      <div id="crossPatchStatus" style="font-size:10px;color:#64748b;margin-top:5px;padding:4px 6px;background:#1f2937;border-radius:4px;min-height:20px"></div>
-      <button id="crossPatchSyncBtn" onclick="_pfSyncCrossPatch()" style="width:100%;margin-top:6px;padding:6px;background:#0369a1;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:11px;font-weight:700;font-family:inherit">↺ Sync Now</button>
-    </div>
-
     <!-- RESCHEDULE PENDING -->
     <div class="sb-section" id="reschedSection">
       <div class="sb-h">🔄 Reschedule Pending</div>
@@ -903,17 +891,16 @@ async function runEngine(){
   $("#runner").classList.add("show");
   await sleep(50);
 
-  // Cross-patch sync: pre-populate external bookings before scheduling
-  if($("#pCrossPatchSync")?.checked){
+  // Cross-patch awareness: silently load the shared bookings ledger so
+  // nextWorkDay() avoids table-days already owned by other cloud patches.
+  window._pfExternalBookings = {};
+  try {
     _pfLoad();
     const _xpCfg = window._pfConfig;
     if(_xpCfg.ocUser && _xpCfg.ocPass){
-      setStep("☁ Syncing cross-patch bookings…", 2);
-      await _pfFetchOtherPatchBookings();
+      await _pfLoadBookingsLedger(_xpCfg);
     }
-  } else {
-    window._pfExternalBookings = {};
-  }
+  } catch(_){ /* non-fatal — run proceeds without cross-patch data */ }
 
   // Step 1: Build orders for In-House panels only (By Others are excluded
   // from production scheduling). Floor filter from sidebar restricts which
@@ -5709,66 +5696,57 @@ window._pfSaveSettings=_pfSaveSettings;
 window._pfTest=_pfTest;
 
 // ============================================================
-// CROSS-PATCH SYNC
-// Fetches all other patches from the index, reads their schedule,
-// and populates window._pfExternalBookings with occupied table-days.
+// CROSS-PATCH BOOKINGS LEDGER  (_pf_bookings.json)
+// A single shared JSON in the cloud folder that every patch updates
+// on save and reads at the start of runEngine().
+// Format: { "PatchA.pfproj": ["T1|2026-05-01", ...], ... }
 // ============================================================
-async function _pfFetchOtherPatchBookings(){
-  window._pfExternalBookings = {};
-  const statusEl = $("#crossPatchStatus");
-  try {
-    _pfLoad();
-    const cfg = window._pfConfig;
-    if(!cfg.ocUser || !cfg.ocPass){
-      if(statusEl) statusEl.textContent = "Not signed in";
-      return;
-    }
-    if(statusEl) statusEl.textContent = "⏳ Fetching…";
-    const list = await _pfGetIndex(cfg);
-    // Identify current patch to skip it
-    const currentName = ((window._pfProjectSource && window._pfProjectSource.name) || $("#cfgName")?.value || "")
-      .toLowerCase().replace(/\.pfproj$/i, "");
-    const others = list.filter(p => {
-      const n = (p.name || "").toLowerCase().replace(/\.pfproj$/i, "");
-      return n !== currentName;
-    });
-    let totalBlocked = 0;
-    await Promise.all(others.map(p =>
-      fetch(_pfWrap(p.url), {headers: {"Authorization": _pfAuth(cfg)}})
-        .then(r => r.ok ? r.json() : null)
-        .then(snap => {
-          if(!snap) return;
-          const sch = snap.schedule;
-          if(!sch || !Array.isArray(sch.allCells)) return;
-          // Build slotId → tableId lookup from this patch's slotAssignments
-          const slotToTab = {};
-          (sch.slotAssignments || []).forEach(s => { if(s.tableId) slotToTab[s.slotId] = s.tableId; });
-          const patchName = (p.name || "").replace(/\.pfproj$/i, "");
-          sch.allCells.forEach(c => {
-            if(c.isSwap) return;
-            const tableId = slotToTab[c.slotId];
-            if(!tableId || !c.dateIso) return;
-            const key = `${tableId}|${c.dateIso}`;
-            if(!window._pfExternalBookings[key]){
-              window._pfExternalBookings[key] = patchName;
-              totalBlocked++;
-            }
-          });
-        })
-        .catch(() => {})
-    ));
-    const booked = Object.keys(window._pfExternalBookings).length;
-    if(statusEl) statusEl.textContent = `✓ ${others.length} other patch${others.length !== 1 ? "es" : ""} · ${booked} blocked day${booked !== 1 ? "s" : ""}`;
-  } catch(e) {
-    if(statusEl) statusEl.textContent = `✗ ${e.message}`;
-  }
+function _pfBookingsUrl(cfg){ return _pfFolderUrl(cfg) + "_pf_bookings.json"; }
+
+// Compute the set of table-day keys occupied by the current schedule.
+function _pfCurrentBookingKeys(){
+  if(!schedule) return [];
+  const slotToTab = {};
+  (schedule.slotAssignments || []).forEach(s => { if(s.tableId) slotToTab[s.slotId] = s.tableId; });
+  const keys = new Set();
+  (schedule.allCells || []).forEach(c => {
+    if(c.isSwap) return;
+    const tid = slotToTab[c.slotId];
+    if(tid && c.dateIso) keys.add(`${tid}|${c.dateIso}`);
+  });
+  return [...keys];
 }
-window._pfSyncCrossPatch = async function(){
-  const btn = $("#crossPatchSyncBtn");
-  if(btn){ btn.disabled = true; btn.textContent = "⏳ Syncing…"; }
-  await _pfFetchOtherPatchBookings();
-  if(btn){ btn.disabled = false; btn.textContent = "↺ Sync Now"; }
-};
+
+// Read ledger, exclude current patch, populate window._pfExternalBookings.
+async function _pfLoadBookingsLedger(cfg){
+  const r = await fetch(_pfWrap(_pfBookingsUrl(cfg)), {headers: {"Authorization": _pfAuth(cfg)}});
+  if(r.status === 404) return; // no ledger yet — first patch
+  if(!r.ok) return;
+  const ledger = await r.json();
+  const currentFile = ((window._pfProjectSource && window._pfProjectSource.name) || "").toLowerCase();
+  Object.entries(ledger).forEach(([file, keys]) => {
+    if(file.toLowerCase() === currentFile) return; // skip own entries
+    const patchName = file.replace(/\.pfproj$/i, "");
+    (keys || []).forEach(k => {
+      if(!window._pfExternalBookings[k]) window._pfExternalBookings[k] = patchName;
+    });
+  });
+}
+
+// Write current patch's bookings into the ledger (called after a successful save).
+async function _pfWriteBookingsLedger(cfg, fileName){
+  try {
+    let ledger = {};
+    const r = await fetch(_pfWrap(_pfBookingsUrl(cfg)), {headers: {"Authorization": _pfAuth(cfg)}});
+    if(r.ok) ledger = await r.json().catch(() => ({}));
+    ledger[fileName] = _pfCurrentBookingKeys();
+    await fetch(_pfWrap(_pfBookingsUrl(cfg)), {
+      method: "PUT",
+      headers: {"Authorization": _pfAuth(cfg), "Content-Type": "application/json"},
+      body: JSON.stringify(ledger)
+    });
+  } catch(_){ /* non-fatal */ }
+}
 
 // ---- Index-file approach (no PROPFIND needed — only GET/PUT/DELETE) ----
 var _pfIndexCache = null; // {list, ts} — in-memory cache to avoid redundant GET
@@ -5919,7 +5897,12 @@ function _pfSaveToCloud(name){
       else list.push({name:fileName,url:saveUrl,modified:now});
       return _pfPutIndex(cfg,list);
     })
-    .then(()=>{ _pfToast("✓ Saved: "+fileName,"ok"); _pfSetPatchTab(fileName.replace(/\.pfproj$/i,'')); _pfRefresh(); })
+    .then(()=>{
+      _pfToast("✓ Saved: "+fileName,"ok");
+      _pfSetPatchTab(fileName.replace(/\.pfproj$/i,''));
+      _pfRefresh();
+      _pfWriteBookingsLedger(cfg, fileName); // update shared bookings ledger (fire-and-forget)
+    })
     .catch(e=>{ _pfToast("✗ Save failed: "+e.message,"err"); _pfDownloadLocal(name,snap); });
 }
 
