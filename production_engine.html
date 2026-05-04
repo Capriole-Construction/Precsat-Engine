@@ -2995,7 +2995,8 @@ function _pfPrintTablePlan(){
   .page-footer{position:fixed;bottom:0;left:0;right:0;padding:4px 18px;background:#f8fafc;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;font-size:8.5px;color:#9ca3af}
   /* ── Per-table page header (repeats on EVERY printed page of the table) ── */
   /* Trick: wrap each table-section in a real <table>; thead is repeated by browsers when the table breaks across pages. */
-  table.tpage{width:100%;border-collapse:collapse;border-spacing:0;page-break-before:always;table-layout:fixed}
+  table.tpage{width:100%;border-collapse:collapse;border-spacing:0;table-layout:fixed}
+  table.tpage+table.tpage{page-break-before:always}
   table.tpage > thead{display:table-header-group}
   table.tpage > tbody{display:table-row-group}
   table.tpage > thead > tr > td,
@@ -3035,7 +3036,6 @@ function _pfPrintTablePlan(){
 <div class="stats-bar">
   <div class="sbl"><span class="sbl-v">${usedTables}</span><span class="sbl-l">Active Tables</span></div>
   <div class="sbl"><span class="sbl-v">${idleTables}</span><span class="sbl-l">Idle Tables</span></div>
-  <div class="sbl"><span class="sbl-v">${totalCDays}</span><span class="sbl-l">Total Casting Days</span></div>
   <div class="sbl"><span class="sbl-v">${multiDays}</span><span class="sbl-l">Multi-Panel Days</span></div>
   <div class="sbl"><span class="sbl-v">${s.params.shutter} mm</span><span class="sbl-l">Shutter Gap</span></div>
   <div class="sbl"><span class="sbl-v">${fmt(s.totalPieces)}</span><span class="sbl-l">Total Pieces</span></div>
