@@ -5482,7 +5482,9 @@ function _pfRenderDash(){
   let totTypes=0, totPieces=0, totWdays=0, totConc=0, totCast=0, hasSched=0;
   patches.forEach(p=>{
     totTypes  += (p.typeCount||0);
-    totPieces += (p.totalPieces||0);
+    // p.pieces = inHouse types × buildings (the true planned total); fall back to p.totalPieces
+    const pPieces = (typeof p.pieces==='number' ? p.pieces : (+p.pieces||0)) || (p.totalPieces||0);
+    totPieces += pPieces;
     if(p.workingDays) totWdays += (+p.workingDays||0);
     if(p.totalConc)   totConc  += (+p.totalConc||0);
     if(p.castPieces)  totCast  += (+p.castPieces||0);
@@ -5535,7 +5537,7 @@ function _pfRenderDash(){
     let html = '';
     for(const [proj, items] of sortedProjects){
       if(proj){
-        const totP  = items.reduce((s,{p})=>s+(p.totalPieces||0),0);
+        const totP  = items.reduce((s,{p})=>s+((typeof p.pieces==='number'?p.pieces:(+p.pieces||0))||(p.totalPieces||0)),0);
         const castP = items.reduce((s,{p})=>s+(p.castPieces||0),0);
         const pct   = totP>0 ? Math.round(castP/totP*100) : null;
         const barC  = pct===null?'#93c5fd':pct>=80?'#4ade80':pct>=40?'#fbbf24':'#60a5fa';
@@ -5568,7 +5570,7 @@ function _pfTableViewHtml(patches, sortedProjects){
   let rows = '';
   for(const [proj, items] of groups){
     if(proj){
-      const totP  = items.reduce((s,{p})=>s+(p.totalPieces||0),0);
+      const totP  = items.reduce((s,{p})=>s+((typeof p.pieces==='number'?p.pieces:(+p.pieces||0))||(p.totalPieces||0)),0);
       const castP = items.reduce((s,{p})=>s+(p.castPieces||0),0);
       const pct   = totP>0 ? Math.round(castP/totP*100) : null;
       const barC  = pct===null?'#3b82f6':pct>=80?'#059669':pct>=40?'#f59e0b':'#3b82f6';
