@@ -5905,7 +5905,7 @@ async function _pfLoadBookingsLedger(cfg){
   const predFile    = currentMeta.predecessor || "";
   if(!predFile) return; // no predecessor declared → no constraints
   // Find the predecessor's entry (case-insensitive)
-  const entry = Object.entries(ledger).find(([k]) => k.toLowerCase() === predFile);
+  const entry = Object.entries(ledger).find(([k]) => k.toLowerCase() === predFile.toLowerCase());
   if(!entry) return;
   const [predName, data] = entry;
   const keys          = Array.isArray(data) ? data : (data.keys || []); // backward compat
