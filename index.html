@@ -897,7 +897,8 @@ async function runEngine(){
   // Cross-patch awareness: silently load the shared bookings ledger so
   // nextWorkDay() avoids table-days already owned by the predecessor patch.
   window._pfExternalBookings = {};
-  window._pfPredecessorLastDate = null;
+  window._pfPredecessorLastDate    = null;
+  window._pfPredecessorLastByTable = {};
   try {
     _pfLoad();
     const _xpCfg = window._pfConfig;
@@ -1702,6 +1703,23 @@ async function runEngine(){
     const slotOutDay = {};
     slotAssignments.forEach(s => { slotOutDay[s.slotId] = 0; });
     const slotLastTypes = {}; // slotId → Set<typeCode> from previous committed group
+
+    // Predecessor per-table linkage:
+    // For each slot whose table was used by the predecessor, advance its start day
+    // to the first working day AFTER the predecessor's last casting date on that table,
+    // and pre-seed slotLastTypes so the expand pass injects a SWAP day first.
+    if(window._pfPredecessorLastByTable && Object.keys(window._pfPredecessorLastByTable).length){
+      slotAssignments.forEach(s => {
+        const predLast = window._pfPredecessorLastByTable[s.tableId];
+        if(!predLast) return;
+        let nextDt = addDays(new Date(predLast+"T08:00:00"), 1);
+        if(!params.weekend) while(isWeekend(nextDt)) nextDt = addDays(nextDt, 1);
+        const dayOffset = Math.round((nextDt.getTime() - startDate.getTime()) / 86400000);
+        if(dayOffset > 0) slotOutDay[s.slotId] = Math.max(slotOutDay[s.slotId], dayOffset);
+        // Mark predecessor types as "different" so first panel day triggers a SWAP
+        slotLastTypes[s.slotId] = new Set(['__PREDECESSOR__']);
+      });
+    }
 
     // Track which (tableId, outIso) pairs are already occupied by another slot's
     // emit. Two slots assigned to the same table cannot share the same day —
@@ -5854,18 +5872,22 @@ window._pfTest=_pfTest;
 // ============================================================
 function _pfBookingsUrl(cfg){ return _pfFolderUrl(cfg) + "_pf_bookings.json"; }
 
-// Compute the set of table-day keys occupied by the current schedule.
+// Compute the set of table-day keys occupied by the current schedule,
+// plus the last casting date per table (used by successor patches).
 function _pfCurrentBookingKeys(){
-  if(!schedule) return [];
+  if(!schedule) return { keys: [], lastByTable: {} };
   const slotToTab = {};
   (schedule.slotAssignments || []).forEach(s => { if(s.tableId) slotToTab[s.slotId] = s.tableId; });
-  const keys = new Set();
+  const keysSet = new Set();
+  const lastByTable = {};
   (schedule.allCells || []).forEach(c => {
     if(c.isSwap) return;
     const tid = slotToTab[c.slotId];
-    if(tid && c.dateIso) keys.add(`${tid}|${c.dateIso}`);
+    if(!tid || !c.dateIso) return;
+    keysSet.add(`${tid}|${c.dateIso}`);
+    if(!lastByTable[tid] || c.dateIso > lastByTable[tid]) lastByTable[tid] = c.dateIso;
   });
-  return [...keys];
+  return { keys: [...keysSet], lastByTable };
 }
 
 // Read ledger — only apply the direct predecessor's bookings.
@@ -5884,11 +5906,13 @@ async function _pfLoadBookingsLedger(cfg){
   const entry = Object.entries(ledger).find(([k]) => k.toLowerCase() === predFile);
   if(!entry) return;
   const [predName, data] = entry;
-  const keys     = Array.isArray(data) ? data : (data.keys || []); // backward compat
-  const lastDate = Array.isArray(data) ? null  : (data.lastDate || null);
-  const label    = predName.replace(/\.pfproj$/i, "");
+  const keys          = Array.isArray(data) ? data : (data.keys || []); // backward compat
+  const lastDate      = Array.isArray(data) ? null  : (data.lastDate || null);
+  const lastByTable   = Array.isArray(data) ? {}    : (data.lastByTable || {});
+  const label         = predName.replace(/\.pfproj$/i, "");
   keys.forEach(k => { if(!window._pfExternalBookings[k]) window._pfExternalBookings[k] = label; });
-  window._pfPredecessorLastDate = lastDate;
+  window._pfPredecessorLastDate    = lastDate;
+  window._pfPredecessorLastByTable = lastByTable;
 }
 
 // Write current patch's bookings + lastDate into the ledger (fire-and-forget after save).
@@ -5897,7 +5921,8 @@ async function _pfWriteBookingsLedger(cfg, fileName){
     let ledger = {};
     const r = await fetch(_pfWrap(_pfBookingsUrl(cfg)), {headers: {"Authorization": _pfAuth(cfg)}});
     if(r.ok) ledger = await r.json().catch(() => ({}));
-    ledger[fileName] = { keys: _pfCurrentBookingKeys(), lastDate: schedule ? schedule.lastDate : null };
+    const _bk = _pfCurrentBookingKeys();
+    ledger[fileName] = { keys: _bk.keys, lastByTable: _bk.lastByTable, lastDate: schedule ? schedule.lastDate : null };
     await fetch(_pfWrap(_pfBookingsUrl(cfg)), {
       method: "PUT",
       headers: {"Authorization": _pfAuth(cfg), "Content-Type": "application/json"},
