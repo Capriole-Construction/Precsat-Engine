@@ -5312,6 +5312,28 @@ function _pfEnterpriseTableGanttHtml(ledger){
     </div>`;
   }).join('');
 
+  // Aggregate panelsByDay across all patches
+  const totalPanelsByDay = {};
+  const panelColorByDay  = {};
+  patches.forEach((pname, ci) => {
+    const pbd = ledger[pname].panelsByDay || {};
+    Object.entries(pbd).forEach(([iso, cnt]) => {
+      totalPanelsByDay[iso] = (totalPanelsByDay[iso] || 0) + cnt;
+      panelColorByDay[iso]  = panelColorByDay[iso] || PATCH_COLORS[ci % PATCH_COLORS.length];
+    });
+  });
+  const maxPanels = Math.max(1, ...Object.values(totalPanelsByDay));
+
+  // Histogram bars — one per casting day
+  const histBars = Object.entries(totalPanelsByDay).map(([iso, cnt]) => {
+    const xPct = ((new Date(iso).getTime() - ms0) / spanMs * 100).toFixed(3);
+    if(+xPct < 0 || +xPct > 100) return '';
+    const hPct = Math.max(15, Math.round(cnt / maxPanels * 100));
+    const barW = Math.max(0.35, (86400000 / spanMs * 100)).toFixed(3);
+    const color = panelColorByDay[iso];
+    return `<div title="${iso}: ${cnt} panel${cnt!==1?'s':''}" style="position:absolute;left:${xPct}%;bottom:0;width:${barW}%;height:${hPct}%;background:${color};opacity:.75;border-radius:1px 1px 0 0"></div>`;
+  }).join('');
+
   // Legend
   const legend = patches.map((pname,ci) =>
     `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:#374151">
@@ -5336,6 +5358,14 @@ function _pfEnterpriseTableGanttHtml(ledger){
     <!-- table rows -->
     <div>
       ${rows}
+    </div>
+    <!-- Σ Panels / day histogram -->
+    <div style="display:flex;align-items:stretch;border-top:2px solid #e2e8f0;background:#f8fafc">
+      <div style="width:46px;flex-shrink:0;padding:0 4px;font-size:9px;font-weight:700;color:#64748b;background:#f1f5f9;display:flex;align-items:center;justify-content:center;border-right:1px solid #e2e8f0;text-align:center;line-height:1.2">Σ<br>pnl</div>
+      <div style="flex:1;position:relative;height:44px;overflow:hidden">
+        ${histBars}
+        <div style="position:absolute;bottom:2px;right:4px;font-size:8px;color:#94a3b8;pointer-events:none">max ${maxPanels}/day</div>
+      </div>
     </div>
     <!-- today marker overlay -->
     <div style="position:relative;height:0;overflow:visible">
@@ -6007,11 +6037,11 @@ function _pfBookingsUrl(cfg){ return _pfFolderUrl(cfg) + "_pf_bookings.json"; }
 // Compute the set of table-day keys occupied by the current schedule,
 // plus the last casting date per table (used by successor patches).
 function _pfCurrentBookingKeys(){
-  if(!schedule) return { keys: [], lastByTable: {}, firstByTable: {} };
+  if(!schedule) return { keys: [], lastByTable: {}, firstByTable: {}, panelsByDay: {} };
   const slotToTab = {};
   (schedule.slotAssignments || []).forEach(s => { if(s.tableId) slotToTab[s.slotId] = s.tableId; });
   const keysSet = new Set();
-  const lastByTable = {}, firstByTable = {};
+  const lastByTable = {}, firstByTable = {}, panelsByDay = {};
   (schedule.allCells || []).forEach(c => {
     if(c.isSwap) return;
     const tid = slotToTab[c.slotId];
@@ -6019,8 +6049,9 @@ function _pfCurrentBookingKeys(){
     keysSet.add(`${tid}|${c.dateIso}`);
     if(!lastByTable[tid]  || c.dateIso > lastByTable[tid])  lastByTable[tid]  = c.dateIso;
     if(!firstByTable[tid] || c.dateIso < firstByTable[tid]) firstByTable[tid] = c.dateIso;
+    panelsByDay[c.dateIso] = (panelsByDay[c.dateIso] || 0) + 1;
   });
-  return { keys: [...keysSet], lastByTable, firstByTable };
+  return { keys: [...keysSet], lastByTable, firstByTable, panelsByDay };
 }
 
 // Read ledger — only apply the direct predecessor's bookings.
@@ -6057,7 +6088,7 @@ async function _pfWriteBookingsLedger(cfg, fileName){
     const r = await fetch(_pfWrap(_pfBookingsUrl(cfg)), {headers: {"Authorization": _pfAuth(cfg)}});
     if(r.ok) ledger = await r.json().catch(() => ({}));
     const _bk = _pfCurrentBookingKeys();
-    ledger[fileName] = { keys: _bk.keys, lastByTable: _bk.lastByTable, firstByTable: _bk.firstByTable, lastDate: schedule ? schedule.lastDate : null };
+    ledger[fileName] = { keys: _bk.keys, lastByTable: _bk.lastByTable, firstByTable: _bk.firstByTable, panelsByDay: _bk.panelsByDay, lastDate: schedule ? schedule.lastDate : null };
     await fetch(_pfWrap(_pfBookingsUrl(cfg)), {
       method: "PUT",
       headers: {"Authorization": _pfAuth(cfg), "Content-Type": "application/json"},
