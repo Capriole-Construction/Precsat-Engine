@@ -906,8 +906,23 @@ async function runEngine(){
       await _pfLoadBookingsLedger(_xpCfg);
     }
   } catch(_){ /* non-fatal — run proceeds without cross-patch data */ }
-  // Auto-advance start date past the predecessor's last casting day
-  if(window._pfPredecessorLastDate && window._pfPredecessorLastDate >= params.start){
+  // Auto-advance start date: use the MINIMUM per-table next-work-day so each
+  // table starts as soon as its predecessor table is free (Option B behaviour).
+  const _lbt = window._pfPredecessorLastByTable || {};
+  if(Object.keys(_lbt).length){
+    const perTableDates = Object.values(_lbt).map(last => {
+      let dt = addDays(new Date(last + "T08:00:00"), 1);
+      if(!params.weekend) while(isWeekend(dt)) dt = addDays(dt, 1);
+      return isoDate(dt);
+    });
+    const minDate = perTableDates.reduce((a,b) => a < b ? a : b);
+    if(minDate > params.start){
+      params.start = minDate;
+      if($("#pStart")) $("#pStart").value = minDate;
+      _pfToast(`▶ Start advanced to ${minDate} (earliest free table from predecessor)`, "info");
+    }
+  } else if(window._pfPredecessorLastDate && window._pfPredecessorLastDate >= params.start){
+    // Fallback when no per-table data: advance past predecessor's overall last day
     let nextDt = addDays(new Date(window._pfPredecessorLastDate), 1);
     if(!params.weekend) while(isWeekend(nextDt)) nextDt = addDays(nextDt, 1);
     const nextIso = isoDate(nextDt);
