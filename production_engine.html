@@ -4264,7 +4264,7 @@ function viewData(){
             const inh = isInHouse(t);
             const heavy = t.kg > HEAVY_KG_LIMIT;
             const m = getMeta(t.code);
-            return `<tr${inh?"":' style="background:#fef2f2"'}>
+            return `<tr data-code="${esc(t.code.toLowerCase())}" data-fam="${esc(t.fam)}" data-fl="${esc(t.fl||'')}" data-src="${inh?'in':'out'}"${inh?'':' style="background:#fef2f2"'}>
               <td>${i+1}</td>
               <td><b>${esc(t.code)}</b>${t._user?' <span style="font-size:10px;color:#0369a1">●custom</span>':""}</td>
               <td class="num"><input type="number" min="1" step="1" value="${m.qty}" data-meta="qty" data-code="${esc(t.code)}" style="width:52px;text-align:center" title="Number of panels"></td>
@@ -4452,18 +4452,11 @@ function bindData(){
       const rows=$$('#view .tbl tbody tr');
       let vis=0;
       rows.forEach(tr=>{
-        // Use :scope > td so nested <td>s inside the openings panel don't pollute cells
-        const cells=tr.querySelectorAll(':scope > td');
-        if(cells.length<4){tr.style.display='';return;}
-        // Fixed column indices: 0=#, 1=Code, 2=Qty(input), 3=Family, 4=Floor, 13=Source, 14=Delete
-        const rowCode=(cells[1].textContent||'').toLowerCase();
-        const rowFam=(cells[3].textContent||'').trim();
-        const rowFl=(cells[4].textContent||'').trim();
-        const rowSrc=(cells[13] ? cells[13].textContent : '').trim();
-        const matchCode=!code||rowCode.includes(code);
-        const matchFam=chipSel.fam.size===0||chipSel.fam.has(rowFam);
-        const matchFl=chipSel.fl.size===0||chipSel.fl.has(rowFl);
-        const matchSrc=!src||(src==='in'&&rowSrc==='In-House')||(src==='out'&&rowSrc==='By Others');
+        if(!tr.dataset.fam){tr.style.display='';return;} // skip header/non-data rows
+        const matchCode=!code||tr.dataset.code.includes(code);
+        const matchFam=chipSel.fam.size===0||chipSel.fam.has(tr.dataset.fam);
+        const matchFl=chipSel.fl.size===0||chipSel.fl.has(tr.dataset.fl);
+        const matchSrc=!src||tr.dataset.src===src;
         const show=matchCode&&matchFam&&matchFl&&matchSrc;
         tr.style.display=show?'':'none';
         if(show) vis++;
