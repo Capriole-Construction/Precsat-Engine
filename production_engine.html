@@ -5700,6 +5700,16 @@ async function _pfRenderTableGantt(){
     const r = await fetch(_pfWrap(_pfBookingsUrl(cfg)), {headers:{"Authorization":_pfAuth(cfg)}});
     if(!r.ok){ el.innerHTML=''; return; }
     const ledger = await r.json().catch(()=>({}));
+    // The ledger's actualByDay is only written on "Save Patch" — inject a
+    // live recompute for the currently loaded patch so actual dates entered
+    // since the last save are always reflected immediately.
+    if(schedule && window._pfProjectSource){
+      const fname = window._pfProjectSource.name;
+      if(ledger[fname]){
+        const live = _pfCurrentBookingKeys();
+        ledger[fname] = Object.assign({}, ledger[fname], { actualByDay: live.actualByDay });
+      }
+    }
     el.innerHTML = _pfEnterpriseTableGanttHtml(ledger);
   } catch(e){ el.innerHTML=''; }
 }
