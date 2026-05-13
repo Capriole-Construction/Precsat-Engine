@@ -4017,7 +4017,11 @@ function viewOrders(){
       const delivery = c.isSwap ? "" : getDelivery(c);
       const plannedCell = planned ? `<span style="color:#1e3a5f">${esc(planned)}</span>` : `<span style="color:#9ca3af">—</span>`;
       const actualInput = c.isSwap ? '' : `<input type="date" class="inp xs actual-finish" data-ckey="${esc(ckey)}" value="${esc(actual)}" style="width:130px;font-size:11px;padding:2px 4px" title="Actual finish date for casting">`;
-      const deliveryInput = c.isSwap ? '' : `<input type="date" class="inp xs delivery-date" data-ckey="${esc(ckey)}" value="${esc(delivery)}" style="width:130px;font-size:11px;padding:2px 4px" title="Date the panel was delivered to site">`;
+      const deliveryInput = c.isSwap ? '' : (
+        st === 'cast'
+          ? `<input type="date" class="inp xs delivery-date" data-ckey="${esc(ckey)}" value="${esc(delivery)}" style="width:130px;font-size:11px;padding:2px 4px" title="Date the panel was delivered to site">`
+          : `<span style="font-size:10px;color:#9ca3af;font-style:italic" title="Mark this panel as ✓ Cast first — delivery can only be set after casting">—</span>`
+      );
       rows += `<tr class="ord-panel-row" style="${rowBg}" data-ckey="${esc(ckey)}" data-date="${esc(d)}" data-table="${esc(tableId)}" data-fam="${esc(famCode)}" data-type="${esc(c.type||'')}" data-b="${c.b}" data-status="${st}">
         <td></td>
         <td>${esc(tableId)}</td>
@@ -4102,6 +4106,25 @@ function viewOrders(){
   `;
 }
 function bindOrders(){
+  // Swap a row's Delivery cell between editable input and "—" placeholder when status flips.
+  function _refreshDeliveryCell(tr, c){
+    if(!tr || !c || c.isSwap) return;
+    const tds = tr.querySelectorAll('td');
+    if(tds.length < 10) return;
+    const cell = tds[tds.length - 2]; // Delivery is the second-to-last column
+    const ckey = `${c.dateIso}|${c.slotId}|${c.type}|${c.b}`;
+    if(getStatus(c) === 'cast'){
+      cell.innerHTML = `<input type="date" class="inp xs delivery-date" data-ckey="${esc(ckey)}" value="${esc(getDelivery(c))}" style="width:130px;font-size:11px;padding:2px 4px" title="Date the panel was delivered to site">`;
+      const newInp = cell.querySelector('.delivery-date');
+      if(newInp) newInp.onchange = ()=>{
+        if(getStatus(c) !== 'cast'){ newInp.value = ''; return; }
+        setDeliveryManual(c, newInp.value || null);
+      };
+    } else {
+      cell.innerHTML = `<span style="font-size:10px;color:#9ca3af;font-style:italic" title="Mark this panel as ✓ Cast first — delivery can only be set after casting">—</span>`;
+    }
+  }
+
   $$("#view .status-sel").forEach(sel=>{
     sel.onchange = ()=>{
       const ck = sel.dataset.ckey;
@@ -4111,6 +4134,7 @@ function bindOrders(){
       // Tint the row immediately, no full re-render needed
       const tr = sel.closest("tr");
       if(tr) tr.style.background = sel.value==="cast" ? "#f0fdf4" : "";
+      _refreshDeliveryCell(tr, c);
     };
   });
   $$("#view .actual-finish").forEach(inp=>{
@@ -4128,6 +4152,7 @@ function bindOrders(){
           tr.dataset.status = 'cast';
           const sel = tr.querySelector('.status-sel');
           if(sel) sel.value = 'cast';
+          _refreshDeliveryCell(tr, c);
         }
       }
     };
@@ -4137,20 +4162,13 @@ function bindOrders(){
       const ck = inp.dataset.ckey;
       const c = schedule.allCells.find(x=>`${x.dateIso}|${x.slotId}|${x.type}|${x.b}`===ck);
       if(!c) return;
-      setDeliveryManual(c, inp.value || null);
-      // Auto-promote to cast if a delivery date is set without a prior cast status.
-      if(inp.value && getStatus(c) !== 'cast'){
-        setStatus(c, 'cast');
-        const tr = inp.closest('tr');
-        if(tr){
-          tr.style.background = '#f0fdf4';
-          tr.dataset.status = 'cast';
-          const sel = tr.querySelector('.status-sel');
-          if(sel) sel.value = 'cast';
-          const af = tr.querySelector('.actual-finish');
-          if(af && !af.value) af.value = getActualFinish(c) || '';
-        }
+      // Delivery can only be edited for panels already marked Cast.
+      if(getStatus(c) !== 'cast'){
+        inp.value = '';
+        _pfToast && _pfToast('Mark this panel as ✓ Cast before setting a delivery date', 'warn');
+        return;
       }
+      setDeliveryManual(c, inp.value || null);
     };
   });
   $$("#view .reschedule-btn").forEach(btn=>{
