@@ -7010,9 +7010,12 @@ function viewBuildingTracking(){
         totalPanelsByBuilding[i]++;
         // Delivered marker overrides cast/pending visuals
         if(isDelivered){
+          const tip = isByOth
+            ? `${t.code} · B${b} · Delivered ${dIso} — click to reset to Pending`
+            : `${t.code} · B${b} · Delivered ${dIso}`;
           return `<td class="col-cast${isByOth?' clickable':''}"${isByOth?` data-code="${esc(t.code)}" data-b="${b}"`:''}
             style="background:#e0f2fe;color:#075985;font-weight:700"
-            title="${esc(t.code)} · B${b} · Delivered ${esc(dIso)}">🚚</td>`;
+            title="${esc(tip)}">🚚</td>`;
         }
         if(!isByOth){
           // In-House: read-only, always cast from schedule
@@ -7020,14 +7023,14 @@ function viewBuildingTracking(){
             ? `<td class="col-cast" title="${esc(t.code)} · B${b} · Cast (from schedule)">✓</td>`
             : `<td class="col-empty">–</td>`;
         }
-        // By Others: three-state clickable — pending → cast-inhouse → cast → pending
+        // By Others: four-state clickable — pending → cast-inhouse → cast → delivered → pending
         if(st === 'cast-inhouse'){
           return `<td class="col-cast clickable" data-code="${esc(t.code)}" data-b="${b}"
             style="background:#dbeafe;color:#1e40af"
             title="Cast In-House by our factory — click to mark as Cast by Others">✓ IH</td>`;
         } else if(st === 'cast'){
           return `<td class="col-cast clickable" data-code="${esc(t.code)}" data-b="${b}"
-            title="Cast by Others — click to unmark">✓</td>`;
+            title="Cast by Others — click to mark as 🚚 Delivered (today's date)">✓</td>`;
         } else {
           return `<td class="col-empty clickable" data-code="${esc(t.code)}" data-b="${b}"
             title="Pending — click to mark as Cast In-House">–</td>`;
@@ -7085,7 +7088,7 @@ function viewBuildingTracking(){
     <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#dbeafe;border:1px solid #93c5fd;display:inline-block"></span> ✓ IH — Cast In-House</span>
     <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#e0f2fe;border:1px solid #7dd3fc;display:inline-block"></span> 🚚 Delivered to site</span>
     <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#f9fafb;border:1px solid #e5e7eb;display:inline-block"></span> Pending</span>
-    <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#fef9f0;border:1px solid #fde68a;display:inline-block"></span> By Others row — click to cycle: Pending → Cast IH → Cast</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#fef9f0;border:1px solid #fde68a;display:inline-block"></span> By Others row — click to cycle: Pending → Cast IH → Cast → 🚚 Delivered (today)</span>
   </div>`;
 
   // ── SVG chart helpers (same logic as the print report) ──
@@ -7202,17 +7205,29 @@ function bindBuildingTracking(){
   const expBtn = $('#btrackExportBtn');
   if(expBtn) expBtn.onclick = _btrackExportCSV;
 
-  // Clickable cells — cycle: pending → cast-inhouse → cast → pending
+  // Clickable cells — cycle: pending → cast-inhouse → cast → delivered → pending
+  // Delivered = CAST_STATUS=='cast' AND DELIVERY_DATES[key] set (today by default).
   $$('.btrack-tbl td.clickable').forEach(td=>{
     td.onclick=()=>{
       const code = td.dataset.code, b = parseInt(td.dataset.b);
       if(!code || !b) return;
       const key = `${code}|${b}`;
       const cur = CAST_STATUS[key] || 'pending';
-      if(cur === 'pending')      { CAST_STATUS[key] = 'cast-inhouse'; }
-      else if(cur === 'cast-inhouse') { CAST_STATUS[key] = 'cast'; }
-      else                       { delete CAST_STATUS[key]; }
+      const delivered = !!DELIVERY_DATES[key];
+      if(cur === 'pending'){
+        CAST_STATUS[key] = 'cast-inhouse';
+      } else if(cur === 'cast-inhouse'){
+        CAST_STATUS[key] = 'cast';
+      } else if(cur === 'cast' && !delivered){
+        // Stamp delivery as today (in YYYY-MM-DD)
+        DELIVERY_DATES[key] = new Date().toISOString().split('T')[0];
+      } else {
+        // Was delivered → reset to pending
+        delete CAST_STATUS[key];
+        delete DELIVERY_DATES[key];
+      }
       saveCastStatus();
+      saveDeliveryDates();
       $("#view").innerHTML = viewBuildingTracking();
       bindBuildingTracking();
     };
