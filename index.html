@@ -475,6 +475,20 @@
           <option value="floor">By Floor (GF → FF → RF)</option>
         </select>
       </div>
+      <div class="sb-row" style="align-items:flex-start">
+        <label style="margin-top:3px;white-space:normal" title="When ON, the engine reads schedules from your other saved patches and refuses to book a table on a day that's already taken by another patch.">Cross-patch</label>
+        <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:#cbd5e1;cursor:pointer">
+            <input type="checkbox" id="pCrossPatch" checked style="margin:0">
+            Block table-days used by other patches
+          </label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button id="pCrossPatchSync" type="button"
+              style="padding:3px 8px;background:#1e40af;color:#dbeafe;border:none;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600">🔗 Sync now</button>
+            <span id="pCrossPatchStatus" style="font-size:10px;color:#9ca3af">Not synced</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- RESCHEDULE PENDING -->
@@ -973,6 +987,11 @@ function loadActualFinish(){ try{ return JSON.parse(localStorage.getItem("pe_act
 function saveActualFinish(){ try{ localStorage.setItem("pe_actual_v1", JSON.stringify(ACTUAL_FINISH)); }catch(e){} }
 let ACTUAL_FINISH = loadActualFinish();
 
+// Delivery date — captured when the panel is delivered to site.
+function loadDeliveryDates(){ try{ return JSON.parse(localStorage.getItem("pe_delivery_v1")||"{}"); }catch(e){ return {}; } }
+function saveDeliveryDates(){ try{ localStorage.setItem("pe_delivery_v1", JSON.stringify(DELIVERY_DATES)); }catch(e){} }
+let DELIVERY_DATES = loadDeliveryDates();
+
 function statusKey(c){ return `${c.type}|${c.b}`; }
 function getStatus(c){ return CAST_STATUS[statusKey(c)] || "pending"; }
 function getPlanned(c){ return PLANNED_DATES[statusKey(c)] || ""; }
@@ -982,11 +1001,13 @@ function setPlannedIfMissing(c){
   return false;
 }
 function getActualFinish(c){ return ACTUAL_FINISH[statusKey(c)] || ""; }
+function getDelivery(c){ return DELIVERY_DATES[statusKey(c)] || ""; }
 function setStatus(c, val){
   const k = statusKey(c);
   if(val==="pending"){
     delete CAST_STATUS[k];
     delete ACTUAL_FINISH[k];
+    delete DELIVERY_DATES[k];
   } else {
     CAST_STATUS[k] = val;
     if(val==="cast" && !ACTUAL_FINISH[k]){
@@ -995,12 +1016,19 @@ function setStatus(c, val){
   }
   saveCastStatus();
   saveActualFinish();
+  saveDeliveryDates();
 }
 function setActualFinishManual(c, iso){
   const k = statusKey(c);
   if(iso) ACTUAL_FINISH[k] = iso;
   else delete ACTUAL_FINISH[k];
   saveActualFinish();
+}
+function setDeliveryManual(c, iso){
+  const k = statusKey(c);
+  if(iso) DELIVERY_DATES[k] = iso;
+  else delete DELIVERY_DATES[k];
+  saveDeliveryDates();
 }
 
 // ============================================================
@@ -3972,7 +4000,7 @@ function viewOrders(){
     const pendHere = cells.filter(c=>getStatus(c)!=='cast').length;
     const castHere = cells.length - pendHere;
     const daySuffix = castHere>0 ? ` · <span style="color:#065f46;font-weight:600">${castHere} cast</span>` : '';
-    rows += `<tr class="ord-date-hdr" data-date="${esc(d)}" style="background:#f8fafc"><td colspan="10"><b>${esc(d)}</b> · ${dayLabel(new Date(d))} <span style="float:right;color:#6b7280">${pendHere} pending${daySuffix}</span></td></tr>`;
+    rows += `<tr class="ord-date-hdr" data-date="${esc(d)}" style="background:#f8fafc"><td colspan="11"><b>${esc(d)}</b> · ${dayLabel(new Date(d))} <span style="float:right;color:#6b7280">${pendHere} pending${daySuffix}</span></td></tr>`;
     cells.forEach((c,idx)=>{
       const st = getStatus(c);
       const rowBg = st==="cast" ? 'background:#f0fdf4' : '';
@@ -3986,8 +4014,10 @@ function viewOrders(){
       else mouldCell = `<span title="First use of this slot" style="color:#6b7280">— new</span>`;
       const planned = c.isSwap ? "" : (getPlanned(c) || c.dateIso);
       const actual  = c.isSwap ? "" : getActualFinish(c);
+      const delivery = c.isSwap ? "" : getDelivery(c);
       const plannedCell = planned ? `<span style="color:#1e3a5f">${esc(planned)}</span>` : `<span style="color:#9ca3af">—</span>`;
       const actualInput = c.isSwap ? '' : `<input type="date" class="inp xs actual-finish" data-ckey="${esc(ckey)}" value="${esc(actual)}" style="width:130px;font-size:11px;padding:2px 4px" title="Actual finish date for casting">`;
+      const deliveryInput = c.isSwap ? '' : `<input type="date" class="inp xs delivery-date" data-ckey="${esc(ckey)}" value="${esc(delivery)}" style="width:130px;font-size:11px;padding:2px 4px" title="Date the panel was delivered to site">`;
       rows += `<tr class="ord-panel-row" style="${rowBg}" data-ckey="${esc(ckey)}" data-date="${esc(d)}" data-table="${esc(tableId)}" data-fam="${esc(famCode)}" data-type="${esc(c.type||'')}" data-b="${c.b}" data-status="${st}">
         <td></td>
         <td>${esc(tableId)}</td>
@@ -3998,6 +4028,7 @@ function viewOrders(){
         <td class="ctr">${mouldCell}</td>
         <td class="ctr">${plannedCell}</td>
         <td class="ctr">${actualInput}</td>
+        <td class="ctr">${deliveryInput}</td>
         <td class="ctr" style="white-space:nowrap">
           <select class="inp xs status-sel" data-ckey="${esc(ckey)}" style="width:96px;margin-right:4px">
             <option value="pending"${st==="pending"?" selected":""}>Pending</option>
@@ -4064,7 +4095,7 @@ function viewOrders(){
         <span style="color:#b45309"><b>🔄 swap</b></span> = mould dim changed.
       </p>
       <table class="tbl">
-        <thead><tr><th>Date</th><th>Table</th><th>Type</th><th>Building</th><th class="num">Dimensions</th><th class="num">Weight</th><th class="ctr">Mould</th><th class="ctr" title="Original scheduled date — locked at first run, survives reschedules">Planned Date</th><th class="ctr" title="Date the panel was actually finished casting">Actual Finish</th><th class="ctr">Status</th></tr></thead>
+        <thead><tr><th>Date</th><th>Table</th><th>Type</th><th>Building</th><th class="num">Dimensions</th><th class="num">Weight</th><th class="ctr">Mould</th><th class="ctr" title="Original scheduled date — locked at first run, survives reschedules">Planned Date</th><th class="ctr" title="Date the panel was actually finished casting">Actual Finish</th><th class="ctr" title="Date the panel was delivered to site">Delivery Date</th><th class="ctr">Status</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
@@ -4101,6 +4132,27 @@ function bindOrders(){
       }
     };
   });
+  $$("#view .delivery-date").forEach(inp=>{
+    inp.onchange = ()=>{
+      const ck = inp.dataset.ckey;
+      const c = schedule.allCells.find(x=>`${x.dateIso}|${x.slotId}|${x.type}|${x.b}`===ck);
+      if(!c) return;
+      setDeliveryManual(c, inp.value || null);
+      // Auto-promote to cast if a delivery date is set without a prior cast status.
+      if(inp.value && getStatus(c) !== 'cast'){
+        setStatus(c, 'cast');
+        const tr = inp.closest('tr');
+        if(tr){
+          tr.style.background = '#f0fdf4';
+          tr.dataset.status = 'cast';
+          const sel = tr.querySelector('.status-sel');
+          if(sel) sel.value = 'cast';
+          const af = tr.querySelector('.actual-finish');
+          if(af && !af.value) af.value = getActualFinish(c) || '';
+        }
+      }
+    };
+  });
   $$("#view .reschedule-btn").forEach(btn=>{
     btn.onclick = ()=>{
       const ck = btn.dataset.ckey;
@@ -4118,6 +4170,7 @@ function bindOrders(){
   if(reset) reset.onclick = ()=>{
     CAST_STATUS = {}; saveCastStatus();
     ACTUAL_FINISH = {}; saveActualFinish();
+    DELIVERY_DATES = {}; saveDeliveryDates();
     render();
   };
   const redist = $("#redistBtn");
@@ -6870,22 +6923,28 @@ function viewBuildingTracking(){
   const activeFloor = window._btrackFloor || floors[0] || 'GF';
   const famOrder = ['WL','IP','WN','PB'];
 
-  // ── Per-floor cast totals (for donut summary) ──
-  let _grandCast = 0, _grandTotal = 0;
+  // ── Per-floor cast + delivery totals (for donut summary) ──
+  let _grandCast = 0, _grandTotal = 0, _grandDelivered = 0;
   const _floorSummaries = floors.map(fl=>{
     const ft = TYPES.filter(t=>(t.fl||'')===fl);
-    let tot = ft.length * B, cast = 0;
+    let tot = ft.length * B, cast = 0, delivered = 0;
     ft.forEach(t=>{ for(let b=1;b<=B;b++){
-      const st = CAST_STATUS[`${t.code}|${b}`] || 'pending';
+      const key = `${t.code}|${b}`;
+      const st = CAST_STATUS[key] || 'pending';
       if(st==='cast' || st==='cast-inhouse') cast++;
+      if(DELIVERY_DATES[key]) delivered++;
     }});
-    _grandCast += cast; _grandTotal += tot;
+    _grandCast += cast; _grandTotal += tot; _grandDelivered += delivered;
     const pct = tot>0 ? Math.round(cast/tot*100) : 0;
+    const dPct = tot>0 ? Math.round(delivered/tot*100) : 0;
     const color = pct>=80 ? '#059669' : pct>=40 ? '#f59e0b' : '#dc2626';
-    return { fl, tot, cast, pct, color };
+    const dColor = dPct>=80 ? '#0369a1' : dPct>=40 ? '#0284c7' : '#7dd3fc';
+    return { fl, tot, cast, pct, color, delivered, dPct, dColor };
   });
   const _grandPct   = _grandTotal>0 ? Math.round(_grandCast/_grandTotal*100) : 0;
   const _grandColor = _grandPct>=80 ? '#059669' : _grandPct>=40 ? '#f59e0b' : '#dc2626';
+  const _grandDelPct   = _grandTotal>0 ? Math.round(_grandDelivered/_grandTotal*100) : 0;
+  const _grandDelColor = _grandDelPct>=80 ? '#0369a1' : _grandDelPct>=40 ? '#0284c7' : '#7dd3fc';
 
   const floorTypes = TYPES.filter(t=>(t.fl||'')===activeFloor);
   const grouped = {};
@@ -6900,13 +6959,15 @@ function viewBuildingTracking(){
     <th style="text-align:center">Source</th>
     <th style="text-align:center">Total</th>
     <th style="text-align:center;color:#065f46">Cast</th>
+    <th style="text-align:center;color:#0369a1" title="Number of panels delivered to site">Delivered</th>
     <th style="text-align:center;color:#991b1b">Balance</th>
     ${bHeaders}
   </tr>`;
 
   let totalCastByBuilding = new Array(B).fill(0);
+  let totalDeliveredByBuilding = new Array(B).fill(0);
   let totalPanelsByBuilding = new Array(B).fill(0);
-  let totalCastAll = 0, totalAll = 0;
+  let totalCastAll = 0, totalDeliveredAll = 0, totalAll = 0;
 
   const sectionRows = famOrder.map(fam=>{
     const types = grouped[fam];
@@ -6918,13 +6979,23 @@ function viewBuildingTracking(){
 
     const rows = allTypes.map(t=>{
       const isByOth = !isInHouse(t);
-      let castCount = 0;
+      let castCount = 0, deliveredCount = 0;
       const bCells = Array.from({length:B},(_,i)=>{
         const b = i+1;
-        const st = CAST_STATUS[`${t.code}|${b}`] || 'pending';
+        const key = `${t.code}|${b}`;
+        const st = CAST_STATUS[key] || 'pending';
+        const dIso = DELIVERY_DATES[key] || '';
         const isCast = st === 'cast' || st === 'cast-inhouse';
+        const isDelivered = !!dIso;
         if(isCast){ castCount++; totalCastByBuilding[i]++; }
+        if(isDelivered){ deliveredCount++; totalDeliveredByBuilding[i]++; }
         totalPanelsByBuilding[i]++;
+        // Delivered marker overrides cast/pending visuals
+        if(isDelivered){
+          return `<td class="col-cast${isByOth?' clickable':''}"${isByOth?` data-code="${esc(t.code)}" data-b="${b}"`:''}
+            style="background:#e0f2fe;color:#075985;font-weight:700"
+            title="${esc(t.code)} · B${b} · Delivered ${esc(dIso)}">🚚</td>`;
+        }
         if(!isByOth){
           // In-House: read-only, always cast from schedule
           return st==='cast'
@@ -6945,6 +7016,7 @@ function viewBuildingTracking(){
         }
       }).join('');
       totalCastAll += castCount;
+      totalDeliveredAll += deliveredCount;
       totalAll += B;
       const balance = B - castCount;
       const srcBadge = isByOth
@@ -6957,6 +7029,7 @@ function viewBuildingTracking(){
         <td style="text-align:center">${srcBadge}</td>
         <td style="text-align:center;font-weight:600">${B}</td>
         <td style="text-align:center;color:#065f46;font-weight:700">${castCount}</td>
+        <td style="text-align:center;color:#0369a1;font-weight:700">${deliveredCount}</td>
         <td style="text-align:center;color:${balance>0?'#991b1b':'#065f46'};font-weight:600">${balance}</td>
         ${bCells}
       </tr>`;
@@ -6969,7 +7042,7 @@ function viewBuildingTracking(){
     ].filter(Boolean).join(' · ');
 
     return `<tr class="btrack-section">
-      <th colspan="${7+B}" style="border-left:4px solid ${famColors[fam]||'#94a3b8'}">
+      <th colspan="${8+B}" style="border-left:4px solid ${famColors[fam]||'#94a3b8'}">
         ${fam} — ${allTypes.length} types (${sectionLabel}) × ${B} buildings = ${allTypes.length*B} pieces
       </th>
     </tr>
@@ -6978,6 +7051,7 @@ function viewBuildingTracking(){
 
   // Total + percentage rows
   const totalCells = totalCastByBuilding.map((n,i)=>`<td>${n}<br><span style="font-size:9px;color:#6b7280">/ ${totalPanelsByBuilding[i]}</span></td>`).join('');
+  const deliveredCells = totalDeliveredByBuilding.map((n,i)=>`<td style="color:#0369a1;font-weight:700">${n}<br><span style="font-size:9px;color:#6b7280">/ ${totalPanelsByBuilding[i]}</span></td>`).join('');
   const pctCells   = totalCastByBuilding.map((n,i)=>{
     const pct = totalPanelsByBuilding[i]>0 ? Math.round(n/totalPanelsByBuilding[i]*100) : 0;
     const col = pct>=100?'#065f46':pct>=50?'#d97706':'#991b1b';
@@ -6985,11 +7059,13 @@ function viewBuildingTracking(){
   }).join('');
 
   const overallPct = totalAll>0 ? Math.round(totalCastAll/totalAll*100) : 0;
+  const overallDelPct = totalAll>0 ? Math.round(totalDeliveredAll/totalAll*100) : 0;
   const floorTabs = floors.map(fl=>`<button class="btrack-tab${fl===activeFloor?' active':''}" data-fl="${fl}">${fl}</button>`).join('');
 
   const legend = `<div style="display:flex;gap:10px;align-items:center;font-size:11px;color:#6b7280;flex-wrap:wrap">
     <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#d1fae5;display:inline-block"></span> Cast (By Others)</span>
     <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#dbeafe;border:1px solid #93c5fd;display:inline-block"></span> ✓ IH — Cast In-House</span>
+    <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#e0f2fe;border:1px solid #7dd3fc;display:inline-block"></span> 🚚 Delivered to site</span>
     <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#f9fafb;border:1px solid #e5e7eb;display:inline-block"></span> Pending</span>
     <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#fef9f0;border:1px solid #fde68a;display:inline-block"></span> By Others row — click to cycle: Pending → Cast IH → Cast</span>
   </div>`;
@@ -7012,14 +7088,16 @@ function viewBuildingTracking(){
       <div style="font-size:11px;font-weight:700;color:#374151;margin-top:2px">${label}</div>
     </div>`;
   }
-  function _btBars(castArr, totalArr, n){
+  function _btBars(castArr, totalArr, n, isDelivery){
     const bW = 220, bH = 14, gap = 5, lblW = 26, pctW = 34;
     const svgW = bW + lblW + pctW + 10, svgH = n*(bH+gap);
     const bars = Array.from({length:n},(_,i)=>{
       const cast = castArr[i]||0, tot = totalArr[i]||0;
       const pct = tot>0 ? Math.round(cast/tot*100) : 0;
       const w = Math.round(pct/100 * bW);
-      const col = pct>=80 ? '#059669' : pct>=50 ? '#f59e0b' : '#dc2626';
+      const col = isDelivery
+        ? (pct>=80 ? '#0369a1' : pct>=50 ? '#0284c7' : '#7dd3fc')
+        : (pct>=80 ? '#059669' : pct>=50 ? '#f59e0b' : '#dc2626');
       const y = i*(bH+gap);
       return `<text x="0" y="${y+bH*0.78}" font-size="9" fill="#374151" font-family="Segoe UI,Arial,sans-serif">B${i+1}</text>
         <rect x="${lblW}" y="${y}" width="${bW}" height="${bH}" rx="3" fill="#e5e7eb"/>
@@ -7034,12 +7112,17 @@ function viewBuildingTracking(){
       <div style="font-size:10px;font-weight:700;color:#1e3a5f;margin-bottom:8px;text-transform:uppercase;letter-spacing:.6px">Progress Charts</div>
       <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
         <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center">
-          ${_btDonut(_grandPct,'All Floors',_grandCast+'/'+_grandTotal+' cast',_grandColor,130)}
-          ${_floorSummaries.map(s=>_btDonut(s.pct, s.fl+' Floor', s.cast+'/'+s.tot+' cast', s.color)).join('')}
+          ${_btDonut(_grandPct,'All Floors · Cast',_grandCast+'/'+_grandTotal,_grandColor,130)}
+          ${_btDonut(_grandDelPct,'All Floors · Delivered',_grandDelivered+'/'+_grandTotal,_grandDelColor,130)}
+          ${_floorSummaries.map(s=>_btDonut(s.pct, s.fl+' · Cast', s.cast+'/'+s.tot, s.color)).join('')}
+          ${_floorSummaries.map(s=>_btDonut(s.dPct, s.fl+' · Delivered', s.delivered+'/'+s.tot, s.dColor)).join('')}
         </div>
         <div style="flex:1;min-width:300px">
           <div style="font-size:10px;font-weight:700;color:#374151;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Progress by Building (${esc(activeFloor)} Floor)</div>
+          <div style="font-size:9px;color:#065f46;font-weight:700;margin-bottom:2px">Cast</div>
           ${_btBars(totalCastByBuilding, totalPanelsByBuilding, B)}
+          <div style="font-size:9px;color:#0369a1;font-weight:700;margin:6px 0 2px">Delivered</div>
+          ${_btBars(totalDeliveredByBuilding, totalPanelsByBuilding, B, true)}
         </div>
       </div>
     </div>`;
@@ -7048,7 +7131,7 @@ function viewBuildingTracking(){
     <div class="panel">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
         <h2 style="margin:0">Building-Wise Tracking</h2>
-        <span style="font-size:12px;color:#6b7280">${activeFloor} floor · ${totalCastAll} of ${totalAll} panels cast (${overallPct}%)</span>
+        <span style="font-size:12px;color:#6b7280">${activeFloor} floor · ${totalCastAll} of ${totalAll} cast (${overallPct}%) · <span style="color:#0369a1;font-weight:600">${totalDeliveredAll} delivered (${overallDelPct}%)</span></span>
         <button class="btn sm" id="btrackPrintBtn" style="margin-left:auto">🖨 Print Report</button>
         <button class="btn sm" id="btrackExportBtn">⬇ Export CSV</button>
       </div>
@@ -7066,13 +7149,23 @@ function viewBuildingTracking(){
               <td class="col-label" colspan="4">TOTAL CAST (${activeFloor})</td>
               <td>${totalAll}</td>
               <td style="color:#065f46">${totalCastAll}</td>
+              <td style="color:#0369a1">${totalDeliveredAll}</td>
               <td style="color:#991b1b">${totalAll-totalCastAll}</td>
               ${totalCells}
+            </tr>
+            <tr class="btrack-total" style="background:#f0f9ff">
+              <td class="col-label" colspan="4" style="color:#0369a1">TOTAL DELIVERED (${activeFloor})</td>
+              <td>${totalAll}</td>
+              <td style="color:#0369a1">${totalDeliveredAll}</td>
+              <td style="color:#0369a1">${overallDelPct}%</td>
+              <td style="color:#991b1b">${totalAll-totalDeliveredAll}</td>
+              ${deliveredCells}
             </tr>
             <tr class="btrack-pct">
               <td class="col-label" colspan="4">% Building Completion</td>
               <td></td>
               <td>${overallPct}%</td>
+              <td style="color:#0369a1">${overallDelPct}%</td>
               <td></td>
               ${pctCells}
             </tr>
