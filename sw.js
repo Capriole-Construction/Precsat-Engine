@@ -1,21 +1,22 @@
 // Precast Production Engine — Service Worker
-// Caches the app shell for offline use and fast repeat loads.
+// Network-first for HTML so deploys are picked up without a hard refresh.
+// Stale-while-revalidate for static assets. Cloud APIs always go to network.
 
-const CACHE = 'precast-v1';
+const CACHE = 'precast-v2';
 const SHELL = [
   '/Precsat-Engine/',
   '/Precsat-Engine/index.html',
   '/Precsat-Engine/manifest.json'
 ];
 
-// Install: pre-cache the app shell
+// Install: pre-cache the app shell, take over immediately
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())
   );
 });
 
-// Activate: remove old caches
+// Activate: remove old caches and claim clients so the new SW controls the page
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -24,29 +25,55 @@ self.addEventListener('activate', e => {
   );
 });
 
-// Fetch: cache-first for shell, network-first for API calls
-self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
+// Allow page to force activation
+self.addEventListener('message', e => {
+  if (e.data === 'SKIP_WAITING') self.skipWaiting();
+});
 
-  // Always go network-first for cloud API calls (OneDrive / OwnCloud)
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  const url = new URL(req.url);
+
+  // Cross-origin (cloud, proxy) — straight to network, fall back to cache only if offline
   if (url.hostname !== location.hostname) {
+    e.respondWith(fetch(req).catch(() => caches.match(req)));
+    return;
+  }
+
+  // Non-GET — never cache
+  if (req.method !== 'GET') { e.respondWith(fetch(req)); return; }
+
+  const isHTML = req.mode === 'navigate'
+    || req.destination === 'document'
+    || (req.headers.get('accept') || '').includes('text/html')
+    || url.pathname.endsWith('/')
+    || url.pathname.endsWith('.html');
+
+  if (isHTML) {
+    // Network-first: always try fresh HTML so deploys appear without hard refresh
     e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
+      fetch(req).then(res => {
+        if (res && res.status === 200) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(req, clone));
+        }
+        return res;
+      }).catch(() => caches.match(req).then(c => c || caches.match('/Precsat-Engine/index.html')))
     );
     return;
   }
 
-  // Cache-first for the app shell
+  // Stale-while-revalidate for other same-origin assets (icons, manifest, etc.)
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        if (res && res.status === 200 && e.request.method === 'GET') {
+    caches.match(req).then(cached => {
+      const fresh = fetch(req).then(res => {
+        if (res && res.status === 200) {
           const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
+          caches.open(CACHE).then(c => c.put(req, clone));
         }
         return res;
-      }).catch(() => caches.match('/Precsat-Engine/index.html'));
+      }).catch(() => cached);
+      return cached || fresh;
     })
   );
 });

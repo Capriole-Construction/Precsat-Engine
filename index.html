@@ -14,10 +14,34 @@
 <meta name="apple-mobile-web-app-title" content="Precast">
 <link rel="apple-touch-icon" href="icon-192.png">
 <script>
+  // Service worker — auto-update so deploys land without hard refresh.
+  // 1) Register on load, then call update() to force a version check.
+  // 2) When a new SW becomes "installed" while one is already controlling
+  //    the page, tell it to skipWaiting and reload once it takes control.
   if('serviceWorker' in navigator){
-    window.addEventListener('load', () =>
-      navigator.serviceWorker.register('sw.js').catch(()=>{})
-    );
+    let _swReloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if(_swReloaded) return; _swReloaded = true;
+      window.location.reload();
+    });
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').then(reg => {
+        // Force a fresh check against the server on every load
+        try { reg.update(); } catch(e){}
+        // Periodic update check (every 5 min) while the tab is open
+        setInterval(() => { try { reg.update(); } catch(e){} }, 5*60*1000);
+        reg.addEventListener('updatefound', () => {
+          const sw = reg.installing;
+          if(!sw) return;
+          sw.addEventListener('statechange', () => {
+            if(sw.state === 'installed' && navigator.serviceWorker.controller){
+              // A new version is waiting and an old one controls the page
+              sw.postMessage('SKIP_WAITING');
+            }
+          });
+        });
+      }).catch(()=>{});
+    });
   }
 </script>
 <style>
