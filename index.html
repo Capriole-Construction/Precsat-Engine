@@ -6655,11 +6655,13 @@ function restoreProjectSnapshot(snap){
   Object.keys(SRC_OVR).forEach(k=>delete SRC_OVR[k]); Object.assign(SRC_OVR,snap.SRC_OVR||{}); saveSrcOverrides();
   Object.keys(TYPE_META).forEach(k=>delete TYPE_META[k]); Object.assign(TYPE_META,snap.TYPE_META||{}); saveTypeMeta();
   Object.keys(CAST_STATUS).forEach(k=>delete CAST_STATUS[k]); Object.assign(CAST_STATUS,snap.CAST_STATUS||{}); saveCastStatus();
-  // v4 fields — tracking state. Older snapshots omit these; preserve current local data in that case.
-  if(snap.PLANNED_DATES){   Object.keys(PLANNED_DATES).forEach(k=>delete PLANNED_DATES[k]);     Object.assign(PLANNED_DATES, snap.PLANNED_DATES);     savePlannedDates(); }
-  if(snap.ACTUAL_FINISH){   Object.keys(ACTUAL_FINISH).forEach(k=>delete ACTUAL_FINISH[k]);     Object.assign(ACTUAL_FINISH, snap.ACTUAL_FINISH);     saveActualFinish(); }
-  if(snap.DELIVERY_DATES){  Object.keys(DELIVERY_DATES).forEach(k=>delete DELIVERY_DATES[k]);   Object.assign(DELIVERY_DATES, snap.DELIVERY_DATES);   saveDeliveryDates(); }
-  if(snap.CAST_BY_INHOUSE){ Object.keys(CAST_BY_INHOUSE).forEach(k=>delete CAST_BY_INHOUSE[k]); Object.assign(CAST_BY_INHOUSE, snap.CAST_BY_INHOUSE); saveCastByInhouse(); }
+  // Tracking state is per-patch — always reset and reload from snapshot so opening
+  // one patch never leaves the previous patch's deliveries / IH flags in localStorage.
+  // For pre-v4 snapshots the maps are simply emptied (the patch had no tracking data).
+  Object.keys(PLANNED_DATES).forEach(k=>delete PLANNED_DATES[k]);     Object.assign(PLANNED_DATES,   snap.PLANNED_DATES||{});   savePlannedDates();
+  Object.keys(ACTUAL_FINISH).forEach(k=>delete ACTUAL_FINISH[k]);     Object.assign(ACTUAL_FINISH,   snap.ACTUAL_FINISH||{});   saveActualFinish();
+  Object.keys(DELIVERY_DATES).forEach(k=>delete DELIVERY_DATES[k]);   Object.assign(DELIVERY_DATES,  snap.DELIVERY_DATES||{});  saveDeliveryDates();
+  Object.keys(CAST_BY_INHOUSE).forEach(k=>delete CAST_BY_INHOUSE[k]); Object.assign(CAST_BY_INHOUSE, snap.CAST_BY_INHOUSE||{}); saveCastByInhouse();
   if(snap.BUILDINGS){ BUILDINGS=snap.BUILDINGS; saveBuildingsCount(); }
   applyRunParamsSnap(snap.runParams);
   refreshFloorSelectors();
